@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
+import { PenLine } from 'lucide-react';
 
 interface StickyNoteProps {
   children: React.ReactNode;
@@ -8,6 +9,7 @@ interface StickyNoteProps {
   onClick?: () => void;
   delay?: number;
   rotation?: number;
+  noPadding?: boolean;
   color?: 'yellow' | 'pink' | 'blue' | 'white';
 }
 
@@ -51,38 +53,41 @@ export const GlassCard: React.FC<StickyNoteProps> = ({
   onClick, 
   delay = 0, 
   rotation,
+  noPadding = false,
   color = 'yellow' 
 }) => {
   const [randomRotation] = useState(() => rotation ?? (Math.random() * 4 - 2));
-  const [doodles] = useState(() => Array.from({ length: 2 }).map(() => ({
-    top: `${Math.random() * 80}%`,
-    left: `${Math.random() * 80}%`,
-    transform: `rotate(${Math.random() * 360}deg) scale(${0.5 + Math.random()})`
-  })));
   
   const colors = {
-    yellow: 'bg-sticker-yellow',
-    pink: 'bg-sticker-pink',
-    blue: 'bg-sticker-blue',
-    white: 'bg-white'
+    yellow: 'bg-sticker-yellow/100',
+    pink: 'bg-sticker-pink/100',
+    blue: 'bg-sticker-blue/100',
+    white: 'bg-white/100'
   };
 
   return (
     <motion.div 
-      initial={{ opacity: 0, y: 20, rotate: randomRotation - 5 }}
-      animate={{ opacity: 1, y: 0, rotate: randomRotation }}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8, delay, ease: [0.16, 1, 0.3, 1] }}
       onClick={onClick}
-      style={{ '--rotation': `${randomRotation}deg` } as any}
       className={cn(
-        "sticker p-6 rounded-[2px] hatching-shadow mb-4 relative",
-        colors[color],
-        onClick && "cursor-pointer active:scale-[0.98] active:rotate-0",
+        "hatching-shadow mb-4 relative group",
+        onClick && "cursor-pointer active:scale-[0.98]",
         className
       )}
     >
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-4 bg-white/70 rotate-1 rounded-sm shadow-sm z-20" />
-      <div className="relative z-10">
+      {/* Tilted Background Layer */}
+      <div 
+        className={cn("sticker absolute inset-0 rounded-[2px]", colors[color])}
+        style={{ '--rotation': `${randomRotation}deg` } as any}
+      />
+
+      {/* Straight Content Layer */}
+      <div className={cn(
+        "relative z-10 h-full w-full",
+        !noPadding ? "p-6" : "p-0"
+      )}>
         {children}
       </div>
     </motion.div>
@@ -119,6 +124,7 @@ export const NeonButton: React.FC<{
   );
 };
 
+
 export const HandwrittenText: React.FC<{
   text: string;
   speed?: number;
@@ -134,20 +140,30 @@ export const HandwrittenText: React.FC<{
   }, [delay]);
 
   useEffect(() => {
-    if (!started) return;
+    if (!started || !text) return;
     if (displayedText.length < text.length) {
       const timer = setTimeout(() => {
         setDisplayedText(text.slice(0, displayedText.length + 1));
-      }, 1000 / speed);
+      }, speed); // Fixed speed logic
       return () => clearTimeout(timer);
     }
   }, [displayedText, text, speed, started]);
 
   return (
-    <span className={cn("handwritten-writing", className)}>
+    <span className={cn("inline relative", className)}>
       {displayedText}
-      {displayedText.length < text.length && started && (
-        <span className="inline-block w-1 h-[1.2em] bg-pen-blue/40 ml-1 animate-pulse" />
+      {text && displayedText.length < text.length && started && (
+        <motion.span
+          animate={{ 
+            rotate: [-15, 15, -15],
+            x: [0, 2, 0],
+            y: [0, -1, 0]
+          }}
+          transition={{ repeat: Infinity, duration: 0.2, ease: "linear" }}
+          className="inline-block ml-1 align-top bg-transparent"
+        >
+          <PenLine className="w-5 h-5 text-pen-blue transform -scale-x-100 opacity-60" strokeWidth={3} />
+        </motion.span>
       )}
     </span>
   );

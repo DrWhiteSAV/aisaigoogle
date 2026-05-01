@@ -1,17 +1,54 @@
-export type Rarity = 'common' | 'rare' | 'epic' | 'mythic' | 'legendary' | 'divine';
-export type Element = 'fire' | 'ice' | 'dark' | 'light';
+export type Rarity = 
+  | 'normal' 
+  | 'advanced' 
+  | 'rare' 
+  | 'perfect' 
+  | 'epic' 
+  | 'legendary' 
+  | 'mythical' 
+  | 'eternal' 
+  | 'divine' 
+  | 'transcendent';
+
+export type Element = 'water' | 'fire' | 'air' | 'earth';
+export type Attribute = 'light' | 'dark' | 'void' | 'time';
+
 export type Personality = 'aggressive' | 'calm';
 export type Habitat = 'forest' | 'space' | 'ocean';
-export type AgeStage = 'детство' | 'молодость' | 'зрелость' | 'мудрость' | 'божественность';
-export type PowerRank = 'E' | 'D' | 'C' | 'B' | 'A' | 'S' | 'SS' | 'SSS';
+export type AgeStage = 
+  | 'F - младенчество' 
+  | 'E - детство' 
+  | 'D - отрочество' 
+  | 'C - молодость' 
+  | 'B - взросление' 
+  | 'A - зрелость' 
+  | 'S - мудрость' 
+  | 'EX - единство' 
+  | 'UX - пробуждение' 
+  | 'Z - абсолютность';
+
+export type SummonerRankName = 
+  | 'Ученик' 
+  | 'Мастер' 
+  | 'Командир' 
+  | 'Генерал' 
+  | 'Монарх' 
+  | 'Император' 
+  | 'Владыка' 
+  | 'Идол' 
+  | 'Полубог' 
+  | 'Божество';
 
 export interface PetStats {
   attack: number;
   defense: number;
+  health: number;
+  maxHealth: number;
   speed: number;
   magic: number;
   regeneration: number;
-  health: number;
+  rage: number;
+  maxRage: number;
 }
 
 export interface UserProfile {
@@ -38,9 +75,10 @@ export interface Pet {
   name: string;
   rarity: Rarity;
   element: Element;
+  attribute: Attribute;
   personality: Personality;
   habitat: Habitat;
-  image: string; // Base64
+  image: string; // Base64 or URL
   stats: PetStats;
   classification: Classification;
   abilities: string[];
@@ -53,10 +91,22 @@ export interface Pet {
   statPoints: number;
 }
 
+export interface InventoryItem {
+  id: string;
+  name: string;
+  type: 'energy' | 'material' | 'food' | 'egg';
+  value: number;
+  description: string;
+  image?: string;
+}
+
 export interface UserProgress {
+  id: string; // Summoner ID
   pets: Pet[];
   activePetId: string | null;
   currency: number; // Rubles
-  inventory: Record<string, number>;
-  bestiary: Classification[]; // Discovered species
+  inventory: InventoryItem[];
+  energy: number;
+  lastEnergyUpdate: number; // timestamp
+  summonerRank: string;
 }

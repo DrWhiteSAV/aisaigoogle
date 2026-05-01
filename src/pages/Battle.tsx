@@ -1,218 +1,418 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Pet, UserProgress } from '../types';
 import { GlassCard, NeonButton, HandwrittenText } from '../components/UI';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sword, Shield, Zap, Sparkles, Coins } from 'lucide-react';
+import { Sword, Shield, Zap, Sparkles, Coins, Flame, Droplets, Wind, Mountain, Sun, Moon, Ghost, Clock } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { getElementAdvantageMultiplier, getAttributeDefenseMultiplier, calculateCP, getExpNeeded } from '../lib/gameLogic';
 
 export const Battle: React.FC<{ progress: UserProgress; setProgress: React.Dispatch<React.SetStateAction<UserProgress>> }> = ({ progress, setProgress }) => {
-  const pet = useMemo(() => progress.pets.find(p => p.id === progress.activePetId)!, [progress.pets, progress.activePetId]);
+  const navigate = useNavigate();
+  const playerPet = useMemo(() => (progress.pets || []).find(p => p.id === progress.activePetId)!, [progress.pets, progress.activePetId]);
   const [enemy, setEnemy] = useState<Pet | null>(null);
   const [battleLog, setBattleLog] = useState<string[]>(['Битва началась!']);
-  const [hp, setHp] = useState({ player: pet.stats.health, enemy: pet.stats.health * 1.2 });
-  const [turn, setTurn] = useState<'player' | 'enemy'>('player');
-  const [winner, setWinner] = useState<string | null>(null);
+  const [hp, setHp] = useState({ player: playerPet.stats.health, enemy: 100 });
+  const [rage, setRage] = useState({ player: 0, enemy: 0 });
+  const [turn, setTurn] = useState<'player' | 'enemy' | 'waiting'>('waiting');
+  const [winner, setWinner] = useState<'player' | 'enemy' | null>(null);
   const [rewards, setRewards] = useState<{ rubles: number; xp: number } | null>(null);
   const [isEnemyHit, setIsEnemyHit] = useState(false);
   const [isPlayerHit, setIsPlayerHit] = useState(false);
+  const [showUlt, setShowUlt] = useState(false);
 
+  // Initialize Battle
   useEffect(() => {
-    setEnemy({
-      ...pet,
-      id: 'enemy-1',
-      name: 'Меха-Тень',
+    if (progress.energy < 1) {
+      alert("Недостаточно энергии!");
+      navigate('/main');
+      return;
+    }
+
+    const playerCP = calculateCP(playerPet);
+    // Range 40% higher or lower
+    const cpModifier = 0.6 + (Math.random() * 0.8); 
+    const targetCP = playerCP * cpModifier;
+
+    // Mock Enemy based on player CP
+    const mockEnemy: Pet = {
+      ...playerPet,
+      id: 'enemy-' + Date.now(),
+      name: 'Призрачный Отражатель',
+      rarity: playerPet.rarity,
+      element: ['water', 'fire', 'air', 'earth'][Math.floor(Math.random() * 4)] as any,
+      attribute: ['light', 'dark', 'void', 'time'][Math.floor(Math.random() * 4)] as any,
       stats: {
-        attack: Math.max(1, pet.stats.attack + Math.floor(Math.random() * 4 - 2)),
-        defense: Math.max(1, pet.stats.defense + Math.floor(Math.random() * 4 - 2)),
-        speed: pet.stats.speed,
-        magic: pet.stats.magic,
-        regeneration: pet.stats.regeneration,
-        health: Math.floor(pet.stats.health * 1.2),
-      },
-      image: "https://picsum.photos/seed/enemy/400/400",
-    });
-    setHp({ player: pet.stats.health, enemy: Math.floor(pet.stats.health * 1.2) });
-  }, [pet]);
+        ...playerPet.stats,
+        attack: Math.floor(playerPet.stats.attack * cpModifier),
+        defense: Math.floor(playerPet.stats.defense * cpModifier),
+        health: Math.floor(playerPet.stats.health * cpModifier),
+        maxHealth: Math.floor(playerPet.stats.health * cpModifier),
+        speed: Math.floor(playerPet.stats.speed * cpModifier),
+        magic: Math.floor(playerPet.stats.magic * cpModifier),
+        regeneration: Math.floor(playerPet.stats.regeneration * cpModifier),
+      }
+    };
 
-  const handleAction = (type: 'attack' | 'skill' | 'defend') => {
-    if (turn !== 'player' || winner) return;
-
-    let damage = 0;
-    let log = '';
-
-    if (type === 'attack') {
-      damage = Math.max(1, pet.stats.attack - (enemy?.stats.defense || 0) / 4);
-      log = `${pet.name} атакует и наносит ${damage.toFixed(0)} урона!`;
-    } else if (type === 'skill') {
-      damage = Math.max(2, pet.stats.magic * 1.5);
-      log = `${pet.name} использует мощный навык и наносит ${damage.toFixed(0)} ед. урона!`;
-    } else {
-       log = `${pet.name} встает в защитную стойку!`;
-    }
-
-    const newEnemyHp = Math.max(0, hp.enemy - damage);
-    setHp(prev => ({ ...prev, enemy: newEnemyHp }));
-    setBattleLog(prev => [log, ...prev]);
+    setEnemy(mockEnemy);
+    setHp({ player: playerPet.stats.health, enemy: mockEnemy.stats.health });
     
-    if (damage > 0) {
-      setIsEnemyHit(true);
-      setTimeout(() => setIsEnemyHit(false), 300);
-    }
-    
-    if (newEnemyHp <= 0) {
-      handleVictory();
+    // Who starts?
+    if (playerPet.stats.speed >= mockEnemy.stats.speed) {
+      setTurn('player');
     } else {
       setTurn('enemy');
-      setTimeout(enemyTurn, 800);
+      setTimeout(() => performEnemyTurn(mockEnemy), 1000);
+    }
+
+    // Spend energy
+    setProgress(prev => ({ ...prev, energy: prev.energy - 1 }));
+  }, []);
+
+  const calculateDamage = useCallback((attacker: Pet, defender: Pet, isUlt: boolean = false) => {
+    const elemMult = getElementAdvantageMultiplier(attacker.element, defender.element);
+    const attrMult = getAttributeDefenseMultiplier(attacker.attribute, defender.attribute);
+
+    const baseDmg = isUlt ? (attacker.stats.attack + attacker.stats.magic) * 1.5 : attacker.stats.attack;
+    const finalDmg = Math.max(1, (baseDmg * elemMult) - (defender.stats.defense * attrMult));
+    return Math.floor(finalDmg);
+  }, []);
+
+  const handleAction = async (type: 'attack' | 'ult' | 'defend') => {
+    if (turn !== 'player' || winner || !enemy) return;
+
+    let hits = 1;
+    // Speed-based multi-attacks: speed ratio
+    if (type === 'attack') {
+      const speedRatio = playerPet.stats.speed / enemy.stats.speed;
+      hits = Math.max(1, Math.floor(speedRatio));
+      if (hits > 3) hits = 3; // Cap to 3
+    }
+
+    setTurn('waiting');
+
+    let currentEnemyHp = hp.enemy;
+    for (let i = 0; i < hits; i++) {
+        if (winner || currentEnemyHp <= 0) break;
+        
+        let damage = 0;
+        let log = '';
+
+        if (type === 'attack') {
+          damage = calculateDamage(playerPet, enemy);
+          log = `${playerPet.name} наносит ${damage} урона! ${hits > 1 ? `(Удар ${i + 1}/${hits})` : ''}`;
+        } else if (type === 'ult') {
+          damage = calculateDamage(playerPet, enemy, true);
+          log = `${playerPet.name} высвобождает УЛЬТУ [${playerPet.element}] и наносит ${damage} урона!`;
+          setRage(prev => ({ ...prev, player: 0 }));
+          setShowUlt(true);
+          setTimeout(() => setShowUlt(false), 1500);
+        } else if (type === 'defend') {
+          log = `${playerPet.name} восстанавливает ${playerPet.stats.regeneration} HP!`;
+          setHp(prev => ({ ...prev, player: Math.min(playerPet.stats.health, prev.player + playerPet.stats.regeneration) }));
+        }
+
+        if (damage > 0) {
+          currentEnemyHp -= damage;
+          setHp(prev => ({ ...prev, enemy: Math.max(0, currentEnemyHp) }));
+          setRage(prev => ({ 
+            player: Math.min(100, prev.player + 10), 
+            enemy: Math.min(100, prev.enemy + 15)
+          }));
+          setIsEnemyHit(true);
+          setTimeout(() => setIsEnemyHit(false), 300);
+        }
+
+        // Passive Regen for player
+        if (playerPet.stats.regeneration > 0 && i === hits - 1) {
+            setHp(prev => ({ ...prev, player: Math.min(playerPet.stats.health, prev.player + playerPet.stats.regeneration) }));
+            setBattleLog(prev => [`${playerPet.name} восстанавливает ${playerPet.stats.regeneration} HP`, ...prev]);
+        }
+        
+        setBattleLog(prev => [log, ...prev]);
+        await new Promise(r => setTimeout(r, 600));
+    }
+
+    if (currentEnemyHp > 0 && !winner) {
+        setTurn('enemy');
+        setTimeout(() => performEnemyTurn(enemy), 800);
     }
   };
 
-  const enemyTurn = () => {
-    if (!enemy || winner) return;
-
-    const damage = Math.max(1, enemy.stats.attack - pet.stats.defense / 4);
-    const newPlayerHp = Math.max(0, hp.player - damage);
-    setHp(prev => ({ ...prev, player: newPlayerHp }));
-    setBattleLog(prev => [`${enemy.name} наносит ответный удар: ${damage.toFixed(0)}!`, ...prev]);
+  const handleEndBattle = useCallback((playerWon: boolean) => {
+    if (!enemy) return;
+    const playerCP = calculateCP(playerPet);
+    const enemyCP = calculateCP(enemy);
     
-    if (damage > 0) {
-      setIsPlayerHit(true);
-      setTimeout(() => setIsPlayerHit(false), 300);
-    }
-    
-    if (newPlayerHp <= 0) {
-      setWinner('Враг');
-    } else {
-      setTurn('player');
-    }
-  };
+    // Reward based on CP diff
+    const cpRatio = enemyCP / playerCP; 
+    const xpBase = getNextLevelReward(playerPet.level, playerWon);
+    const xpAwarded = Math.floor(xpBase * cpRatio);
+    const rublesAwarded = playerWon ? Math.floor(100 * cpRatio) : 10;
 
-  const handleVictory = () => {
-    const rublesAwarded = Math.floor(Math.random() * 200) + 100;
-    const xpAwarded = 50;
-    setWinner('Игрок');
     setRewards({ rubles: rublesAwarded, xp: xpAwarded });
 
-    setProgress(prev => ({
-      ...prev,
-      currency: prev.currency + rublesAwarded,
-      pets: prev.pets.map(p => p.id === pet.id ? { ...p, experience: p.experience + xpAwarded } : p)
-    }));
+    if (playerWon) {
+      setProgress(prev => ({
+        ...prev,
+        currency: prev.currency + rublesAwarded,
+        pets: prev.pets.map(p => p.id === playerPet.id ? { ...p, experience: p.experience + xpAwarded } : p)
+      }));
+    }
+  }, [enemy, playerPet, setProgress]);
+
+  const performEnemyTurn = useCallback(async (currentEnemy: Pet) => {
+    if (winner || !currentEnemy) return;
+
+    const useUlt = rage.enemy >= 100;
+    const speedRatio = currentEnemy.stats.speed / playerPet.stats.speed;
+    const hits = useUlt ? 1 : Math.max(1, Math.min(3, Math.floor(speedRatio)));
+
+    let currentPlayerHp = hp.player;
+    for (let i = 0; i < hits; i++) {
+        if (winner || currentPlayerHp <= 0) break;
+
+        const damage = calculateDamage(currentEnemy, playerPet, useUlt);
+        const log = useUlt 
+          ? `[ВРАГ] ${currentEnemy.name} ИСПОЛЬЗУЕТ УЛЬТУ: ${damage} УРОНА!`
+          : `[ВРАГ] ${currentEnemy.name} наносит удар: ${damage}! ${hits > 1 ? `(${i+1}/${hits})` : ''}`;
+
+        currentPlayerHp -= damage;
+        setHp(prev => ({ ...prev, player: Math.max(0, currentPlayerHp) }));
+        setRage(prev => ({ 
+            enemy: useUlt ? 0 : Math.min(100, prev.enemy + 10),
+            player: Math.min(100, prev.player + 15)
+        }));
+        
+        setBattleLog(prev => [log, ...prev]);
+        setIsPlayerHit(true);
+        setTimeout(() => setIsPlayerHit(false), 300);
+
+        // Passive Regen for enemy
+        if (currentEnemy.stats.regeneration > 0 && i === hits - 1) {
+            setHp(prev => ({ ...prev, enemy: Math.min(currentEnemy.stats.health, prev.enemy + currentEnemy.stats.regeneration) }));
+            setBattleLog(prev => [`[ВРАГ] ${currentEnemy.name} восстанавливает ${currentEnemy.stats.regeneration} HP`, ...prev]);
+        }
+        
+        await new Promise(r => setTimeout(r, 600));
+    }
+
+    if (currentPlayerHp > 0 && !winner) {
+        setTurn('player');
+    }
+  }, [winner, rage.enemy, playerPet.stats.speed, hp.player, calculateDamage, playerPet]);
+
+  // Watch for HP changes
+  useEffect(() => {
+    if (hp.enemy <= 0 && !winner) {
+      setWinner('player');
+      handleEndBattle(true);
+    } else if (hp.player <= 0 && !winner) {
+      setWinner('enemy');
+      handleEndBattle(false);
+    }
+  }, [hp, winner, handleEndBattle]);
+
+  const UltAnimation = () => {
+    const icons = {
+      water: <Droplets className="w-64 h-64 text-blue-400" />,
+      fire: <Flame className="w-64 h-64 text-red-500" />,
+      air: <Wind className="w-64 h-64 text-cyan-300" />,
+      earth: <Mountain className="w-64 h-64 text-amber-800" />,
+      light: <Sun className="w-64 h-64 text-yellow-400" />,
+      dark: <Moon className="w-64 h-64 text-indigo-900" />,
+      void: <Ghost className="w-64 h-64 text-purple-600" />,
+      time: <Clock className="w-64 h-64 text-slate-400" />
+    };
+
+    return (
+      <motion.div 
+        initial={{ scale: 0, opacity: 0, rotate: -45 }}
+        animate={{ scale: [1, 1.2, 1], opacity: [0, 1, 1, 0], rotate: 45 }}
+        transition={{ duration: 1.5 }}
+        className="fixed inset-0 flex items-center justify-center z-[200] pointer-events-none"
+      >
+        <div className="relative">
+             {icons[playerPet.element as keyof typeof icons]}
+             <div className="absolute inset-0 flex items-center justify-center">
+                 {icons[playerPet.attribute as keyof typeof icons]}
+             </div>
+        </div>
+      </motion.div>
+    );
   };
 
   if (!enemy) return null;
 
   return (
-    <div className="p-6 flex flex-col items-center justify-between pb-32 pt-12 max-w-6xl mx-auto min-h-screen">
-      <div className="w-full grid grid-cols-2 gap-12 items-center mb-12">
+    <div className="p-6 flex flex-col items-center pb-32 pt-12 max-w-6xl mx-auto min-h-screen relative">
+      {/* Brand Header */}
+      <div className="absolute top-4 left-6 flex items-center gap-2 opacity-40">
+        <div className="h-8 w-8 bg-sticker-yellow border border-black rotate-6 flex items-center justify-center">
+           <img src="https://i.ibb.co/k2PN7Q8y/aisailogo.png" alt="aiSai" className="h-5 w-5" />
+        </div>
+        <span className="text-xl font-black italic tracking-tighter text-pen-blue">aiSai BATTLE</span>
+      </div>
+
+      <AnimatePresence>
+        {showUlt && <UltAnimation />}
+      </AnimatePresence>
+
+      <div className="w-full flex flex-col md:flex-row gap-12 items-center justify-center mb-10">
         {/* Enemy Side */}
         <motion.div 
-          className={cn("flex flex-col items-center gap-6", isEnemyHit && "animate-shake animate-flash")}
+          className={cn("flex flex-col items-center gap-4", isEnemyHit && "animate-shake")}
           animate={{ x: turn === 'enemy' ? [0, -20, 0] : 0 }}
         >
           <div className="relative">
-            <GlassCard color="pink" className="p-4 border-2 border-pen-blue/20 w-48 h-48 sm:w-64 sm:h-64 hatching-shadow rotate-1">
-               <div className="w-full h-full border-2 border-pen-blue/10 rounded-sm overflow-hidden bg-white">
-                 <img src={enemy.image} className="w-full h-full object-cover opacity-80" />
-               </div>
+            <GlassCard color="pink" noPadding className="border-2 border-black/10 w-32 h-56 sm:w-48 sm:h-80 overflow-hidden rotation-[-1deg]">
+               <img src={enemy.image} className="w-full h-full object-cover opacity-90 block grayscale-[0.2]" />
             </GlassCard>
-            <div className="absolute -top-4 -right-4 h-14 w-14 bg-sticker-yellow border-2 border-pen-blue rotate-12 flex items-center justify-center font-black italic text-pen-blue shadow-sm">
-               {hp.enemy.toFixed(0)}
+            
+            {/* Enemy HP Bar Floating */}
+            <div className="absolute -top-12 left-0 right-0 flex flex-col items-center gap-1 z-30">
+               <div className="w-full h-4 bg-black/10 rounded-full overflow-hidden border-2 border-black backdrop-blur-sm">
+                  <motion.div 
+                    className="h-full bg-pen-red" 
+                    animate={{ width: `${(hp.enemy / enemy.stats.health) * 100}%` }} 
+                  />
+               </div>
+               <div className="flex justify-between w-full px-1">
+                  <div className="text-[10px] font-black text-pen-blue italic bg-white/80 px-1">HP: {Math.max(0, hp.enemy)} / {enemy.stats.health}</div>
+                  <div className="text-[10px] font-black text-pen-blue italic bg-white/80 px-1">CP: {calculateCP(enemy)}</div>
+               </div>
+            </div>
+            
+            {/* Rage Bar Enemy */}
+            <div className="absolute -bottom-4 -left-4 flex flex-col items-start gap-1">
+               <div className="w-24 h-2 bg-black/5 rounded-full overflow-hidden border border-black/5 rotate-3">
+                  <motion.div 
+                    className="h-full bg-sticker-yellow opacity-80" 
+                    animate={{ width: `${rage.enemy}%` }} 
+                  />
+               </div>
+               <div className="text-[10px] font-black text-pen-blue/40 italic">Ярость {rage.enemy}%</div>
             </div>
           </div>
-          <span className="font-black italic text-pen-red uppercase tracking-tight text-xl">Mirror AI: {enemy.name}</span>
+          <div className="text-center">
+            <span className="text-[10px] font-black text-pen-blue/40 italic">{enemy.rarity} • {enemy.element}</span>
+            <h3 className="text-xl font-black italic text-pen-blue/60">Отражение</h3>
+          </div>
         </motion.div>
+
+        <div className="hidden md:flex flex-col items-center gap-2">
+           <div className="text-4xl font-black italic text-pen-blue/5 uppercase tracking-tighter">VS</div>
+        </div>
 
         {/* Player Side */}
         <motion.div 
-          className={cn("flex flex-col items-center gap-6", isPlayerHit && "animate-shake animate-flash")}
-          animate={{ x: turn === 'player' ? [0, 20, 0] : 0 }}
+           className={cn("flex flex-col items-center gap-4", isPlayerHit && "animate-shake")}
+           animate={{ x: turn === 'player' ? [0, 20, 0] : 0 }}
         >
           <div className="relative">
-            <GlassCard color="blue" className="p-4 border-2 border-pen-blue/20 w-48 h-48 sm:w-64 sm:h-64 hatching-shadow -rotate-1">
-               <div className="w-full h-full border-2 border-pen-blue/10 rounded-sm overflow-hidden bg-white">
-                 <img src={pet.image} className="w-full h-full object-cover" />
-               </div>
+            <GlassCard color="blue" noPadding className="border-2 border-black/10 w-32 h-56 sm:w-48 sm:h-80 overflow-hidden rotation-[1deg]">
+               <img src={playerPet.image} className="w-full h-full object-cover block" />
             </GlassCard>
-            <div className="absolute -top-4 -left-4 h-14 w-14 bg-sticker-yellow border-2 border-pen-blue -rotate-12 flex items-center justify-center font-black italic text-pen-blue shadow-sm">
-               {hp.player.toFixed(0)}
+
+            {/* Player HP Bar Floating */}
+            <div className="absolute -top-12 left-0 right-0 flex flex-col items-center gap-1 z-30">
+               <div className="w-full h-4 bg-black/10 rounded-full overflow-hidden border-2 border-black backdrop-blur-sm">
+                  <motion.div 
+                    className="h-full bg-pen-blue" 
+                    animate={{ width: `${(hp.player / playerPet.stats.health) * 100}%` }} 
+                  />
+               </div>
+               <div className="flex justify-between w-full px-1">
+                  <div className="text-[10px] font-black text-pen-blue italic bg-white/80 px-1">HP: {Math.max(0, hp.player)} / {playerPet.stats.health}</div>
+                  <div className="text-[10px] font-black text-pen-blue italic bg-white/80 px-1">CP: {calculateCP(playerPet)}</div>
+               </div>
+            </div>
+
+            {/* Rage Bar Player */}
+            <div className="absolute -bottom-4 -right-4 flex flex-col items-end gap-1">
+               <div className="w-24 h-2 bg-black/5 rounded-full overflow-hidden border border-black/5 -rotate-3">
+                  <motion.div 
+                    className="h-full bg-sticker-yellow opacity-80" 
+                    animate={{ width: `${rage.player}%` }} 
+                  />
+               </div>
+               <div className="text-[10px] font-black text-pen-blue/40 italic">Ярость {rage.player}%</div>
             </div>
           </div>
-          <span className="font-black italic text-pen-blue uppercase tracking-tight text-xl">{pet.name}</span>
+          <div className="text-center">
+            <span className="text-[10px] font-black text-pen-blue/40 italic">{playerPet.rarity} • {playerPet.element}</span>
+            <h3 className="text-xl font-black italic text-pen-blue leading-none">{playerPet.name}</h3>
+          </div>
         </motion.div>
       </div>
 
+      {/* Controls */}
+      {!winner && turn === 'player' && (
+        <div className="w-full max-w-xl grid grid-cols-2 gap-4 mb-8">
+          <button 
+            onClick={() => handleAction('attack')} 
+            className="flex flex-col items-center p-4 bg-white border-2 border-black/10 hover:border-black/30 active:scale-95 transition-all shadow-sm"
+          >
+            <Sword className="h-8 w-8 mb-2" />
+            <span className="text-[12px] font-black italic">Атака</span>
+          </button>
+          
+          <button 
+            onClick={() => handleAction('ult')} 
+            disabled={rage.player < 100}
+            className={cn(
+              "flex flex-col items-center p-4 border-2 transition-all shadow-sm active:scale-95",
+              rage.player >= 100 
+                ? "bg-sticker-yellow border-black animate-pulse cursor-pointer" 
+                : "bg-white border-black/10 opacity-50 cursor-not-allowed"
+            )}
+          >
+            <Zap className={cn("h-8 w-8 mb-2", rage.player >= 100 && "fill-current")} />
+            <span className="text-[12px] font-black italic">Ульта</span>
+          </button>
+        </div>
+      )}
+
       {/* Battle Log */}
-      <GlassCard color="white" className="w-full max-w-2xl h-40 overflow-y-auto no-scrollbar border-2 border-black/5 hatching-shadow my-8 p-6 text-left relative">
-        <div className="absolute top-2 right-4 text-[10px] font-black italic text-pen-blue/20 uppercase tracking-[0.2em]">Протокол сражения</div>
-        <div className="space-y-2">
+      <div className="w-full max-w-xl border-2 border-black/10 p-6 text-left relative bg-transparent mb-12">
+        <div className="absolute top-2 right-4 text-[11px] font-black italic text-pen-blue/20">Протокол сражения</div>
+        <div className="space-y-3">
           {battleLog.map((msg, i) => (
             <div key={i} className={cn(
-              "text-sm font-bold italic",
-              i === 0 ? 'text-pen-blue leading-relaxed' : 'text-pen-blue/30'
+              "text-base leading-snug",
+              i === 0 ? 'text-pen-blue font-bold italic' : 'text-pen-blue/40 font-medium'
             )}>
               {i === 0 ? <HandwrittenText text={msg} speed={40} /> : `» ${msg}`}
             </div>
           ))}
         </div>
-      </GlassCard>
-
-      {/* Controls */}
-      <div className="w-full max-w-2xl grid grid-cols-3 gap-6">
-        <NeonButton 
-          onClick={() => handleAction('attack')} 
-          disabled={turn !== 'player' || !!winner}
-          className="flex flex-col items-center py-6 h-auto"
-        >
-          <Sword className="h-8 w-8 mb-2" />
-          <span className="text-[11px] uppercase font-black italic tracking-widest leading-none">Удар</span>
-        </NeonButton>
-        <NeonButton 
-          onClick={() => handleAction('skill')} 
-          disabled={turn !== 'player' || !!winner}
-          className="flex flex-col items-center py-6 h-auto"
-        >
-          <Sparkles className="h-8 w-8 mb-2" />
-          <span className="text-[11px] uppercase font-black italic tracking-widest leading-none">Ульта</span>
-        </NeonButton>
-        <NeonButton 
-          onClick={() => handleAction('defend')} 
-          disabled={turn !== 'player' || !!winner}
-          className="flex flex-col items-center py-6 h-auto"
-        >
-          <Shield className="h-8 w-8 mb-2" />
-          <span className="text-[11px] uppercase font-black italic tracking-widest leading-none">Блок</span>
-        </NeonButton>
       </div>
 
       <AnimatePresence>
         {winner && (
           <motion.div 
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-white/60 backdrop-blur-sm p-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-white/80 backdrop-blur-md p-6"
           >
-            <GlassCard color="yellow" rotation={1} className="text-center p-12 max-w-sm border-2 border-pen-blue hatching-shadow">
-              <h2 className="text-6xl font-black italic mb-6 uppercase text-pen-blue tracking-tighter">
-                {winner === 'Игрок' ? 'ПОБЕДА!' : 'ПОРАЖЕНИЕ'}
+            <GlassCard color={winner === 'player' ? "yellow" : "pink"} className="text-center p-12 max-w-sm border-2 border-black hatching-shadow">
+              <h2 className="text-6xl font-black italic mb-6 text-pen-blue tracking-tighter">
+                {winner === 'player' ? 'Победа!' : 'Фиаско'}
               </h2>
-              {rewards && winner === 'Игрок' && (
+              {rewards && (
                 <div className="flex justify-center gap-8 mb-10">
                   <div className="flex flex-col items-center gap-2">
-                    <Coins className="h-8 w-8 text-black/40" />
-                    <span className="text-2xl font-black text-pen-blue italic">+{rewards.rubles} ₽</span>
+                    <Coins className="h-8 w-8 text-pen-blue/40" />
+                    <span className="text-2xl font-black text-pen-blue">+{rewards.rubles} ₽</span>
                   </div>
                   <div className="flex flex-col items-center gap-2">
                     <Zap className="h-8 w-8 text-pen-blue/40" />
-                    <span className="text-2xl font-black text-pen-blue italic">+{rewards.xp} XP</span>
+                    <span className="text-2xl font-black text-pen-blue">+{rewards.xp} XP</span>
                   </div>
                 </div>
               )}
-              <div className="text-pen-blue/60 mb-10 font-bold italic uppercase tracking-widest text-sm leading-relaxed">
-                {winner === 'Игрок' ? 'Твой зверь стал сильнее!' : 'Попробуй еще раз после тренировки.'}
-              </div>
-              <NeonButton onClick={() => window.location.href = '/main'} className="w-full font-black italic text-lg py-5">
-                ВЕРНУТЬСЯ В ШТАБ
+              <NeonButton onClick={() => navigate('/main')} className="w-full font-black italic text-lg py-5">
+                Вернуться
               </NeonButton>
             </GlassCard>
           </motion.div>

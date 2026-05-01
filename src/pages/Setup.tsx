@@ -5,15 +5,20 @@ import { GlassCard, NeonButton, HandwrittenText } from '../components/UI';
 import { Pet, Rarity, UserProfile } from '../types';
 import { generatePetStatsAndLore, generatePetArt } from '../services/aiService';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Save, User, MapPin, Smile, BookOpen, Activity, ChevronRight, Plus } from 'lucide-react';
+import { Sparkles, Save, User, MapPin, Smile, BookOpen, Activity, ChevronRight, Plus, Loader2 } from 'lucide-react';
+import { HandDrawnTimer } from '../components/HandDrawnTimer';
 
 const forcedRarityMap: Record<string, string> = {
-  common: 'ОБЫЧНЫЙ',
+  normal: 'ОБЫЧНЫЙ',
+  advanced: 'ПРОДВИНУТЫЙ',
   rare: 'РЕДКИЙ',
+  perfect: 'ИДЕАЛЬНЫЙ',
   epic: 'ЭПИЧЕСКИЙ',
-  mythic: 'МИФИЧЕСКИЙ',
   legendary: 'ЛЕГЕНДАРНЫЙ',
-  divine: 'БОЖЕСТВЕННЫЙ'
+  mythical: 'МИФИЧЕСКИЙ',
+  eternal: 'ВЕЧНЫЙ',
+  divine: 'БОЖЕСТВЕННЫЙ',
+  transcendent: 'ТРАНСЦЕНДЕНТНЫЙ'
 };
 
 export const Setup: React.FC<{ onComplete: (pet: Pet) => void }> = ({ onComplete }) => {
@@ -22,7 +27,7 @@ export const Setup: React.FC<{ onComplete: (pet: Pet) => void }> = ({ onComplete
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<UserProfile>(() => {
     const saved = localStorage.getItem('aisai_user_profile');
-    return saved ? JSON.parse(saved) : {
+    const defaults: UserProfile = {
       name: '',
       gender: 'male',
       age: 18,
@@ -31,6 +36,15 @@ export const Setup: React.FC<{ onComplete: (pet: Pet) => void }> = ({ onComplete
       traits: [],
       about: ''
     };
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return { ...defaults, ...parsed };
+      } catch (e) {
+        return defaults;
+      }
+    }
+    return defaults;
   });
   const [pet, setGeneratedPet] = useState<Pet | null>(null);
 
@@ -60,28 +74,32 @@ export const Setup: React.FC<{ onComplete: (pet: Pet) => void }> = ({ onComplete
 
   const currentTraitsList = profile.gender === 'male' ? MALE_TRAITS : FEMALE_TRAITS;
 
-  const toggleSelection = (list: string[], item: string, limit: number) => {
-    if (list.includes(item)) {
-      return list.filter(i => i !== item);
+  const toggleSelection = (list: string[] = [], item: string, limit: number) => {
+    const currentList = list || [];
+    if (currentList.includes(item)) {
+      return currentList.filter(i => i !== item);
     }
-    if (list.length < limit) {
-      return [...list, item];
+    if (currentList.length < limit) {
+      return [...currentList, item];
     }
-    return list;
+    return currentList;
   };
 
   const pickRarity = (): Rarity => {
     const r = Math.random() * 100;
     if (r < 1) return 'divine';
     if (r < 5) return 'legendary';
-    if (r < 10) return 'mythic';
+    if (r < 10) return 'mythical';
     if (r < 25) return 'epic';
     if (r < 50) return 'rare';
-    return 'common';
+    return 'normal';
   };
 
   const handleGenerate = async () => {
-    if (!profile.name || !profile.city || profile.hobbies.length === 0 || profile.traits.length === 0) {
+    const hobbiesCount = (profile.hobbies || []).length;
+    const traitsCount = (profile.traits || []).length;
+    
+    if (!profile.name || !profile.city || hobbiesCount === 0 || traitsCount === 0) {
       alert('Пожалуйста, заполни все обязательные поля анкеты!');
       return;
     }
@@ -125,7 +143,7 @@ export const Setup: React.FC<{ onComplete: (pet: Pet) => void }> = ({ onComplete
         level: 1,
         experience: 0,
         materials: {},
-        ageStage: 'детство',
+        ageStage: 'F - младенчество',
         isRankRevealed: false,
         statPoints: 0,
       });
@@ -143,9 +161,33 @@ export const Setup: React.FC<{ onComplete: (pet: Pet) => void }> = ({ onComplete
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-6 bg-paper relative">
+    <div className="flex min-h-screen items-center justify-center p-6 relative overflow-y-auto no-scrollbar">
       <AnimatePresence mode="wait">
-        {step === 1 ? (
+        {loading ? (
+          <motion.div 
+            key="loading"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="w-full max-w-lg space-y-12 flex flex-col items-center text-center"
+          >
+            <div className="relative">
+              <div className="absolute inset-0 bg-sticker-yellow/30 blur-3xl animate-pulse rounded-full" />
+              <div className="relative z-10 p-8 bg-transparent border-4 border-pen-blue rotate-6 shadow-2xl">
+                <Sparkles className="h-20 w-20 text-pen-blue animate-pulse" />
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <h2 className="text-4xl font-black italic text-pen-blue tracking-tighter">Ритуал Синтеза</h2>
+              <p className="text-pen-blue/60 italic font-black px-8">
+                Пробуждение спящих энергий и формирование цифрового аватара вашей души...
+              </p>
+            </div>
+
+            <HandDrawnTimer duration={10} label="ГЕНЕРАЦИЯ ОБРАЗА" />
+          </motion.div>
+        ) : step === 1 ? (
           <motion.div 
             key="step1"
             initial={{ opacity: 0, scale: 0.95 }}
@@ -153,145 +195,142 @@ export const Setup: React.FC<{ onComplete: (pet: Pet) => void }> = ({ onComplete
             exit={{ opacity: 0, scale: 1.05 }}
             className="w-full max-w-4xl space-y-8 py-12"
           >
-            <div className="text-center">
-              <h2 className="text-5xl font-black italic text-pen-blue mb-4 tracking-tighter uppercase">АНКЕТА ГЕРОЯ</h2>
-              <div className="text-pen-blue/40 text-sm font-bold uppercase tracking-[0.2em] italic max-w-md mx-auto">
-                <HandwrittenText text="ИИ создаст уникальное существо, которое станет твоим истинным отражением..." speed={40} />
+            <div className="text-center mb-12">
+              <div className="mb-6 flex justify-center">
+                 <div className="h-16 w-16 bg-sticker-yellow border-2 border-black rotate-6 flex items-center justify-center shadow-lg p-3">
+                    <img src="https://i.ibb.co/k2PN7Q8y/aisailogo.png" alt="aiSai" className="h-full w-full object-contain mix-blend-multiply" />
+                 </div>
+              </div>
+              <h2 className="text-4xl sm:text-6xl font-black italic text-pen-blue mb-4 tracking-tighter leading-tight">Анкета Призывателя</h2>
+              <div className="text-pen-blue/60 text-sm font-black italic max-w-md mx-auto">
+                <HandwrittenText text="aiSai подготовит уникальную сущность на основе ваших ментальных паттернов..." speed={40} />
               </div>
             </div>
 
-            <GlassCard color="white" className="p-8 md:p-12 space-y-10 border-2 border-black/5 hatching-shadow rounded-[4px] relative overflow-hidden">
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                  <div className="space-y-8">
-                    <div className="space-y-2 text-left">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-start">
+               {/* Column 1: Identity */}
+               <div className="space-y-4">
+                 <GlassCard color="white" rotation={-1.5} className="p-8 space-y-6 border-2 border-black/10 rounded-[2px]">
+                    <div className="space-y-4 text-left">
                       <label className="text-xs font-bold uppercase text-pen-blue/40 tracking-[0.2em] flex items-center gap-2">
-                        <User className="h-3 w-3" /> Имя
+                        <User className="h-4 w-4" /> Личность
                       </label>
-                      <input 
-                        type="text" 
-                        value={profile.name}
-                        onChange={(e) => setProfile({...profile, name: e.target.value})}
-                        placeholder="Запиши здесь..."
-                        className="w-full bg-transparent border-b-2 border-pen-blue/10 px-0 py-2 text-xl font-bold italic text-pen-blue focus:border-pen-blue outline-none transition-all placeholder:text-pen-blue/10"
-                      />
+                      <div className="space-y-4">
+                        <input 
+                          type="text" 
+                          value={profile.name}
+                          onChange={(e) => setProfile({...profile, name: e.target.value})}
+                          placeholder="Имя..."
+                          className="w-full bg-transparent border-b border-pen-blue/10 px-0 py-2 text-xl font-black italic text-pen-blue focus:border-pen-blue outline-none transition-all brightness-50"
+                        />
+                        <input 
+                          type="text" 
+                          value={profile.city}
+                          onChange={(e) => setProfile({...profile, city: e.target.value})}
+                          placeholder="Город..."
+                          className="w-full bg-transparent border-b border-pen-blue/10 px-0 py-2 text-lg font-bold italic text-pen-blue focus:border-pen-blue outline-none transition-all"
+                        />
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-8">
-                       <div className="space-y-4 text-left">
-                          <label className="text-xs font-bold uppercase text-pen-blue/40 tracking-[0.2em]">
-                             Возраст: {profile.age}
-                          </label>
+                    <div className="space-y-4 text-left">
+                        <div className="flex justify-between items-end">
+                           <label className="text-[10px] font-black uppercase text-pen-blue/30 tracking-widest">Возраст: {profile.age}</label>
+                           <label className="text-[10px] font-black uppercase text-pen-blue/30 tracking-widest">Пол</label>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 items-center">
                           <input 
                             type="range" 
                             min="5" 
                             max="99" 
                             value={profile.age}
                             onChange={(e) => setProfile({...profile, age: parseInt(e.target.value)})}
-                            className="w-full h-1.5 bg-pen-blue/5 rounded-full appearance-none cursor-pointer accent-pen-blue"
+                            className="w-full h-1 bg-pen-blue/10 rounded-full appearance-none cursor-pointer accent-pen-blue"
                           />
-                       </div>
-                       <div className="space-y-2 text-left">
-                          <label className="text-xs font-bold uppercase text-pen-blue/40 tracking-[0.2em]">
-                             Пол
-                          </label>
-                          <div className="flex bg-pen-blue/5 rounded-sm p-1 border border-pen-blue/10">
+                          <div className="flex bg-pen-blue/5 rounded-sm p-0.5 border border-pen-blue/10">
                              <button 
                                onClick={() => setProfile({...profile, gender: 'male', traits: []})}
-                               className={cn(
-                                 "flex-1 py-1 px-4 rounded-sm text-xs font-bold transition-all",
-                                 profile.gender === 'male' ? "bg-pen-blue text-white shadow-sm" : "text-pen-blue/30"
-                               )}
-                             >М</button>
+                               className={cn("flex-1 py-1 px-2 rounded-sm text-[10px] font-black transition-all", profile.gender === 'male' ? "bg-pen-blue text-white" : "text-pen-blue/20")}
+                             >M</button>
                              <button 
                                onClick={() => setProfile({...profile, gender: 'female', traits: []})}
-                               className={cn(
-                                 "flex-1 py-1 px-4 rounded-sm text-xs font-bold transition-all",
-                                 profile.gender === 'female' ? "bg-pen-red text-white shadow-sm" : "text-pen-blue/30"
-                               )}
-                             >Ж</button>
+                               className={cn("flex-1 py-1 px-2 rounded-sm text-[10px] font-black transition-all", profile.gender === 'female' ? "bg-pen-red text-white" : "text-pen-blue/20")}
+                             >F</button>
                           </div>
-                       </div>
-                    </div>
-
-                    <div className="space-y-2 text-left">
-                      <label className="text-xs font-bold uppercase text-pen-blue/40 tracking-[0.2em] flex items-center gap-2">
-                        <MapPin className="h-3 w-3" /> Родной Край
-                      </label>
-                      <input 
-                        type="text" 
-                        value={profile.city}
-                        onChange={(e) => setProfile({...profile, city: e.target.value})}
-                        placeholder="Откуда ты?.."
-                        className="w-full bg-transparent border-b-2 border-pen-blue/10 px-0 py-2 text-lg font-bold italic text-pen-blue focus:border-pen-blue outline-none transition-all placeholder:text-pen-blue/10"
-                      />
-                    </div>
-
-                    <div className="space-y-4 text-left">
-                      <label className="text-xs font-bold uppercase text-pen-blue/40 tracking-[0.2em] flex items-center gap-2">
-                        <BookOpen className="h-3 w-3" /> Манифест
-                      </label>
-                      <textarea 
-                        value={profile.about}
-                        onChange={(e) => setProfile({...profile, about: e.target.value})}
-                        placeholder="Твое видение мира..."
-                        rows={3}
-                        className="w-full bg-white/40 border-2 border-black/5 rounded-sm p-4 text-sm font-bold italic text-pen-blue focus:border-pen-blue outline-none transition-all resize-none hatching-shadow"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-8 text-left">
-                     <div className="space-y-4">
-                        <label className="text-xs font-bold uppercase text-pen-blue/40 tracking-[0.2em] flex items-center justify-between">
-                           <span className="flex items-center gap-2"><Smile className="h-3 w-3" /> Увлечения ({profile.hobbies.length}/5)</span>
-                        </label>
-                        <div className="flex flex-wrap gap-2 max-h-[160px] overflow-y-auto no-scrollbar pt-1 pr-2">
-                           {HOBBIES.map((h) => (
-                              <button 
-                                key={h}
-                                onClick={() => setProfile({...profile, hobbies: toggleSelection(profile.hobbies, h, 5)})}
-                                className={cn(
-                                  "px-3 py-1 rounded-sm text-[11px] font-bold transition-all border-2 italic",
-                                  profile.hobbies.includes(h) 
-                                    ? "bg-sticker-yellow border-pen-blue text-pen-blue rotate-2 shadow-sm" 
-                                    : "bg-white border-black/5 text-pen-blue/30 hover:border-pen-blue/20"
-                                )}
-                              >{h}</button>
-                           ))}
                         </div>
-                     </div>
+                    </div>
+                 </GlassCard>
 
-                     <div className="space-y-4">
-                        <label className="text-xs font-bold uppercase text-pen-blue/40 tracking-[0.2em] flex items-center justify-between">
-                           <span className="flex items-center gap-2"><Activity className="h-3 w-3" /> Черты Души ({profile.traits.length}/3)</span>
-                        </label>
-                        <div className="flex flex-wrap gap-2 pt-1 pr-2">
-                           {currentTraitsList.map((t) => (
-                              <button 
-                                key={t}
-                                onClick={() => setProfile({...profile, traits: toggleSelection(profile.traits, t, 3)})}
-                                className={cn(
-                                  "px-3 py-1 rounded-sm text-[11px] font-bold transition-all border-2 italic",
-                                  profile.traits.includes(t) 
-                                    ? "bg-sticker-pink border-pen-blue text-pen-blue -rotate-1 shadow-sm" 
-                                    : "bg-white border-black/5 text-pen-blue/30 hover:border-pen-blue/20"
-                                )}
-                              >{t}</button>
-                           ))}
-                        </div>
-                     </div>
-                  </div>
+                 <GlassCard color="yellow" rotation={1} className="p-8 space-y-4 border-2 border-black/10 rounded-[2px]">
+                    <label className="text-xs font-bold uppercase text-pen-blue/40 tracking-[0.2em] flex items-center gap-2">
+                       <BookOpen className="h-4 w-4" /> Манифест
+                    </label>
+                    <textarea 
+                      value={profile.about}
+                      onChange={(e) => setProfile({...profile, about: e.target.value})}
+                      placeholder="О чем ты думаешь?.."
+                      rows={4}
+                      className="w-full bg-transparent border-2 border-black/5 rounded-sm p-4 text-sm font-bold italic text-pen-blue focus:border-pen-blue/30 outline-none transition-all resize-none"
+                    />
+                 </GlassCard>
                </div>
 
-               <NeonButton 
-                 onClick={handleGenerate} 
-                 loading={loading}
-                 className="w-full py-6 text-2xl tracking-widest mt-4"
-               >
-                 {loading ? <Sparkles className="animate-spin h-6 w-6" /> : <Sparkles className="h-6 w-6" />}
-                 <span>ПРИЗВАТЬ СУТЬ</span>
-               </NeonButton>
-            </GlassCard>
+               {/* Column 2: Interests */}
+               <div className="lg:col-span-2 space-y-4">
+                  <GlassCard color="white" rotation={0.5} className="p-8 border-2 border-black/10 rounded-[2px]">
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                        <div className="space-y-4 text-left">
+                           <label className="text-xs font-bold uppercase text-pen-blue/40 tracking-[0.2em] flex items-center justify-between">
+                              <span className="flex items-center gap-2"><Smile className="h-4 w-4" /> Увлечения ({(profile.hobbies || []).length}/5)</span>
+                           </label>
+                           <div className="flex flex-wrap gap-2 max-h-[220px] overflow-y-auto force-scrollbar pr-2 pt-1">
+                              {HOBBIES.map((h) => (
+                                 <button 
+                                   key={h}
+                                   onClick={() => setProfile({...profile, hobbies: toggleSelection(profile.hobbies, h, 5)})}
+                                   className={cn(
+                                     "px-3 py-1 rounded-sm text-[11px] font-bold transition-all border italic",
+                                     profile.hobbies.includes(h) 
+                                       ? "bg-sticker-yellow border-pen-blue text-pen-blue rotate-2" 
+                                       : "bg-transparent border-black/10 text-pen-blue/30 hover:border-pen-blue/20"
+                                   )}
+                                 >{h}</button>
+                              ))}
+                           </div>
+                        </div>
+
+                        <div className="space-y-4 text-left">
+                           <label className="text-xs font-bold uppercase text-pen-blue/40 tracking-[0.2em] flex items-center justify-between">
+                              <span className="flex items-center gap-2"><Activity className="h-4 w-4" /> Черты Души ({(profile.traits || []).length}/3)</span>
+                           </label>
+                           <div className="flex flex-wrap gap-2 max-h-[220px] overflow-y-auto force-scrollbar pr-2 pt-1">
+                              {currentTraitsList.map((t) => (
+                                 <button 
+                                   key={t}
+                                   onClick={() => setProfile({...profile, traits: toggleSelection(profile.traits, t, 3)})}
+                                   className={cn(
+                                     "px-3 py-1 rounded-sm text-[11px] font-bold transition-all border italic",
+                                     profile.traits.includes(t) 
+                                       ? "bg-sticker-pink border-pen-blue text-pen-blue -rotate-1" 
+                                       : "bg-transparent border-black/10 text-pen-blue/30 hover:border-pen-blue/20"
+                                   )}
+                                 >{t}</button>
+                              ))}
+                           </div>
+                        </div>
+                     </div>
+                  </GlassCard>
+
+                  <NeonButton 
+                    onClick={handleGenerate} 
+                    loading={loading}
+                    className="w-full py-10 text-3xl tracking-[0.2em] bg-sticker-yellow -rotate-1 font-black italic hover:rotate-0"
+                  >
+                    {loading ? <Sparkles className="animate-spin h-8 w-8 text-white" /> : <Sparkles className="h-8 w-8" />}
+                    <span>ПРИЗВАТЬ СУТЬ</span>
+                  </NeonButton>
+               </div>
+            </div>
           </motion.div>
         ) : (
           <motion.div 
@@ -301,19 +340,29 @@ export const Setup: React.FC<{ onComplete: (pet: Pet) => void }> = ({ onComplete
             className="w-full max-w-5xl px-4 py-12"
           >
             <div className="text-center mb-10">
-              <h2 className="text-6xl font-black italic italic uppercase tracking-tighter text-pen-blue">ДУХОВНОЕ ВОПЛОЩЕНИЕ</h2>
+              <h2 className="text-4xl sm:text-6xl font-black italic tracking-tighter text-pen-blue leading-tight">Духовное Воплощение</h2>
             </div>
             
             {pet && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
                 {/* Image Section */}
                 <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}>
-                  <GlassCard color="white" className="overflow-visible p-4 border-2 border-black/10 hatching-shadow rounded-[2px] relative lg:sticky lg:top-12">
-                     <div className="aspect-[9/16] w-full bg-white relative rounded-sm overflow-hidden border border-black/5">
+                  <GlassCard color="white" noPadding className="overflow-hidden border-2 border-black/10 rounded-[2px] relative group bg-transparent">
+                     <div className="aspect-[9/16] w-full bg-transparent relative rounded-sm overflow-hidden">
                         <img src={pet.image} alt={pet.name} className="h-full w-full object-cover" />
                         
+                        {/* Overlay Content */}
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-white via-white/80 to-transparent p-6 pt-16">
+                           <div className="text-[10px] font-black text-pen-blue/40 uppercase tracking-[0.2em] mb-1">
+                              {pet.classification.type} • {pet.classification.species}
+                           </div>
+                           <h3 className="text-2xl sm:text-3xl font-black italic brightness-50 leading-tight mb-2 tracking-tighter break-words">
+                              <HandwrittenText text={pet.name} speed={30} />
+                           </h3>
+                        </div>
+
                         <div className="absolute top-4 right-4 flex flex-col items-end gap-3 z-10">
-                           <div className="bg-sticker-yellow text-xs font-black text-pen-blue px-4 py-2 border-2 border-pen-blue rotate-3 shadow-md">
+                           <div className="bg-sticker-yellow text-xs font-black text-pen-blue px-4 py-2 border-2 border-pen-blue rotate-3 shadow-none">
                              {forcedRarityMap[pet.rarity] || pet.rarity}
                            </div>
                            <div className="bg-white/90 text-pen-blue text-2xl font-black px-4 py-2 border-2 border-pen-blue/20 -rotate-2">
@@ -321,12 +370,11 @@ export const Setup: React.FC<{ onComplete: (pet: Pet) => void }> = ({ onComplete
                            </div>
                         </div>
 
-                        <div className="absolute left-4 bottom-4 z-20">
+                        <div className="absolute left-4 top-4 z-20">
                           <div className="bg-sticker-blue text-[10px] font-black text-pen-blue px-4 py-1.5 border-2 border-pen-blue/20 rotate-1">
-                            СТАДИЯ: {pet.ageStage.toUpperCase()}
+                            {pet.ageStage.toUpperCase()}
                           </div>
                         </div>
-                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-20 h-8 bg-white/40 shadow-sm -rotate-2" />
                      </div>
                   </GlassCard>
                 </motion.div>
@@ -335,15 +383,15 @@ export const Setup: React.FC<{ onComplete: (pet: Pet) => void }> = ({ onComplete
                 <div className="space-y-8">
                   <GlassCard color="yellow" delay={0.3} className="p-10 space-y-8 rounded-[4px] border-2 border-black/5 hatching-shadow">
                     <div>
-                      <div className="text-sm font-bold text-pen-blue/40 uppercase tracking-[0.4em] mb-2">
+                      <div className="text-sm font-bold text-pen-blue/40 uppercase tracking-[0.4em] mb-2 truncate">
                          {pet.classification.type} • {pet.classification.species}
                       </div>
-                      <h3 className="text-5xl font-black italic text-pen-blue mb-8 tracking-tighter">
+                      <h3 className="text-3xl sm:text-5xl font-black italic text-pen-blue mb-8 tracking-tighter break-words leading-tight">
                          <HandwrittenText text={pet.name} speed={30} />
                       </h3>
-                      <p className="text-xl text-pen-blue italic leading-snug px-4 py-4 bg-white/40 rounded-sm border-l-4 border-pen-blue min-h-[100px]">
+                      <div className="text-xl text-pen-blue italic leading-snug px-4 py-4 bg-white/40 rounded-sm border-l-4 border-pen-blue min-h-[100px]">
                         <HandwrittenText text={pet.lore} delay={1} speed={35} />
-                      </p>
+                      </div>
                     </div>
 
                     <div className="space-y-6">
@@ -385,7 +433,7 @@ export const Setup: React.FC<{ onComplete: (pet: Pet) => void }> = ({ onComplete
 
 const StatPreview = ({ label, value, isSpecial }: { label: string, value: number, isSpecial?: boolean }) => (
   <div className={cn(
-    "flex justify-between items-center bg-white border-2 border-black/5 px-4 py-3 rounded-sm shadow-sm",
+    "flex justify-between items-center bg-transparent border-2 border-black/5 px-4 py-3 rounded-sm shadow-sm",
     isSpecial && "border-pen-blue bg-sticker-blue/20"
   )}>
     <span className="opacity-40">{label}</span>
