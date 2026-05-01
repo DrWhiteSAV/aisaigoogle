@@ -4,13 +4,13 @@ import { Pet, PetStats, Rarity, Element, Personality, Habitat, Classification, U
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export const generatePetArt = async (pet: Partial<Pet>) => {
-  const prompt = `Fantasy digital illustration of a ${pet.rarity} ${pet.element} creature based on a real-world biological ${pet.classification?.species}.
-                  Art Style: Professional cinematic cultivation manhua masterpiece. No frames, no borders.
-                  Environment: ${pet.habitat}.
-                  Visual character: Bioluminescent details, swirling magical energy, realistic animal anatomy hybridized with divine features.
-                  MANDATORY: NO TEXT, NO LETTERS, NO NUMBERS, NO SYMBOLS, NO BUTTONS, NO USER INTERFACE, NO SIGNATURES, NO WATERMARKS.
-                  The image must be a clean artistic portrait of the creature only.
-                  Vertical 9:16 composition, vibrant magical lighting, 8k resolution, octane render style.`;
+  const prompt = `Hand-drawn blue pen sketch of a ${pet.rarity} ${pet.element} creature based on a real-world ${pet.classification?.species}.
+                  Art Style: Scribbled ballpoint pen illustration, blue ink drawing. 
+                  Background: Hand-drawn on a white GRID graph paper notebook page (checkered).
+                  Visual character: Manga style sketch, hatching shadows, sketchy lines, mystical aura.
+                  Strict requirement: monochromatic BLUE PEN INK only on WHITE GRAPH PAPER SQUARE GRID background.
+                  MANDATORY: NO COLORS other than blue pen ink. NO TEXT, NO UI.
+                  Vertical 9:16 portrait, high quality detailed sketch art.`;
   
   try {
     const response = await ai.models.generateContent({
@@ -110,7 +110,7 @@ export const generatePetStatsAndLore = async (
       }
     });
 
-    return JSON.parse(response.response.text() || "{}");
+    return JSON.parse(response.text || "{}");
   } catch (error) {
     console.error("Generation failed:", error);
     throw error;
@@ -161,7 +161,7 @@ export const generateQuest = async (pet: Pet) => {
       }
     });
 
-    return JSON.parse(response.response.text() || "{}");
+    return JSON.parse(response.text || "{}");
   } catch (error) {
     console.error("Quest generation failed:", error);
     return null;

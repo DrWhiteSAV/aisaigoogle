@@ -13,13 +13,13 @@ export const Navbar: React.FC<{ rubles?: number }> = ({ rubles }) => {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-[72px] items-center justify-around glass border-t border-white/12 px-4 pb-safe sm:relative sm:h-screen sm:w-20 sm:flex-col sm:border-r sm:border-t-0 sm:px-0 sm:pb-0 sm:gap-6 sm:justify-center">
-      <div className="hidden sm:mb-4 sm:flex flex-col items-center">
-        <img src="https://i.ibb.co/vCDztLGH/aisaimain.png" alt="Logo" className="h-10 w-10 object-contain rounded-lg mb-4" />
+    <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-[80px] items-center justify-around bg-paper border-t-2 border-pen-blue/20 px-4 pb-safe sm:relative sm:h-screen sm:w-24 sm:flex-col sm:border-r-2 sm:border-t-0 sm:px-0 sm:pb-0 sm:gap-4 sm:justify-center">
+      <div className="hidden sm:mb-8 sm:flex flex-col items-center">
+        <img src="https://i.ibb.co/k2PN7Q8y/aisailogo.png" alt="Logo" className="h-14 w-14 object-contain mb-4 transform -rotate-3" />
         {rubles !== undefined && (
-          <div className="flex flex-col items-center gap-1 opacity-80">
-            <Coins className="h-4 w-4 text-rarity-legendary" />
-            <span className="text-[9px] font-black text-white">{rubles} ₽</span>
+          <div className="flex flex-col items-center gap-1 opacity-80 border-2 border-pen-blue/20 rounded-lg p-1 bg-sticker-yellow rotate-3">
+            <Coins className="h-4 w-4 text-pen-blue" />
+            <span className="text-[10px] font-bold text-pen-blue">{rubles} ₽</span>
           </div>
         )}
       </div>
@@ -30,17 +30,18 @@ export const Navbar: React.FC<{ rubles?: number }> = ({ rubles }) => {
           to={item.to}
           className={({ isActive }) =>
             `group relative flex flex-col items-center justify-center space-y-1 transition-all duration-300 sm:w-full ${
-              isActive ? 'text-neon-blue active' : 'text-[#94a3b8] hover:text-white opacity-70'
+              isActive ? 'text-pen-blue active' : 'text-pen-blue/40 hover:text-pen-blue'
             }`
           }
         >
           <div className="relative">
-            <div className="absolute inset-0 rounded-lg bg-white/10 blur-[8px] opacity-0 group-[.active]:opacity-100 transition-opacity" />
-            <div className="relative h-11 w-11 rounded-lg bg-white/5 flex items-center justify-center border border-white/10 group-[.active]:bg-neon-blue group-[.active]:border-neon-blue group-[.active]:shadow-[0_0_15px_rgba(0,242,255,0.4)] transition-all">
-              <item.icon className={`h-5 w-5`} />
+            <div className={`relative h-12 w-12 flex items-center justify-center transition-all ${
+              'group-[.active]:scribble-border bg-white shadow-sm'
+            }`}>
+              <item.icon className="h-6 w-6 stroke-[1.5px]" />
             </div>
           </div>
-          <span className="text-[8px] font-bold uppercase tracking-wider block opacity-60 group-[.active]:opacity-100">{item.label}</span>
+          <span className="text-[10px] font-bold uppercase tracking-tight block group-[.active]:underline">{item.label}</span>
         </NavLink>
       ))}
     </nav>

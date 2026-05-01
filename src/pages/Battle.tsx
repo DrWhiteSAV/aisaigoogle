@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Pet, UserProgress } from '../types';
-import { GlassCard, NeonButton } from '../components/UI';
+import { GlassCard, NeonButton, HandwrittenText } from '../components/UI';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sword, Shield, Zap, Sparkles, Coins } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -17,7 +17,6 @@ export const Battle: React.FC<{ progress: UserProgress; setProgress: React.Dispa
   const [isPlayerHit, setIsPlayerHit] = useState(false);
 
   useEffect(() => {
-    // Generate a simulated enemy
     setEnemy({
       ...pet,
       id: 'enemy-1',
@@ -104,80 +103,85 @@ export const Battle: React.FC<{ progress: UserProgress; setProgress: React.Dispa
   if (!enemy) return null;
 
   return (
-    <div className="min-h-screen bg-[#050510] p-6 flex flex-col items-center justify-between pb-32 pt-12">
-      <div className="w-full max-w-4xl grid grid-cols-2 gap-12 items-center">
+    <div className="p-6 flex flex-col items-center justify-between pb-32 pt-12 max-w-6xl mx-auto min-h-screen">
+      <div className="w-full grid grid-cols-2 gap-12 items-center mb-12">
         {/* Enemy Side */}
         <motion.div 
-          className={cn("flex flex-col items-center gap-4", isEnemyHit && "animate-shake animate-flash")}
+          className={cn("flex flex-col items-center gap-6", isEnemyHit && "animate-shake animate-flash")}
           animate={{ x: turn === 'enemy' ? [0, -20, 0] : 0 }}
         >
           <div className="relative">
-            <GlassCard className="p-0 overflow-hidden w-48 h-48 sm:w-64 sm:h-64 border-neon-pink/50">
-              <img src={enemy.image} className="w-full h-full object-cover grayscale opacity-80" />
+            <GlassCard color="pink" className="p-4 border-2 border-pen-blue/20 w-48 h-48 sm:w-64 sm:h-64 hatching-shadow rotate-1">
+               <div className="w-full h-full border-2 border-pen-blue/10 rounded-sm overflow-hidden bg-white">
+                 <img src={enemy.image} className="w-full h-full object-cover opacity-80" />
+               </div>
             </GlassCard>
-            <div className="absolute -top-4 -right-4 h-12 w-12 rounded-full border-4 border-[#050510] bg-neon-pink flex items-center justify-center font-bold">
+            <div className="absolute -top-4 -right-4 h-14 w-14 bg-sticker-yellow border-2 border-pen-blue rotate-12 flex items-center justify-center font-black italic text-pen-blue shadow-sm">
                {hp.enemy.toFixed(0)}
             </div>
           </div>
-          <span className="font-black italic text-neon-pink uppercase">Mirror AI: {enemy.name}</span>
+          <span className="font-black italic text-pen-red uppercase tracking-tight text-xl">Mirror AI: {enemy.name}</span>
         </motion.div>
 
         {/* Player Side */}
         <motion.div 
-          className={cn("flex flex-col items-center gap-4", isPlayerHit && "animate-shake animate-flash")}
+          className={cn("flex flex-col items-center gap-6", isPlayerHit && "animate-shake animate-flash")}
           animate={{ x: turn === 'player' ? [0, 20, 0] : 0 }}
         >
           <div className="relative">
-            <GlassCard className="p-0 overflow-hidden w-48 h-48 sm:w-64 sm:h-64 border-neon-blue/50">
-              <img src={pet.image} className="w-full h-full object-cover" />
+            <GlassCard color="blue" className="p-4 border-2 border-pen-blue/20 w-48 h-48 sm:w-64 sm:h-64 hatching-shadow -rotate-1">
+               <div className="w-full h-full border-2 border-pen-blue/10 rounded-sm overflow-hidden bg-white">
+                 <img src={pet.image} className="w-full h-full object-cover" />
+               </div>
             </GlassCard>
-            <div className="absolute -top-4 -left-4 h-12 w-12 rounded-full border-4 border-[#050510] bg-neon-blue flex items-center justify-center font-bold">
+            <div className="absolute -top-4 -left-4 h-14 w-14 bg-sticker-yellow border-2 border-pen-blue -rotate-12 flex items-center justify-center font-black italic text-pen-blue shadow-sm">
                {hp.player.toFixed(0)}
             </div>
           </div>
-          <span className="font-black italic text-neon-blue uppercase">{pet.name}</span>
+          <span className="font-black italic text-pen-blue uppercase tracking-tight text-xl">{pet.name}</span>
         </motion.div>
       </div>
 
       {/* Battle Log */}
-      <GlassCard className="w-full max-w-xl h-32 overflow-y-auto no-scrollbar bg-black/40 border-white/5 my-8">
-        <div className="space-y-1">
+      <GlassCard color="white" className="w-full max-w-2xl h-40 overflow-y-auto no-scrollbar border-2 border-black/5 hatching-shadow my-8 p-6 text-left relative">
+        <div className="absolute top-2 right-4 text-[10px] font-black italic text-pen-blue/20 uppercase tracking-[0.2em]">Протокол сражения</div>
+        <div className="space-y-2">
           {battleLog.map((msg, i) => (
-            <div key={i} className={`text-xs ${i === 0 ? 'text-white' : 'text-white/30'}`}>
-              [{battleLog.length - i}] {msg}
+            <div key={i} className={cn(
+              "text-sm font-bold italic",
+              i === 0 ? 'text-pen-blue leading-relaxed' : 'text-pen-blue/30'
+            )}>
+              {i === 0 ? <HandwrittenText text={msg} speed={40} /> : `» ${msg}`}
             </div>
           ))}
         </div>
       </GlassCard>
 
       {/* Controls */}
-      <div className="w-full max-w-xl grid grid-cols-3 gap-4">
+      <div className="w-full max-w-2xl grid grid-cols-3 gap-6">
         <NeonButton 
-          variant="pink" 
           onClick={() => handleAction('attack')} 
           disabled={turn !== 'player' || !!winner}
-          className="flex flex-col items-center py-4"
+          className="flex flex-col items-center py-6 h-auto"
         >
-          <Sword className="h-6 w-6 mb-1" />
-          <span className="text-[10px] uppercase">Удар</span>
+          <Sword className="h-8 w-8 mb-2" />
+          <span className="text-[11px] uppercase font-black italic tracking-widest leading-none">Удар</span>
         </NeonButton>
         <NeonButton 
-          variant="purple" 
           onClick={() => handleAction('skill')} 
           disabled={turn !== 'player' || !!winner}
-          className="flex flex-col items-center py-4"
+          className="flex flex-col items-center py-6 h-auto"
         >
-          <Sparkles className="h-6 w-6 mb-1" />
-          <span className="text-[10px] uppercase">Ульта</span>
+          <Sparkles className="h-8 w-8 mb-2" />
+          <span className="text-[11px] uppercase font-black italic tracking-widest leading-none">Ульта</span>
         </NeonButton>
         <NeonButton 
-          variant="blue" 
           onClick={() => handleAction('defend')} 
           disabled={turn !== 'player' || !!winner}
-          className="flex flex-col items-center py-4"
+          className="flex flex-col items-center py-6 h-auto"
         >
-          <Shield className="h-6 w-6 mb-1" />
-          <span className="text-[10px] uppercase">Блок</span>
+          <Shield className="h-8 w-8 mb-2" />
+          <span className="text-[11px] uppercase font-black italic tracking-widest leading-none">Блок</span>
         </NeonButton>
       </div>
 
@@ -186,29 +190,29 @@ export const Battle: React.FC<{ progress: UserProgress; setProgress: React.Dispa
           <motion.div 
             initial={{ opacity: 0, scale: 0.5 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6"
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-white/60 backdrop-blur-sm p-6"
           >
-            <GlassCard className="text-center p-12 max-w-sm border-neon-blue">
-              <h2 className="text-5xl font-black italic mb-4 uppercase">
+            <GlassCard color="yellow" rotation={1} className="text-center p-12 max-w-sm border-2 border-pen-blue hatching-shadow">
+              <h2 className="text-6xl font-black italic mb-6 uppercase text-pen-blue tracking-tighter">
                 {winner === 'Игрок' ? 'ПОБЕДА!' : 'ПОРАЖЕНИЕ'}
               </h2>
               {rewards && winner === 'Игрок' && (
-                <div className="flex justify-center gap-6 mb-8">
-                  <div className="flex flex-col items-center gap-1">
-                    <Coins className="h-6 w-6 text-rarity-legendary" />
-                    <span className="text-lg font-black text-white">+{rewards.rubles} ₽</span>
+                <div className="flex justify-center gap-8 mb-10">
+                  <div className="flex flex-col items-center gap-2">
+                    <Coins className="h-8 w-8 text-black/40" />
+                    <span className="text-2xl font-black text-pen-blue italic">+{rewards.rubles} ₽</span>
                   </div>
-                  <div className="flex flex-col items-center gap-1">
-                    <Zap className="h-6 w-6 text-neon-blue" />
-                    <span className="text-lg font-black text-white">+{rewards.xp} XP</span>
+                  <div className="flex flex-col items-center gap-2">
+                    <Zap className="h-8 w-8 text-pen-blue/40" />
+                    <span className="text-2xl font-black text-pen-blue italic">+{rewards.xp} XP</span>
                   </div>
                 </div>
               )}
-              <p className="text-white/50 mb-8">
+              <div className="text-pen-blue/60 mb-10 font-bold italic uppercase tracking-widest text-sm leading-relaxed">
                 {winner === 'Игрок' ? 'Твой зверь стал сильнее!' : 'Попробуй еще раз после тренировки.'}
-              </p>
-              <NeonButton variant="purple" onClick={() => window.location.href = '/main'} className="w-full font-black italic">
-                ВЕРНУТЬСЯ
+              </div>
+              <NeonButton onClick={() => window.location.href = '/main'} className="w-full font-black italic text-lg py-5">
+                ВЕРНУТЬСЯ В ШТАБ
               </NeonButton>
             </GlassCard>
           </motion.div>

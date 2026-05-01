@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { NeonButton } from '../components/UI';
+import { NeonButton, HandwrittenText } from '../components/UI';
 import { motion } from 'motion/react';
 
 export const Welcome: React.FC = () => {
@@ -18,30 +18,32 @@ export const Welcome: React.FC = () => {
         className="flex flex-col items-center"
       >
         <img 
-          src="https://i.ibb.co/vCDztLGH/aisaimain.png" 
+          src="https://i.ibb.co/k2PN7Q8y/aisailogo.png" 
           alt="aiSai Logo" 
-          className="mb-8 w-64 object-contain sm:w-80"
+          className="mb-8 w-64 object-contain sm:w-80 transform -rotate-2"
         />
         
-        <h1 className="mb-4 text-5xl font-black tracking-[4px] sm:text-7xl uppercase logo-text-gradient italic">
+        <h1 className="mb-4 text-6xl font-black italic tracking-tighter text-pen-blue uppercase">
           AISAI
         </h1>
         
-        <p className="mb-12 max-w-sm text-sm uppercase tracking-widest text-[#94a3b8] leading-relaxed">
-          Твоя личная армия уникальных ИИ-зверей, которых нет ни у кого. Генерируй, сражайся, эволюционируй.
-        </p>
+        <div className="mb-12 max-w-sm text-lg italic text-pen-blue/60 leading-tight min-h-[60px]">
+          <HandwrittenText 
+            text="Твоя личная армия уникальных ИИ-зверей, которых нет ни у кого. Генерируй, сражайся, эволюционируй." 
+            speed={35}
+          />
+        </div>
 
         <NeonButton 
           onClick={() => navigate('/setup')}
-          variant="purple"
-          className="btn-generate text-base px-16 py-5 tracking-[2px] rounded-[16px]"
+          className="px-16 py-6 text-xl tracking-widest"
         >
           НАЧАТЬ ПУТЕШЕСТВИЕ
         </NeonButton>
       </motion.div>
 
       {/* Footer Info */}
-      <div className="absolute bottom-10 text-xs font-mono text-white/30 uppercase tracking-[0.2em]">
+      <div className="absolute bottom-10 text-xs font-bold text-pen-blue/30 uppercase tracking-[0.4em]">
         GENERATE • BATTLE • EVOLVE
       </div>
     </div>
