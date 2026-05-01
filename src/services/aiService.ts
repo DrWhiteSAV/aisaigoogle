@@ -31,13 +31,14 @@ const getAI = () => {
 
 export const generatePetArt = async (pet: Partial<Pet>) => {
   const prompt = `Hand-drawn blue pen sketch of a ${pet.rarity} ${pet.element} ${pet.attribute} creature based on a real-world ${pet.classification?.species}.
+                  Format: Vertical 9:16 portrait orientation.
                   Art Stage: ${pet.ageStage}.
                   Art Style: Scribbled ballpoint pen illustration, blue ink drawing. 
                   Background: Hand-drawn on a white GRID graph paper notebook page (checkered).
                   Visual character: Manga style sketch, hatching shadows, sketchy lines, mystical aura.
                   Strict requirement: monochromatic BLUE PEN INK only on WHITE GRAPH PAPER SQUARE GRID background.
                   MANDATORY: NO COLORS other than blue pen ink. NO TEXT, NO UI.
-                  Vertical 9:16 portrait, high quality detailed sketch art.`;
+                  Strict requirement: CENTERED portrait in 9:16 vertical ratio.`;
   
   try {
     const ai = getAI();
@@ -102,10 +103,19 @@ export const generateEvolutionUpdate = async (
     const text = response.text;
 
     if (!text) throw new Error("Empty response from AI");
-    const data = JSON.parse(text);
+    let data;
+    try {
+      // Remove possible markdown code blocks if the model returned them
+      const cleanedText = text.replace(/```json\n?|\n?```/g, '').trim();
+      data = JSON.parse(cleanedText);
+    } catch (e) {
+      console.error("Failed to parse AI response as JSON:", text);
+      throw new Error("Invalid format from AI");
+    }
+    
     return {
-      abilities: [...pet.abilities, data.newAbility],
-      lore: data.updatedLore
+      abilities: [...pet.abilities, data.newAbility || "Пробуждение"],
+      lore: data.updatedLore || pet.lore
     };
   } catch (error) {
     console.error("Evolution generation failed:", error);
@@ -194,24 +204,30 @@ export const generatePetStatsAndLore = async (
     if (!text) throw new Error("Empty response from AI for Stats");
     let parsed;
     try {
-      parsed = JSON.parse(text);
+      const cleanedText = text.replace(/```json\n?|\n?```/g, '').trim();
+      parsed = JSON.parse(cleanedText);
     } catch (e) {
       console.error("JSON parse failed for stats:", text);
       throw new Error("Invalid format from AI");
     }
 
-    return {
-      name: parsed.name || "Безымянный Питомец",
-      element: parsed.element || "water",
-      attribute: parsed.attribute || "void",
-      classification: parsed.classification || {
+    const name = parsed.name || "Безымянный Питомец";
+    const element = (parsed.element || "water") as Element;
+    const attribute = (parsed.attribute || "void") as Attribute;
+    const classification = parsed.classification || {
         type: "Неизвестно",
         class: "Неизвестно",
         order: "Неизвестно",
         family: "Неизвестно",
         genus: "Неизвестно",
         species: "Неизвестно"
-      },
+    };
+
+    return {
+      name,
+      element,
+      attribute,
+      classification,
       stats: {
         attack: parsed.stats?.attack || 10,
         defense: parsed.stats?.defense || 10,
@@ -223,7 +239,7 @@ export const generatePetStatsAndLore = async (
         maxRage: 100,
         rage: 0
       },
-      abilities: parsed.abilities || ["Базовая Атака"],
+      abilities: Array.isArray(parsed.abilities) ? parsed.abilities : ["Базовая Атака"],
       lore: parsed.lore || "Легенда еще не написана."
     };
   } catch (error) {
@@ -248,14 +264,19 @@ export const generateBonusItem = async (type: 'material' | 'food' | 'egg'): Prom
     const text = response.text;
 
     if (!text) throw new Error("Empty response from AI for Item");
-    const data = JSON.parse(text);
-    return {
-      id: Math.random().toString(36).substr(2, 9),
-      type,
-      name: data.name,
-      description: data.description,
-      value: data.value
-    };
+    try {
+      const cleanedText = text.replace(/```json\n?|\n?```/g, '').trim();
+      const data = JSON.parse(cleanedText);
+      return {
+        id: Math.random().toString(36).substr(2, 9),
+        type,
+        name: data.name || "Странный объект",
+        description: data.description || "Не описано",
+        value: data.value || 0
+      };
+    } catch (e) {
+      throw new Error("Parse failed");
+    }
   } catch (e) {
     return {
       id: 'fallback',
@@ -312,7 +333,13 @@ export const generateQuest = async (pet: Pet) => {
     const text = response.text;
 
     if (!text) return null;
-    return JSON.parse(text);
+    try {
+      const cleanedText = text.replace(/```json\n?|\n?```/g, '').trim();
+      return JSON.parse(cleanedText);
+    } catch (e) {
+      console.error("Quest parse failed:", text);
+      return null;
+    }
   } catch (error) {
     console.error("Quest generation failed:", error);
     return null;

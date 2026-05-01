@@ -10,11 +10,12 @@ import { generateEvolutionUpdate, generatePetArt } from '../services/aiService';
 
 const MAX_LEVEL = 100;
 
-export const Evolve: React.FC<{ progress: UserProgress; setProgress: React.Dispatch<React.SetStateAction<UserProgress>> }> = ({ progress, setProgress }) => {
-  const { id } = useParams<{ id: string }>();
+export const Evolve: React.FC<{ progress: UserProgress; setProgress: React.Dispatch<React.SetStateAction<UserProgress>>; manualId?: string }> = ({ progress, setProgress, manualId }) => {
+  const { id: paramsId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [evolving, setEvolving] = useState(false);
   
+  const id = manualId || paramsId;
   const pet = progress.pets.find(p => p.id === id);
 
   if (!pet) {

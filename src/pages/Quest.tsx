@@ -90,8 +90,8 @@ export const Quest: React.FC<{ progress: UserProgress; setProgress: React.Dispat
       });
 
       const updatedInventory = droppedItem 
-        ? [...(prev.inventory || []), droppedItem]
-        : (prev.inventory || []);
+        ? [...(Array.isArray(prev.inventory) ? prev.inventory : []), droppedItem]
+        : (Array.isArray(prev.inventory) ? prev.inventory : []);
 
       return {
         ...prev,

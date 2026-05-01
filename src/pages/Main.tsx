@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { UserProgress, Pet } from '../types';
 import { GlassCard, NeonButton, HandwrittenText } from '../components/UI';
 import { motion, AnimatePresence } from 'motion/react';
@@ -7,11 +7,24 @@ import { cn } from '../lib/utils';
 import { Shield, Sword, Brain, Zap, Star, Sparkles, Heart, Activity, Compass, Coins, Plus, Box, Package, ChevronRight, Zap as EnergyIcon } from 'lucide-react';
 import { getPetRankByLevel, calculateCP } from '../lib/gameLogic';
 
-export const Main: React.FC<{ progress: UserProgress; setProgress: React.Dispatch<React.SetStateAction<UserProgress>> }> = ({ progress, setProgress }) => {
+export const Main: React.FC<{ 
+  progress: UserProgress; 
+  setProgress: React.Dispatch<React.SetStateAction<UserProgress>>;
+  manualActiveId?: string | null;
+}> = ({ progress, setProgress, manualActiveId }) => {
   const navigate = useNavigate();
+  const { id: paramsId } = useParams();
+  const activeId = manualActiveId || paramsId;
   const [timeLeft, setTimeLeft] = useState("");
 
   const petCount = progress.pets.length;
+
+  useEffect(() => {
+    // Sync with active pet id in state if provided through URL
+    if (activeId && progress.activePetId !== activeId) {
+       // setProgress(prev => ({ ...prev, activePetId: activeId })); // Avoid side effect in render/effect if possible
+    }
+  }, [activeId]);
 
   useEffect(() => {
     const updateTimer = () => {
@@ -34,28 +47,28 @@ export const Main: React.FC<{ progress: UserProgress; setProgress: React.Dispatc
   }, [progress.lastEnergyUpdate]);
 
   return (
-    <div className="p-4 sm:p-8 max-w-6xl mx-auto space-y-12 pt-12 pb-32 min-h-screen relative">
+    <div className="space-y-12 pb-32 relative">
       {/* Header with Energy & Currency */}
-      <header className="flex flex-col sm:flex-row gap-6 items-center justify-between border-b-2 border-black/5 pb-10">
+      <header className="flex flex-col gap-6 border-b-2 border-black/5 pb-10">
         <div className="flex items-center gap-4">
-          <div className="h-16 w-16 bg-sticker-yellow border-2 border-black rotate-3 flex items-center justify-center shadow-lg p-2">
+          <div className="h-16 w-16 bg-sticker-yellow border-2 border-black rotate-3 flex items-center justify-center shadow-lg p-2 cursor-pointer hover:scale-110 transition-transform" onClick={() => navigate('/main')}>
              <img src="https://i.ibb.co/k2PN7Q8y/aisailogo.png" alt="aiSai" className="h-full w-full object-contain mix-blend-multiply" />
           </div>
           <div>
             <h1 className="text-4xl font-black italic tracking-tighter text-pen-blue leading-none">aiSai</h1>
-            <div className="text-sm font-black italic text-pen-blue/30 mt-1">Протокол Бестиария: {petCount} сущностей</div>
+            <div className="text-sm font-black italic text-pen-blue/30 mt-1 uppercase tracking-wider">Бестиарий: {petCount} сущностей</div>
           </div>
         </div>
         
-        <div className="flex items-center gap-8">
+        <div className="flex flex-wrap items-center gap-6">
           {/* Energy Section */}
-          <div className="flex flex-col items-end gap-1">
+          <div className="flex flex-col gap-1 flex-1 min-w-[120px]">
              <div className="flex items-center gap-2 text-sm font-black italic text-pen-blue">
                 <EnergyIcon className="h-4 w-4 fill-pen-blue" />
                 <span>Заряд: {progress.energy}</span>
                 <span className="text-[10px] opacity-40">({timeLeft})</span>
              </div>
-             <div className="w-40 h-2.5 bg-black/5 rounded-full overflow-hidden border border-black/5">
+             <div className="w-32 h-2.5 bg-black/5 rounded-full overflow-hidden border border-black/5">
                 <motion.div 
                   className="h-full bg-pen-blue opacity-50" 
                   animate={{ width: `${Math.min((progress.energy / 50) * 100, 100)}%` }} 
@@ -65,11 +78,10 @@ export const Main: React.FC<{ progress: UserProgress; setProgress: React.Dispatc
 
           <div
             onClick={() => navigate('/topup')}
-            className="group cursor-pointer bg-sticker-blue px-6 py-3 border-2 border-black rotate-1 flex items-center gap-3 text-lg font-black italic shadow-sm hover:-translate-y-1 transition-all"
+            className="group cursor-pointer bg-sticker-blue px-4 py-2 border-2 border-black rotate-1 flex items-center gap-3 text-lg font-black italic shadow-sm hover:-translate-y-1 transition-all"
           >
             <Coins className="h-5 w-5" />
             <span>{progress.currency.toLocaleString()} ₽</span>
-            <Plus className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
         </div>
       </header>
@@ -79,16 +91,15 @@ export const Main: React.FC<{ progress: UserProgress; setProgress: React.Dispatc
            <h2 className="text-3xl font-black italic text-pen-blue">Ваши Сущности</h2>
            <button 
              onClick={() => navigate('/shop')}
-             className="text-pen-blue/40 hover:text-pen-blue font-black italic text-sm transition-colors border-b-2 border-dashed border-transparent hover:border-pen-blue"
+             className="text-pen-blue/40 hover:text-pen-blue font-black italic text-sm transition-colors"
            >
-             + Призвать новую в Магазине
+             + Магазин
            </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
            {progress.pets.map((pet, i) => {
              const cp = calculateCP(pet);
-             const expNeeded = Math.floor(100 * Math.pow(1.1, pet.level));
              return (
                <motion.div
                  key={pet.id}
@@ -96,39 +107,38 @@ export const Main: React.FC<{ progress: UserProgress; setProgress: React.Dispatc
                  animate={{ opacity: 1, y: 0 }}
                  transition={{ delay: i * 0.05 }}
                  onClick={() => navigate(`/pet/${pet.id}`)}
-                 className="group cursor-pointer"
+                 className={cn(
+                   "group cursor-pointer transition-all duration-300",
+                   activeId === pet.id ? "scale-105 z-20" : "scale-100"
+                 )}
                >
-                 <GlassCard color="white" noPadding className="border-2 border-black/10 overflow-hidden rotation-1 group-hover:rotation-neg-1 transition-transform">
+                 <GlassCard 
+                   color="white" 
+                   noPadding 
+                   className={cn(
+                     "border-2 overflow-hidden rotation-1 group-hover:rotate-0 transition-all",
+                     activeId === pet.id ? "border-pen-blue shadow-lg !rotate-0" : "border-black/10"
+                   )}
+                 >
                    <div className="aspect-[4/5] relative bg-white">
                      <img src={pet.image} alt={pet.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                      
-                     <div className="absolute top-3 left-3 flex flex-col gap-1">
-                        <div className="px-2 py-0.5 bg-black text-white text-[10px] font-black italic">
-                          {pet.rarity}
-                        </div>
-                        <div className="px-2 py-0.5 bg-pen-red text-white text-[10px] font-black italic">
-                          {pet.element}
+                     <div className="absolute top-2 left-2 flex flex-col gap-1">
+                        <div className="px-2 py-0.5 bg-black text-white text-[9px] font-black italic lowercase">
+                           {pet.rarity}
                         </div>
                      </div>
 
-                     <div className="absolute top-3 right-3 h-10 w-10 bg-sticker-yellow border border-black rotate-6 flex flex-col items-center justify-center">
-                        <span className="text-[8px] font-black text-black/40 italic leading-none">CP</span>
-                        <span className="text-sm font-black italic leading-none">{cp}</span>
+                     <div className="absolute top-2 right-2 h-8 w-8 bg-sticker-yellow border border-black rotate-6 flex flex-col items-center justify-center">
+                        <span className="text-[10px] font-black italic leading-none">{cp}</span>
                      </div>
 
-                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-white via-white/80 to-transparent p-4 pt-12">
-                        <h3 className="text-2xl font-black italic truncate leading-none">
+                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-white via-white/80 to-transparent p-3 pt-8">
+                        <h3 className="text-xl font-black italic truncate leading-none">
                           {pet.name}
                         </h3>
-                        <div className="text-[10px] font-black italic text-pen-blue/40 mt-1 mb-2">
-                          Уровень {pet.level} • {getPetRankByLevel(pet.level)}
-                        </div>
-                        <div className="h-1 w-full bg-black/5 rounded-full overflow-hidden">
-                           <motion.div 
-                             className="h-full bg-pen-blue opacity-40" 
-                             initial={{ width: 0 }}
-                             animate={{ width: `${Math.min((pet.experience / expNeeded) * 100, 100)}%` }} 
-                           />
+                        <div className="text-[10px] font-black italic text-pen-blue/40 mt-1">
+                          LVL {pet.level}
                         </div>
                      </div>
                    </div>
@@ -138,10 +148,10 @@ export const Main: React.FC<{ progress: UserProgress; setProgress: React.Dispatc
            })}
            
            {progress.pets.length === 0 && (
-              <div className="col-span-full py-24 text-center border-4 border-dashed border-black/5 rounded-2xl">
-                 <Package className="h-16 w-16 mx-auto text-black/10 mb-4" />
-                 <h3 className="text-xl font-black italic text-pen-blue/30">Бестиарий пуст</h3>
-                 <NeonButton onClick={() => navigate('/shop')} className="mt-6">Отправиться в магазин</NeonButton>
+              <div className="col-span-full py-16 text-center border-4 border-dashed border-black/5 rounded-2xl">
+                 <Package className="h-12 w-12 mx-auto text-black/10 mb-4" />
+                 <h3 className="text-lg font-black italic text-pen-blue/30">Бестиарий пуст</h3>
+                 <NeonButton onClick={() => navigate('/shop')} className="mt-4">В магазин</NeonButton>
               </div>
            )}
         </div>
@@ -178,5 +188,3 @@ const StatItem = ({ icon: Icon, label, value, max, showAdd, onAdd }: any) => (
     </div>
   </div>
 );
-
-
