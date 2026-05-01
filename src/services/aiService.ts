@@ -16,15 +16,20 @@ const getAI = () => {
   if (!aiInstance) {
     const apiKey = getApiKey();
     if (!apiKey) {
-      console.warn("GEMINI_API_KEY is not set. AI features may fail.");
+      console.warn("GEMINI_API_KEY is not set. AI features will likely fail.");
     }
-    aiInstance = new GoogleGenAI({ apiKey });
+    // Handle empty apiKey gracefully if the SDK throws
+    try {
+      aiInstance = new GoogleGenAI({ apiKey: apiKey || 'dummy-key' });
+    } catch (e) {
+      console.error("Failed to initialize GoogleGenAI:", e);
+      return null;
+    }
   }
   return aiInstance;
 };
 
 export const generatePetArt = async (pet: Partial<Pet>) => {
-  const ai = getAI();
   const prompt = `Hand-drawn blue pen sketch of a ${pet.rarity} ${pet.element} ${pet.attribute} creature based on a real-world ${pet.classification?.species}.
                   Art Stage: ${pet.ageStage}.
                   Art Style: Scribbled ballpoint pen illustration, blue ink drawing. 
@@ -36,6 +41,7 @@ export const generatePetArt = async (pet: Partial<Pet>) => {
   
   try {
     const ai = getAI();
+    if (!ai) throw new Error("AI not initialized");
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: { parts: [{ text: prompt }] }
@@ -76,6 +82,7 @@ export const generateEvolutionUpdate = async (
 
   try {
     const ai = getAI();
+    if (!ai) throw new Error("AI not initialized");
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
@@ -92,8 +99,10 @@ export const generateEvolutionUpdate = async (
       }
     });
 
-    if (!response.text) throw new Error("Empty response from AI");
-    const data = JSON.parse(response.text);
+    const text = response.text;
+
+    if (!text) throw new Error("Empty response from AI");
+    const data = JSON.parse(text);
     return {
       abilities: [...pet.abilities, data.newAbility],
       lore: data.updatedLore
@@ -139,6 +148,7 @@ export const generatePetStatsAndLore = async (
 
   try {
     const ai = getAI();
+    if (!ai) throw new Error("AI not initialized");
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
@@ -179,16 +189,42 @@ export const generatePetStatsAndLore = async (
       }
     });
 
-    if (!response.text) throw new Error("Empty response from AI for Stats");
-    const parsed = JSON.parse(response.text);
+    const text = response.text;
+
+    if (!text) throw new Error("Empty response from AI for Stats");
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch (e) {
+      console.error("JSON parse failed for stats:", text);
+      throw new Error("Invalid format from AI");
+    }
+
     return {
-      ...parsed,
+      name: parsed.name || "Безымянный Питомец",
+      element: parsed.element || "water",
+      attribute: parsed.attribute || "void",
+      classification: parsed.classification || {
+        type: "Неизвестно",
+        class: "Неизвестно",
+        order: "Неизвестно",
+        family: "Неизвестно",
+        genus: "Неизвестно",
+        species: "Неизвестно"
+      },
       stats: {
-        ...parsed.stats,
-        maxHealth: parsed.stats.health,
+        attack: parsed.stats?.attack || 10,
+        defense: parsed.stats?.defense || 10,
+        speed: parsed.stats?.speed || 10,
+        magic: parsed.stats?.magic || 10,
+        regeneration: parsed.stats?.regeneration || 5,
+        health: parsed.stats?.health || 100,
+        maxHealth: parsed.stats?.health || 100,
         maxRage: 100,
         rage: 0
-      }
+      },
+      abilities: parsed.abilities || ["Базовая Атака"],
+      lore: parsed.lore || "Легенда еще не написана."
     };
   } catch (error) {
     console.error("Generation failed:", error);
@@ -203,13 +239,16 @@ export const generateBonusItem = async (type: 'material' | 'food' | 'egg'): Prom
 
   try {
     const ai = getAI();
+    if (!ai) throw new Error("AI not initialized");
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
       config: { responseMimeType: "application/json" }
     });
-    if (!response.text) throw new Error("Empty response from AI for Item");
-    const data = JSON.parse(response.text);
+    const text = response.text;
+
+    if (!text) throw new Error("Empty response from AI for Item");
+    const data = JSON.parse(text);
     return {
       id: Math.random().toString(36).substr(2, 9),
       type,
@@ -240,6 +279,7 @@ export const generateQuest = async (pet: Pet) => {
 
   try {
     const ai = getAI();
+    if (!ai) throw new Error("AI not initialized");
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
@@ -269,8 +309,10 @@ export const generateQuest = async (pet: Pet) => {
       }
     });
 
-    if (!response.text) return null;
-    return JSON.parse(response.text);
+    const text = response.text;
+
+    if (!text) return null;
+    return JSON.parse(text);
   } catch (error) {
     console.error("Quest generation failed:", error);
     return null;

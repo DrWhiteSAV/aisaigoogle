@@ -77,6 +77,18 @@ const BackgroundDoodles = () => {
 
 import HTMLFlipBook from 'react-pageflip';
 
+const Page = React.forwardRef<HTMLDivElement, { children: React.ReactNode }>(({ children }, ref) => {
+  return (
+    <div className="bg-[#f2ede0] shadow-none relative overflow-hidden h-full border-l border-black/5" ref={ref}>
+      {/* Page margin line - local to each page */}
+      <div className="absolute left-[8%] top-0 bottom-0 w-[1px] bg-red-400/10 pointer-events-none" />
+      <div className="p-4 sm:p-10 h-full overflow-y-auto no-scrollbar relative z-10">
+        {children}
+      </div>
+    </div>
+  );
+});
+
 const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: { 
   hasPets: boolean, 
   progress: UserProgress, 
@@ -111,13 +123,14 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
   useEffect(() => {
     const timer = setTimeout(() => {
       try {
-        if (flipBookRef.current && typeof flipBookRef.current.pageFlip === 'function') {
-          const pageFlip = flipBookRef.current.pageFlip();
-          if (pageFlip && pageFlip.getCurrentPageIndex) {
+        if (flipBookRef.current) {
+          // react-pageflip exposes pageFlip via ref
+          const pageFlip = typeof flipBookRef.current.pageFlip === 'function' ? flipBookRef.current.pageFlip() : null;
+          
+          if (pageFlip && typeof pageFlip.getCurrentPageIndex === 'function' && typeof pageFlip.flip === 'function') {
             const path = Object.keys(pageMap).find(p => location.pathname.startsWith(p));
             if (path && pageMap[path] !== undefined) {
                const targetPage = pageMap[path];
-               // Check if we are already on that page or flipping
                if (pageFlip.getCurrentPageIndex() !== targetPage) {
                  pageFlip.flip(targetPage);
                }
@@ -125,23 +138,11 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
           }
         }
       } catch (e) {
-        console.warn("Flip failed silently", e);
+        console.warn("Page flip sync failed:", e);
       }
-    }, 100);
+    }, 150); // Increased timeout significantly to ensure initialization
     return () => clearTimeout(timer);
   }, [location.pathname]);
-
-  const Page = React.forwardRef<HTMLDivElement, { children: React.ReactNode }>(({ children }, ref) => {
-    return (
-      <div className="bg-[#f2ede0] shadow-none relative overflow-hidden h-full border-l border-black/5" ref={ref}>
-        {/* Page margin line - local to each page */}
-        <div className="absolute left-[8%] top-0 bottom-0 w-[1px] bg-red-400/10 pointer-events-none" />
-        <div className="p-4 sm:p-10 h-full overflow-y-auto no-scrollbar relative z-10">
-          {children}
-        </div>
-      </div>
-    );
-  });
 
   const isPortrait = windowSize.width < 1024;
 
