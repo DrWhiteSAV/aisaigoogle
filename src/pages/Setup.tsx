@@ -95,19 +95,22 @@ export const Setup: React.FC<{ onComplete: (pet: Pet) => void }> = ({ onComplete
     return 'normal';
   };
 
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   const handleGenerate = async () => {
     const hobbiesCount = (profile.hobbies || []).length;
     const traitsCount = (profile.traits || []).length;
     
     if (!profile.name || !profile.city || hobbiesCount === 0 || traitsCount === 0) {
-      alert('Пожалуйста, заполни все обязательные поля анкеты!');
+      setErrorMessage('Пожалуйста, заполни все обязательные поля анкеты!');
       return;
     }
 
+    setErrorMessage(null);
     setLoading(true);
     try {
       const forcedRarity = pickRarity();
-      const { name, stats, abilities, lore, classification } = await generatePetStatsAndLore(
+      const { name, stats, abilities, lore, classification, element, attribute } = await generatePetStatsAndLore(
         profile,
         forcedRarity
       );
@@ -118,24 +121,30 @@ export const Setup: React.FC<{ onComplete: (pet: Pet) => void }> = ({ onComplete
         rarity: forcedRarity, 
         personality: profile.traits[0] as any,
         habitat: 'forest',
-        classification
+        classification,
+        element,
+        attribute
       });
 
       setGeneratedPet({
         id: petId,
         name,
         rarity: forcedRarity,
-        element: 'light',
+        element: element || 'light',
+        attribute: attribute || 'void',
         personality: profile.traits[0] as any,
         habitat: 'forest', 
         image: art,
         stats: {
-          attack: Math.min(Math.max(stats.attack, 1), 10),
-          defense: Math.min(Math.max(stats.defense, 1), 10),
-          speed: Math.min(Math.max(stats.speed, 1), 10),
-          magic: Math.min(Math.max(stats.magic, 1), 10),
-          regeneration: Math.min(Math.max(stats.regeneration, 1), 10),
-          health: Math.min(Math.max(stats.health, 1), 10),
+          attack: stats.attack,
+          defense: stats.defense,
+          speed: stats.speed,
+          magic: stats.magic,
+          regeneration: stats.regeneration,
+          health: stats.health,
+          maxHealth: stats.health,
+          maxRage: 100,
+          rage: 0
         },
         classification,
         abilities,
@@ -148,6 +157,9 @@ export const Setup: React.FC<{ onComplete: (pet: Pet) => void }> = ({ onComplete
         statPoints: 0,
       });
       setStep(2);
+    } catch (error) {
+      console.error("Critical failure during pet generation:", error);
+      setErrorMessage("Критическая ошибка при генерации. Проверьте API ключ или соединение.");
     } finally {
       setLoading(false);
     }
@@ -329,6 +341,16 @@ export const Setup: React.FC<{ onComplete: (pet: Pet) => void }> = ({ onComplete
                     {loading ? <Sparkles className="animate-spin h-8 w-8 text-white" /> : <Sparkles className="h-8 w-8" />}
                     <span>ПРИЗВАТЬ СУТЬ</span>
                   </NeonButton>
+
+                  {errorMessage && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 5 }} 
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-pen-red/10 border border-pen-red text-pen-red text-xs font-black italic p-4 rounded-sm"
+                    >
+                      {errorMessage}
+                    </motion.div>
+                  )}
                </div>
             </div>
           </motion.div>

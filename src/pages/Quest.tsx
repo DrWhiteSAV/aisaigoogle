@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { UserProgress, Pet, InventoryItem } from '../types';
 import { GlassCard, NeonButton, HandwrittenText } from '../components/UI';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, Compass, ArrowLeft, Trophy, Coins, Box } from 'lucide-react';
 import { generateQuest, generateBonusItem } from '../services/aiService';
-import { getQuestRewardExp } from '../lib/gameLogic';
+import { getQuestRewardExp, getNextLevelReward } from '../lib/gameLogic';
 import { HandDrawnTimer } from '../components/HandDrawnTimer';
 
 export const Quest: React.FC<{ progress: UserProgress; setProgress: React.Dispatch<React.SetStateAction<UserProgress>> }> = ({ progress, setProgress }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [quest, setQuest] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [questResult, setQuestResult] = useState<any>(null);
@@ -17,13 +18,14 @@ export const Quest: React.FC<{ progress: UserProgress; setProgress: React.Dispat
   const pet = progress.pets.find(p => p.id === progress.activePetId);
 
   useEffect(() => {
+    if (!location.pathname.startsWith('/quest')) return;
+
     if (!pet) {
       navigate('/start');
       return;
     }
 
     if (progress.energy < 1) {
-      alert("Недостаточно энергии!");
       navigate('/main');
       return;
     }
@@ -100,7 +102,13 @@ export const Quest: React.FC<{ progress: UserProgress; setProgress: React.Dispat
     });
   };
 
-  if (!pet) return null;
+  if (!pet) {
+    return (
+      <div className="p-12 text-center h-full flex flex-col items-center justify-center font-bold italic text-pen-blue">
+        Выберите питомца для квеста
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 max-w-2xl mx-auto min-h-screen pb-24 pt-6 flex flex-col items-center relative">
@@ -161,7 +169,8 @@ export const Quest: React.FC<{ progress: UserProgress; setProgress: React.Dispat
             </GlassCard>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {quest?.options.map((opt: any, i: number) => {
+              {quest?.options?.map((opt: any, i: number) => {
+                if (!opt) return null;
                 const isSuccess = i % 2 === 0; // Simple pattern for UI preview
                 const previewXP = getNextLevelReward(pet!.level, isSuccess);
                 const previewRubles = Math.floor(previewXP * 0.5);
@@ -191,6 +200,12 @@ export const Quest: React.FC<{ progress: UserProgress; setProgress: React.Dispat
                   </button>
                 );
               })}
+
+              {(!quest || !quest.options) && (
+                <div className="col-span-full p-8 text-center bg-white border border-black/5 italic text-pen-blue/40">
+                  Не удалось загрузить данные квеста. Пожалуйста, попробуйте позже.
+                </div>
+              )}
             </div>
           </motion.div>
         ) : (

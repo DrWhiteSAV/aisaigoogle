@@ -32,13 +32,11 @@ export const Market: React.FC<{ progress: UserProgress; setProgress: React.Dispa
     if (!petToSell) return;
 
     if (progress.pets.length <= 1) {
-      alert('Нельзя продать последнее существо!');
       return;
     }
 
     const price = calculateSellPrice(petToSell);
-    if (!window.confirm(`Вы действительно хотите продать ${petToSell.name} за ${price} ₽?`)) return;
-
+    
     setProgress(prev => ({
       ...prev,
       currency: prev.currency + price,
@@ -115,7 +113,7 @@ export const Market: React.FC<{ progress: UserProgress; setProgress: React.Dispa
                            <NeonButton 
                              onClick={() => {
                                if (progress.currency < summonCost) {
-                                  alert('Недостаточно средств для проведения ритуала');
+                                  // Fail silently or handle with UI in future
                                } else {
                                   setProgress(p => ({ ...p, currency: p.currency - summonCost }));
                                   navigate('/setup');

@@ -34,11 +34,9 @@ export const Evolve: React.FC<{ progress: UserProgress; setProgress: React.Dispa
   const handleLevelUp = async () => {
     if (pet.level >= MAX_LEVEL) return;
     if (pet.experience < expNeeded) {
-      alert('Недостаточно опыта!');
       return;
     }
     if (progress.currency < costPerLevel) {
-      alert('Недостаточно рублей!');
       return;
     }
 

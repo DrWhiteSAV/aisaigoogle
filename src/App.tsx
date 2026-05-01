@@ -86,6 +86,13 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
   const location = useLocation();
   const navigate = useNavigate();
   const flipBookRef = React.useRef<any>(null);
+  const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+
+  useEffect(() => {
+    const handleResize = () => setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Map paths to page indices
   const pageMap: Record<string, number> = {
@@ -102,55 +109,76 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
   };
 
   useEffect(() => {
-    if (flipBookRef.current) {
-      const path = Object.keys(pageMap).find(p => location.pathname.startsWith(p));
-      if (path && pageMap[path] !== undefined) {
-        flipBookRef.current.pageFlip().flip(pageMap[path]);
+    const timer = setTimeout(() => {
+      try {
+        if (flipBookRef.current && typeof flipBookRef.current.pageFlip === 'function') {
+          const pageFlip = flipBookRef.current.pageFlip();
+          if (pageFlip && pageFlip.getCurrentPageIndex) {
+            const path = Object.keys(pageMap).find(p => location.pathname.startsWith(p));
+            if (path && pageMap[path] !== undefined) {
+               const targetPage = pageMap[path];
+               // Check if we are already on that page or flipping
+               if (pageFlip.getCurrentPageIndex() !== targetPage) {
+                 pageFlip.flip(targetPage);
+               }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Flip failed silently", e);
       }
-    }
+    }, 100);
+    return () => clearTimeout(timer);
   }, [location.pathname]);
 
   const Page = React.forwardRef<HTMLDivElement, { children: React.ReactNode }>(({ children }, ref) => {
     return (
-      <div className="bg-[#f4f1e8] shadow-none relative overflow-hidden h-full border-l border-black/5" ref={ref}>
-        <div className="notebook-margin" />
-        <div className="p-4 sm:p-8 h-full overflow-y-auto no-scrollbar">
+      <div className="bg-[#f2ede0] shadow-none relative overflow-hidden h-full border-l border-black/5" ref={ref}>
+        {/* Page margin line - local to each page */}
+        <div className="absolute left-[8%] top-0 bottom-0 w-[1px] bg-red-400/10 pointer-events-none" />
+        <div className="p-4 sm:p-10 h-full overflow-y-auto no-scrollbar relative z-10">
           {children}
         </div>
       </div>
     );
   });
 
+  const isPortrait = windowSize.width < 1024;
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-transparent">
+    <div className="flex min-h-screen items-center justify-center bg-transparent relative selection:bg-sticker-blue/30 overflow-hidden">
+      {/* Subtle overlay to simulate a book cover behind the pages */}
+      <div className="absolute inset-0 bg-black/5 -z-10" />
+      
       {hasPets && <Navbar rubles={progress.currency} />}
       
-      <div className="flex-1 h-screen flex items-center justify-center overflow-hidden">
+      <div className="flex-1 h-screen flex items-center justify-center overflow-hidden py-4 sm:py-10 px-2">
         <HTMLFlipBook 
+          key={`flipbook-${isPortrait}`}
           width={800} 
-          height={1000}
+          height={1100}
           size="stretch"
           minWidth={315}
-          maxWidth={1200}
+          maxWidth={1000}
           minHeight={400}
-          maxHeight={1600}
-          maxShadowOpacity={0.3}
+          maxHeight={1400}
+          maxShadowOpacity={0.15}
           showCover={false}
           mobileScrollSupport={true}
           ref={flipBookRef}
           className="flipbook-root"
-          style={{ cursor: 'pointer' }}
+          style={{ cursor: 'grab' }}
           startPage={0}
           drawShadow={true}
-          flippingTime={1000}
-          usePortrait={window.innerWidth < 1024}
+          flippingTime={800}
+          usePortrait={isPortrait} 
           startZIndex={0}
           autoSize={true}
           clickEventForward={true}
           useMouseEvents={true}
           swipeDistance={30}
           showPageCorners={true}
-          disableFlipByClick={false}
+          disableFlipByClick={true}
         >
           <Page><Welcome /></Page>
           <Page><Setup onComplete={handleAddNewPet} /></Page>

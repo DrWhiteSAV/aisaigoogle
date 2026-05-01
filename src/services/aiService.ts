@@ -2,9 +2,29 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { Pet, PetStats, Rarity, Element, Attribute, Personality, Habitat, Classification, UserProfile, InventoryItem } from "../types";
 import { RARITY_WEIGHTS } from "../lib/gameLogic";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+// Safe way to access environment variables in Vite/React
+const getApiKey = () => {
+  try {
+    return (typeof process !== 'undefined' ? (process.env as any).GEMINI_API_KEY : '') || '';
+  } catch (e) {
+    return '';
+  }
+};
+
+let aiInstance: GoogleGenAI | null = null;
+const getAI = () => {
+  if (!aiInstance) {
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      console.warn("GEMINI_API_KEY is not set. AI features may fail.");
+    }
+    aiInstance = new GoogleGenAI({ apiKey });
+  }
+  return aiInstance;
+};
 
 export const generatePetArt = async (pet: Partial<Pet>) => {
+  const ai = getAI();
   const prompt = `Hand-drawn blue pen sketch of a ${pet.rarity} ${pet.element} ${pet.attribute} creature based on a real-world ${pet.classification?.species}.
                   Art Stage: ${pet.ageStage}.
                   Art Style: Scribbled ballpoint pen illustration, blue ink drawing. 
@@ -15,21 +35,25 @@ export const generatePetArt = async (pet: Partial<Pet>) => {
                   Vertical 9:16 portrait, high quality detailed sketch art.`;
   
   try {
+    const ai = getAI();
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash-exp', // Using a fast image model if available or fallback
+      model: 'gemini-2.5-flash-image',
       contents: { parts: [{ text: prompt }] }
     });
 
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
-      if (part.inlineData) {
-        return `data:image/png;base64,${part.inlineData.data}`;
+    if (response.candidates?.[0]?.content?.parts) {
+      for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData) {
+          return `data:image/png;base64,${part.inlineData.data}`;
+        }
       }
     }
+    
+    return `https://picsum.photos/seed/${pet.id}-${pet.level}/1080/1920`;
   } catch (error) {
     console.error("Image generation failed:", error);
     return `https://picsum.photos/seed/${pet.id}-${pet.level}/1080/1920`;
   }
-  return `https://picsum.photos/seed/${pet.id}-${pet.level}/1080/1920`;
 };
 
 export const generateEvolutionUpdate = async (
@@ -51,6 +75,7 @@ export const generateEvolutionUpdate = async (
     Верни JSON объект на русском языке.`;
 
   try {
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
@@ -66,7 +91,9 @@ export const generateEvolutionUpdate = async (
         }
       }
     });
-    const data = JSON.parse(response.text || "{}");
+
+    if (!response.text) throw new Error("Empty response from AI");
+    const data = JSON.parse(response.text);
     return {
       abilities: [...pet.abilities, data.newAbility],
       lore: data.updatedLore
@@ -111,6 +138,7 @@ export const generatePetStatsAndLore = async (
     7. lore: легенда появления.`;
 
   try {
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
@@ -151,7 +179,8 @@ export const generatePetStatsAndLore = async (
       }
     });
 
-    const parsed = JSON.parse(response.text || "{}");
+    if (!response.text) throw new Error("Empty response from AI for Stats");
+    const parsed = JSON.parse(response.text);
     return {
       ...parsed,
       stats: {
@@ -173,12 +202,14 @@ export const generateBonusItem = async (type: 'material' | 'food' | 'egg'): Prom
     Верни JSON с полями: name, description, value (сила предмета от 10 до 50).`;
 
   try {
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
       config: { responseMimeType: "application/json" }
     });
-    const data = JSON.parse(response.text || "{}");
+    if (!response.text) throw new Error("Empty response from AI for Item");
+    const data = JSON.parse(response.text);
     return {
       id: Math.random().toString(36).substr(2, 9),
       type,
@@ -205,9 +236,10 @@ export const generateQuest = async (pet: Pet) => {
     1. Название (title): Эпичное название задания.
     2. Сценарий (scenario): Описание ситуации (1-2 предложения).
     3. Варианты (options): массив из 4 объектов { text, outcome, rewardXP, rewardRubles }.
-       Награды: от 50 до 1000.`;
+    4. Награды: от 50 до 1000.`;
 
   try {
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
@@ -237,7 +269,8 @@ export const generateQuest = async (pet: Pet) => {
       }
     });
 
-    return JSON.parse(response.text || "{}");
+    if (!response.text) return null;
+    return JSON.parse(response.text);
   } catch (error) {
     console.error("Quest generation failed:", error);
     return null;

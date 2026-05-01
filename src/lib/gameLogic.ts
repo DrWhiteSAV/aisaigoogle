@@ -128,6 +128,12 @@ export function rollPotential(): Rarity {
   return 'normal';
 }
 
+export function getNextLevelReward(level: number, success: boolean = true): number {
+  // Reward based on level and success
+  const base = 100 + (level * 10);
+  return success ? base : Math.floor(base * 0.2);
+}
+
 export function updateEnergy(progress: UserProgress): UserProgress {
   const now = Date.now();
   const elapsedMs = now - progress.lastEnergyUpdate;

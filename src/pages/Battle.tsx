@@ -1,18 +1,21 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Pet, UserProgress } from '../types';
 import { GlassCard, NeonButton, HandwrittenText } from '../components/UI';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sword, Shield, Zap, Sparkles, Coins, Flame, Droplets, Wind, Mountain, Sun, Moon, Ghost, Clock } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { getElementAdvantageMultiplier, getAttributeDefenseMultiplier, calculateCP, getExpNeeded } from '../lib/gameLogic';
+import { getElementAdvantageMultiplier, getAttributeDefenseMultiplier, calculateCP, getExpNeeded, getNextLevelReward } from '../lib/gameLogic';
 
 export const Battle: React.FC<{ progress: UserProgress; setProgress: React.Dispatch<React.SetStateAction<UserProgress>> }> = ({ progress, setProgress }) => {
   const navigate = useNavigate();
-  const playerPet = useMemo(() => (progress.pets || []).find(p => p.id === progress.activePetId)!, [progress.pets, progress.activePetId]);
+  const location = useLocation();
+  const playerPet = useMemo(() => (progress.pets || []).find(p => p.id === progress.activePetId), [progress.pets, progress.activePetId]);
   const [enemy, setEnemy] = useState<Pet | null>(null);
   const [battleLog, setBattleLog] = useState<string[]>(['Битва началась!']);
-  const [hp, setHp] = useState({ player: playerPet.stats.health, enemy: 100 });
+  
+  // HP must be initialized safely
+  const [hp, setHp] = useState({ player: playerPet?.stats.health || 100, enemy: 100 });
   const [rage, setRage] = useState({ player: 0, enemy: 0 });
   const [turn, setTurn] = useState<'player' | 'enemy' | 'waiting'>('waiting');
   const [winner, setWinner] = useState<'player' | 'enemy' | null>(null);
@@ -21,10 +24,15 @@ export const Battle: React.FC<{ progress: UserProgress; setProgress: React.Dispa
   const [isPlayerHit, setIsPlayerHit] = useState(false);
   const [showUlt, setShowUlt] = useState(false);
 
-  // Initialize Battle
   useEffect(() => {
+    if (!location.pathname.startsWith('/battle')) return;
+    
+    if (!playerPet) {
+      navigate('/main');
+      return;
+    }
+    
     if (progress.energy < 1) {
-      alert("Недостаточно энергии!");
       navigate('/main');
       return;
     }
@@ -140,12 +148,12 @@ export const Battle: React.FC<{ progress: UserProgress; setProgress: React.Dispa
   };
 
   const handleEndBattle = useCallback((playerWon: boolean) => {
-    if (!enemy) return;
+    if (!enemy || !playerPet) return;
     const playerCP = calculateCP(playerPet);
     const enemyCP = calculateCP(enemy);
     
     // Reward based on CP diff
-    const cpRatio = enemyCP / playerCP; 
+    const cpRatio = enemyCP / (playerCP || 1); 
     const xpBase = getNextLevelReward(playerPet.level, playerWon);
     const xpAwarded = Math.floor(xpBase * cpRatio);
     const rublesAwarded = playerWon ? Math.floor(100 * cpRatio) : 10;
@@ -233,16 +241,22 @@ export const Battle: React.FC<{ progress: UserProgress; setProgress: React.Dispa
         className="fixed inset-0 flex items-center justify-center z-[200] pointer-events-none"
       >
         <div className="relative">
-             {icons[playerPet.element as keyof typeof icons]}
+             {playerPet && icons[playerPet.element as keyof typeof icons]}
              <div className="absolute inset-0 flex items-center justify-center">
-                 {icons[playerPet.attribute as keyof typeof icons]}
+                 {playerPet && icons[playerPet.attribute as keyof typeof icons]}
              </div>
         </div>
       </motion.div>
     );
   };
 
-  if (!enemy) return null;
+  if (!enemy || !playerPet) {
+    return (
+      <div className="p-12 text-center h-full flex flex-col items-center justify-center font-bold italic text-pen-blue">
+        {!playerPet ? "Выберите питомца для битвы" : "Подготовка поля боя..."}
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 flex flex-col items-center pb-32 pt-12 max-w-6xl mx-auto min-h-screen relative">
