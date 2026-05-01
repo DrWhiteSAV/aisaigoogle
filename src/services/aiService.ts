@@ -30,15 +30,14 @@ const getAI = () => {
 };
 
 export const generatePetArt = async (pet: Partial<Pet>) => {
-  const prompt = `Hand-drawn blue pen sketch of a ${pet.rarity} ${pet.element} ${pet.attribute} creature based on a real-world ${pet.classification?.species}.
-                  Format: Vertical 9:16 portrait orientation.
-                  Art Stage: ${pet.ageStage}.
-                  Art Style: Scribbled ballpoint pen illustration, blue ink drawing. 
-                  Background: Hand-drawn on a white GRID graph paper notebook page (checkered).
-                  Visual character: Manga style sketch, hatching shadows, sketchy lines, mystical aura.
-                  Strict requirement: monochromatic BLUE PEN INK only on WHITE GRAPH PAPER SQUARE GRID background.
-                  MANDATORY: NO COLORS other than blue pen ink. NO TEXT, NO UI.
-                  Strict requirement: CENTERED portrait in 9:16 vertical ratio.`;
+  const prompt = `A hand-drawn BLUE PEN SKETCH of a mythical creature. 
+                  SUBJECT: ${pet.rarity} ${pet.element} ${pet.attribute} creature, biology based on ${pet.classification?.species}.
+                  ART STYLE: Scribbled ballpoint pen illustration, blue ink drawing only, with hatching and cross-hatching shadows.
+                  ENVIRONMENT: Centered on white GRID GRAPH PAPER.
+                  ORIENTATION: STRICTLY PORTRAIT orientation, long vertical image.
+                  ASPECT RATIO: 9:16 (height is much larger than width).
+                  MANDATORY: MONOCHROMATIC BLUE PEN INK. No other colors. No background images other than the grid paper.
+                  Composition: The entire creature MUST BE FULLY VISIBLE and vertically balanced.`;
   
   try {
     const ai = getAI();
@@ -140,21 +139,26 @@ export const generatePetStatsAndLore = async (
   const prompt = `Сгенерируй данные для уникального существа в игре aiSai, которое является истинным отражением личности пользователя.
     
     Данные пользователя:
-    - Имя: ${profile.name}, Хобби: ${profile.hobbies.join(', ')}, Черты: ${profile.traits.join(', ')}
+    - Имя: ${profile.name}
+    - Возраст: ${profile.age}
+    - Город: ${profile.city}
+    - Манифест: ${profile.about}
+    - Хобби: ${profile.hobbies.join(', ')}
+    - Черты души: ${profile.traits.join(', ')}
     - Потенциал: ${RARITY_WEIGHTS[forcedRarity].label} (${forcedRarity})
     - Общий бюджет очков характеристик: ${baseStatsTotal}
     
-    Задача: Создай ЕДИНСТВЕННОЕ В СВОЕМ РОДЕ существо в стадии МЛАДЕНЧЕСТВА.
+    Задача: Создай ЕДИНСТВЕННОЕ В СВОЕМ РОДЕ существо в стадии МЛАДЕНЧЕСТВА, которое духовно связано с этим человеком.
     Существо должно базироваться на РЕАЛЬНО СУЩЕСТВУЮЩЕМ биологическом виде, но быть ГИБРИДИЗИРОВАННЫМ с фантастическими элементами.
     
-    Верни JSON:
-    1. name: Эпичное имя (а-ля манхуа).
+    Верни JSON (ВСЕ ТЕКСТОВЫЕ ПОЛЯ ДОЛЖНЫ БЫТЬ НА РУССКОМ ЯЗЫКЕ):
+    1. name: Эпичное имя на русском (например, "Аурон, Архитектор Небес").
     2. element: одна из [water, fire, air, earth].
     3. attribute: одна из [light, dark, void, time].
-    4. classification: биологическая структура.
+    4. classification: биологическая структура (все поля type, class, species и т.д. на русском).
     5. stats: распредели ${baseStatsTotal} очков между attack, defense, speed, magic, regeneration, health. health и maxHealth должны быть одинаковыми. rage=0, maxRage=100.
-    6. abilities: 1 начальный навык.
-    7. lore: легенда появления.`;
+    6. abilities: 1 начальный навык на русском.
+    7. lore: легенда появления на русском языке, объясняющая связь с личностью пользователя.`;
 
   try {
     const ai = getAI();

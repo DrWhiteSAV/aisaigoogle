@@ -117,28 +117,35 @@ export const Main: React.FC<{
                    noPadding 
                    className={cn(
                      "border-2 overflow-hidden rotation-1 group-hover:rotate-0 transition-all",
-                     activeId === pet.id ? "border-pen-blue shadow-lg !rotate-0" : "border-black/10"
+                     activeId === pet.id ? "border-pen-blue shadow-xl !rotate-0 scale-[1.02]" : "border-black/10"
                    )}
                  >
-                   <div className="aspect-[4/5] relative bg-white">
-                     <img src={pet.image} alt={pet.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                   <div className="aspect-[9/16] relative bg-white">
+                     <img src={pet.image} alt={pet.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 grayscale-[10%]" />
                      
-                     <div className="absolute top-2 left-2 flex flex-col gap-1">
-                        <div className="px-2 py-0.5 bg-black text-white text-[9px] font-black italic lowercase">
+                     <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
+                        <div className="px-2 py-0.5 bg-black text-white text-[9px] font-black italic lowercase shadow-sm">
                            {pet.rarity}
                         </div>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); navigate(`/inventory`); }}
+                          className="h-8 w-8 bg-sticker-blue border border-black flex items-center justify-center hover:bg-sticker-yellow transition-colors shadow-sm"
+                        >
+                           <ShoppingBag className="h-4 w-4" />
+                        </button>
                      </div>
 
-                     <div className="absolute top-2 right-2 h-8 w-8 bg-sticker-yellow border border-black rotate-6 flex flex-col items-center justify-center">
+                     <div className="absolute top-2 right-2 h-8 w-8 bg-sticker-yellow border border-black rotate-6 flex flex-col items-center justify-center shadow-sm z-10">
                         <span className="text-[10px] font-black italic leading-none">{cp}</span>
                      </div>
 
-                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-white via-white/80 to-transparent p-3 pt-8">
-                        <h3 className="text-xl font-black italic truncate leading-none">
+                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-white via-white/80 to-transparent p-4 pt-12 z-10">
+                        <h3 className="text-xl font-black italic truncate leading-none mb-1">
                           {pet.name}
                         </h3>
-                        <div className="text-[10px] font-black italic text-pen-blue/40 mt-1">
-                          LVL {pet.level}
+                        <div className="flex justify-between items-center text-[10px] font-black italic text-pen-blue/40">
+                          <span>LVL {pet.level}</span>
+                          <span className="uppercase">{pet.element}</span>
                         </div>
                      </div>
                    </div>

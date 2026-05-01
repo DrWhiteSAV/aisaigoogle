@@ -295,22 +295,20 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
 
     const showNav = hasPets && !isOnboarding;
     return (
-      <div className="flex min-h-screen items-center justify-center bg-transparent relative selection:bg-sticker-blue/30 overflow-hidden">
-        <div className="absolute inset-0 bg-black/5 -z-10" />
+      <div className="flex h-screen w-full items-center justify-center bg-transparent relative selection:bg-sticker-blue/30 overflow-hidden">
+        <div className="absolute inset-0 bg-black/10 -z-10" />
         
         {showNav && <Navbar rubles={progress.currency} />}
         
-        <div className="w-full h-screen flex items-center justify-center overflow-hidden">
+        <div className="w-full h-full flex items-center justify-center overflow-hidden">
           <HTMLFlipBook 
             key={`flipbook-${isPortrait}-${windowSize.height}`}
-            width={800} 
+            width={750} 
             height={windowSize.height}
             size="stretch"
             minWidth={315}
-            maxWidth={1400}
             minHeight={100}
-            maxHeight={2000}
-            maxShadowOpacity={0.15}
+            maxShadowOpacity={0.2}
             showCover={false}
             mobileScrollSupport={true}
             ref={flipBookRef}
@@ -319,13 +317,13 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
             onFlip={onFlip}
             startPage={0}
             drawShadow={true}
-            flippingTime={800}
-            useMouseEvents={!isOnboarding}
+            flippingTime={900}
+            useMouseEvents={true}
             clickEventForward={true}
             usePortrait={false}
             startZIndex={0}
             autoSize={true}
-            showPageCorners={!isOnboarding}
+            showPageCorners={true}
             disableFlipByClick={true}
           >
           {/* BOOK 0: ONBOARDING FLOW */}

@@ -68,31 +68,32 @@ export const PetDetail: React.FC<{
       </header>
 
       <div className="space-y-8">
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-          <GlassCard color="white" noPadding className="border-2 border-black/10 overflow-hidden relative shadow-none bg-transparent">
-            <div className="aspect-[16/9] w-full relative bg-transparent">
+      <div className="space-y-8 flex flex-col items-center">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-[320px]">
+          <GlassCard color="white" noPadding className="border-2 border-black/10 overflow-hidden relative shadow-2xl bg-white rotate-1">
+            <div className="aspect-[9/16] w-full relative bg-transparent">
               <img src={pet.image} alt={pet.name} className="w-full h-full object-cover block" />
               
-              <div className="absolute top-4 right-4 h-12 w-12 bg-sticker-yellow border-2 border-black flex flex-col items-center justify-center rotate-6 shadow-sm">
+              <div className="absolute top-4 right-4 h-12 w-12 bg-sticker-yellow border-2 border-black flex flex-col items-center justify-center rotate-6 shadow-sm z-20">
                   <span className="text-[8px] font-black text-black/40 italic leading-none">CP</span>
                   <span className="text-lg font-black italic leading-none">{petCP}</span>
               </div>
 
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-white via-white/90 to-transparent p-6 pt-12">
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-white via-white/90 to-transparent p-6 pt-12 z-10">
                  <h2 className="text-3xl font-black italic leading-tight tracking-tighter">
                     {pet.name}
                  </h2>
                  <div className="flex justify-between text-[11px] font-black italic text-pen-blue/40 mt-1">
-                   <span>LVL {pet.level} • {currentRank}</span>
-                   <span>{pet.element} / {pet.attribute}</span>
+                    <span>LVL {pet.level} • {currentRank}</span>
+                    <span className="uppercase">{pet.element} / {pet.attribute}</span>
                  </div>
               </div>
             </div>
           </GlassCard>
         </motion.div>
 
-        <div className="space-y-6">
-          <div className="flex gap-4 border-b-2 border-black/5">
+        <div className="space-y-6 w-full">
+          <div className="flex gap-4 border-b-2 border-black/5 justify-center">
               <button 
                 onClick={() => setActiveTab('stats')}
                 className={cn(
@@ -122,7 +123,7 @@ export const PetDetail: React.FC<{
                       <div className="flex items-center justify-between mb-6">
                          <div className="flex items-center gap-2 text-pen-blue/60">
                             <Activity className="h-4 w-4" />
-                            <span className="text-xs font-black italic uppercase">Аналитика</span>
+                            <span className="text-xs font-black italic uppercase">Аналитика Потенциала</span>
                          </div>
                          {pet.statPoints > 0 && (
                             <div className="bg-pen-red text-white px-2 py-0.5 text-[10px] font-black italic rotate-2">
@@ -130,10 +131,13 @@ export const PetDetail: React.FC<{
                             </div>
                          )}
                       </div>
-                      <div className="space-y-4">
-                        <StatItem icon={Sword} label="Атака" value={pet.stats.attack} max={1000} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('attack')} />
-                        <StatItem icon={Shield} label="Защита" value={pet.stats.defense} max={1000} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('defense')} />
-                        <StatItem icon={Zap} label="Скорость" value={pet.stats.speed} max={1000} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('speed')} />
+                      <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                        <StatItem icon={Heart} label="Здоровье" value={pet.stats.health} max={2000} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('health')} />
+                        <StatItem icon={Sword} label="Атака" value={pet.stats.attack} max={500} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('attack')} />
+                        <StatItem icon={Shield} label="Защита" value={pet.stats.defense} max={500} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('defense')} />
+                        <StatItem icon={Zap} label="Скорость" value={pet.stats.speed} max={500} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('speed')} />
+                        <StatItem icon={Brain} label="Магия" value={pet.stats.magic} max={500} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('magic')} />
+                        <StatItem icon={Sparkles} label="Удача" value={pet.stats.luck} max={100} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('luck')} />
                       </div>
                    </GlassCard>
 
@@ -186,7 +190,8 @@ export const PetDetail: React.FC<{
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 };
 
 const StatItem = ({ icon: Icon, label, value, max, showAdd, onAdd }: any) => (

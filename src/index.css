@@ -23,9 +23,13 @@
 }
 
 @layer base {
+  html, body, #root {
+    @apply h-full w-full overflow-hidden;
+  }
+
   /* Aged paper effect */
   body {
-    @apply text-pen-blue antialiased overflow-x-hidden min-h-screen relative font-sans;
+    @apply text-pen-blue antialiased relative font-sans p-0 m-0;
     background-color: #f2ede0;
     background-image: 
       /* Notebook Grid */
@@ -37,7 +41,7 @@
       radial-gradient(circle at 40% 60%, rgba(210, 180, 140, 0.1) 0%, transparent 50%),
       /* Paper texture */
       url("https://www.transparenttextures.com/patterns/natural-paper.png");
-    background-size: 20px 20px, 20px 20px, 100% 100%, 100% 100%, 100% 100%, auto;
+    background-size: 25px 25px, 25px 25px, 100% 100%, 100% 100%, 100% 100%, auto;
     font-size: 1.25rem;
     line-height: 1.4;
   }
@@ -46,7 +50,7 @@
     background-image: 
       linear-gradient(to right, rgba(0, 71, 171, 0.05) 1px, transparent 1px),
       linear-gradient(to bottom, rgba(0, 71, 171, 0.05) 1px, transparent 1px);
-    background-size: 20px 20px;
+    background-size: 25px 25px;
   }
   
   /* Noise and worn edges */
