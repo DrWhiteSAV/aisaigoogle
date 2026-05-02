@@ -47,6 +47,7 @@ export interface PetStats {
   speed: number;
   magic: number;
   regeneration: number;
+  luck: number;
   rage: number;
   maxRage: number;
 }

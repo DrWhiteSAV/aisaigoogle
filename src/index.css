@@ -99,20 +99,7 @@
   }
   
   .hatching-shadow::after {
-    content: "";
-    position: absolute;
-    inset: 6px -6px -6px 6px;
-    z-index: -1;
-    background: repeating-linear-gradient(
-      -45deg,
-      transparent,
-      transparent 4px,
-      rgba(0, 71, 171, 0.15) 4px,
-      rgba(0, 71, 171, 0.15) 5px
-    );
-    border: 1px solid rgba(0, 71, 171, 0.05);
-    border-radius: 2px;
-    pointer-events: none;
+    display: none;
   }
 
   .doodle-overlay {

@@ -107,7 +107,7 @@ export const Profile: React.FC<{
     <div className="p-4 h-full flex flex-col space-y-8">
       <header className="space-y-4">
         <div className="flex items-center gap-4">
-          <div className="h-14 w-14 bg-sticker-yellow border-2 border-black rotate-6 flex items-center justify-center shadow-md">
+          <div className="h-14 w-14 bg-sticker-yellow border-2 border-black rotate-6 flex items-center justify-center">
              <User className="h-7 w-7 text-pen-blue" />
           </div>
           <div>
@@ -119,7 +119,7 @@ export const Profile: React.FC<{
 
       <div className="flex-1 space-y-6">
         {/* Status Card */}
-        <GlassCard color="white" className="border-2 border-black/5 rotate-1 p-5 shadow-sm">
+        <GlassCard color="white" className="border-2 border-black/5 rotate-1 p-5">
            <div className="space-y-4">
               <div className="flex items-center justify-between border-b border-black/5 pb-3">
                  <h3 className="text-sm font-black italic text-pen-blue/60 flex items-center gap-2">
@@ -145,7 +145,7 @@ export const Profile: React.FC<{
         </GlassCard>
 
         {/* Currency Card */}
-        <GlassCard color="blue" className="border-2 border-black/5 -rotate-1 p-5 shadow-sm">
+        <GlassCard color="blue" className="border-2 border-black/5 -rotate-1 p-5">
            <div className="space-y-4">
               <h3 className="text-sm font-black italic text-pen-blue/60 flex items-center gap-2">
                  <Coins className="h-4 w-4" />

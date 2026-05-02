@@ -20,7 +20,7 @@ import { Navbar } from './components/Navbar';
 import { NeonButton } from './components/UI';
 import { cn } from './lib/utils';
 import { Coins, Plus } from 'lucide-react';
-import { UserProgress, Pet } from './types';
+import { UserProgress, Pet, UserProfile } from './types';
 
 import { updateEnergy, getPetRankByLevel } from './lib/gameLogic';
 
@@ -124,6 +124,24 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
   const [isSummoning, setIsSummoning] = useState(false);
   const [summoningError, setSummoningError] = useState<string | null>(null);
 
+  const [userProfile, setUserProfile] = useState<UserProfile>(() => {
+    const saved = localStorage.getItem('aisai_user_profile');
+    const defaults: UserProfile = {
+      name: 'Призыватель', gender: 'male', age: 18, city: '', hobbies: [], traits: [], about: ''
+    };
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return { ...defaults, ...parsed };
+      } catch (e) { return defaults; }
+    }
+    return defaults;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('aisai_user_profile', JSON.stringify(userProfile));
+  }, [userProfile]);
+
   // Clear summoning state when leaving onboarding or make page
   useEffect(() => {
     if (!location.pathname.startsWith('/make') && !location.pathname.startsWith('/setup') && !location.pathname.startsWith('/about')) {
@@ -141,8 +159,8 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
 
   // Extract ID manually for components rendered inside FlipBook
   const activePetId = React.useMemo(() => {
-    const match = location.pathname.match(/\/pet\/([^/]+)/);
-    return match ? match[1] : null;
+    const match = location.pathname.match(/\/(pet|inventory)\/([^/]+)/);
+    return match ? match[2] : null;
   }, [location.pathname]);
 
   useEffect(() => {
@@ -176,8 +194,9 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
     if (path === '/setup') return 2;
     if (path === '/about') return 4;
     if (path === '/make') return 6;
-    if (path === '/main' || path.startsWith('/pet/')) return 8;
     if (path.startsWith('/inventory')) return 10;
+    if (path.startsWith('/pet/')) return 8;
+    if (path === '/main') return 8;
     if (path.startsWith('/battle')) return 12;
     if (path.startsWith('/evolve')) return 14;
     if (path.startsWith('/quest')) return 16;
@@ -229,7 +248,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
           if (path === '/start') return <Page side="left"><Welcome onSetup={() => navigate('/setup/1')} /></Page>;
           if (path?.startsWith('/setup')) {
             const step = parseInt(location.pathname.split('/').pop() || '1') || 1;
-            return <Page side="right"><Setup onComplete={handleAddNewPet} step={step} /></Page>;
+            return <Page side="right"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={step} /></Page>
           }
           
           if (path?.startsWith('/main') || path?.startsWith('/pet') || path === '/inventory' || path === '/battle' || path === '/evolve' || path === '/quest') {
@@ -251,7 +270,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
             return (
               <div className="space-y-6">
                 <Page side="left"><Shop progress={progress} setProgress={setProgress} onBuy={handleAddNewPet} mode={path === '/sale' ? 'sell' : 'buy'} /></Page>
-                {path === '/summon' && <Page side="right"><Setup onComplete={handleAddNewPet} step={1} isMarketSummon /></Page>}
+                {path === '/summon' && <Page side="right"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={1} isMarketSummon /></Page>}
               </div>
             );
           }
@@ -293,54 +312,58 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
     }
   };
 
-    const showNav = hasPets && !isOnboarding;
+  const flipBookWidth = Math.min(750, windowSize.width / 2);
+  const flipBookHeight = windowSize.height;
+
+  const showNav = hasPets && !isOnboarding;
     return (
       <div className="flex h-screen w-full items-center justify-center bg-transparent relative selection:bg-sticker-blue/30 overflow-hidden">
-        <div className="absolute inset-0 bg-black/10 -z-10" />
+        <div className="absolute inset-0 bg-black/5 -z-10" />
         
         {showNav && <Navbar rubles={progress.currency} />}
         
         <div className="w-full h-full flex items-center justify-center overflow-hidden">
-          <HTMLFlipBook 
-            key={`flipbook-${isPortrait}-${windowSize.height}`}
-            width={750} 
-            height={windowSize.height}
-            size="stretch"
-            minWidth={315}
-            minHeight={100}
-            maxShadowOpacity={0.2}
-            showCover={false}
-            mobileScrollSupport={true}
-            ref={flipBookRef}
-            className="flipbook-root"
-            style={{ cursor: isOnboarding ? 'default' : 'grab' }}
-            onFlip={onFlip}
-            startPage={0}
-            drawShadow={true}
-            flippingTime={900}
-            useMouseEvents={true}
-            clickEventForward={true}
-            usePortrait={false}
-            startZIndex={0}
-            autoSize={true}
-            showPageCorners={true}
-            disableFlipByClick={true}
-          >
+          <div className="relative w-full h-full flex items-center justify-center">
+            <HTMLFlipBook 
+              key={`flipbook-${isPortrait}-${flipBookWidth}-${flipBookHeight}`}
+              width={flipBookWidth} 
+              height={flipBookHeight}
+              size="stretch"
+              minWidth={315}
+              minHeight={100}
+              maxShadowOpacity={0.2}
+              showCover={false}
+              mobileScrollSupport={true}
+              ref={flipBookRef}
+              className="flipbook-root"
+              style={{ cursor: isOnboarding ? 'default' : 'grab' }}
+              onFlip={onFlip}
+              startPage={0}
+              drawShadow={true}
+              flippingTime={900}
+              useMouseEvents={true}
+              clickEventForward={true}
+              usePortrait={false}
+              startZIndex={0}
+              autoSize={true}
+              showPageCorners={true}
+              disableFlipByClick={true}
+            >
           {/* BOOK 0: ONBOARDING FLOW */}
           <Page side="left"><Welcome side="left" /></Page>
           <Page side="right"><Welcome side="right" onSetup={() => navigate('/setup')} /></Page>
           
           {/* Personality (Left) + Manifesto (Right) */}
-          <Page side="left"><Setup onComplete={handlePetSummonComplete} step={1} side="left" externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} /></Page>
-          <Page side="right"><Setup onComplete={handlePetSummonComplete} step={1} side="right" externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} /></Page>
+          <Page side="left"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handlePetSummonComplete} step={1} side="left" externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} /></Page>
+          <Page side="right"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handlePetSummonComplete} step={1} side="right" externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} /></Page>
           
           {/* Hobbies (Left) + Soul Traits (Right) */}
-          <Page side="left"><Setup onComplete={handlePetSummonComplete} step={2} side="left" externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} /></Page>
-          <Page side="right"><Setup onComplete={handlePetSummonComplete} step={2} side="right" externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} /></Page>
+          <Page side="left"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handlePetSummonComplete} step={2} side="left" externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} /></Page>
+          <Page side="right"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handlePetSummonComplete} step={2} side="right" externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} /></Page>
           
           {/* Generation (Left) + Description (Right) */}
-          <Page side="left"><Setup onComplete={handlePetSummonComplete} step={3} side="left" externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} /></Page>
-          <Page side="right"><Setup onComplete={handlePetSummonComplete} step={3} side="right" externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} /></Page>
+          <Page side="left"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handlePetSummonComplete} step={3} side="left" externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} /></Page>
+          <Page side="right"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handlePetSummonComplete} step={3} side="right" externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} /></Page>
           
           {/* BOOK 1: BESTIARY (Spreads 4-8) */}
           {/* Spread: Main + Detail */}
@@ -368,7 +391,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
           <Page side="right"><div className="h-full flex flex-col items-center justify-center italic text-pen-blue/20">Выберите товар...</div></Page>
           
           <Page side="left"><Shop progress={progress} setProgress={setProgress} onBuy={handleAddNewPet} mode="buy" /></Page>
-          <Page side="right"><Setup onComplete={handleAddNewPet} step={1} isMarketSummon externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} /></Page>
+          <Page side="right"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={1} isMarketSummon externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} /></Page>
           
           <Page side="left"><Shop progress={progress} setProgress={setProgress} onBuy={handleAddNewPet} mode="sell" /></Page>
           <Page side="right"><TopUp progress={progress} setProgress={setProgress} /></Page>
@@ -385,9 +408,10 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
             <TopUp progress={progress} setProgress={setProgress} />
           </Page>
         </HTMLFlipBook>
+          </div>
+        </div>
       </div>
-    </div>
-  );
+    );
 };
 
 export default function App() {
@@ -397,10 +421,26 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         // Ensure all required fields exist for backward compatibility
-        const migratedPets = (parsed.pets || []).map((p: any) => ({
-          ...p,
-          ageStage: p.ageStage && p.ageStage.includes(' - ') ? p.ageStage : getPetRankByLevel(p.level || 1)
-        }));
+        const migratedPets = (parsed.pets || []).map((p: any) => {
+          const stats = p.stats || {
+            attack: 10, defense: 10, health: 100, maxHealth: 100, 
+            speed: 10, magic: 10, regeneration: 5, luck: 5, rage: 0, maxRage: 100
+          };
+          if (stats.luck === undefined) stats.luck = 5;
+          if (stats.health === undefined) stats.health = 100;
+          if (stats.maxHealth === undefined) stats.maxHealth = stats.health || 100;
+          if (stats.rage === undefined) stats.rage = 0;
+          if (stats.maxRage === undefined) stats.maxRage = 100;
+          
+          return {
+            ...p,
+            stats,
+            level: p.level || 1,
+            experience: p.experience || 0,
+            statPoints: typeof p.statPoints === 'number' ? p.statPoints : 0,
+            ageStage: p.ageStage && p.ageStage.includes(' - ') ? p.ageStage : getPetRankByLevel(p.level || 1)
+          };
+        });
 
         return {
           ...INITIAL_PROGRESS,
@@ -423,7 +463,7 @@ export default function App() {
   useEffect(() => {
     const interval = setInterval(() => {
       setProgress(prev => updateEnergy(prev));
-    }, 60000); // Check every minute
+    }, 1000); // Check every second for instant recharge at 00:00
     return () => clearInterval(interval);
   }, []);
 

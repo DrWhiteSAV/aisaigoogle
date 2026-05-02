@@ -5,7 +5,7 @@ import { GlassCard, NeonButton, HandwrittenText } from '../components/UI';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, Compass, ArrowLeft, Trophy, Coins, Box } from 'lucide-react';
 import { generateQuest, generateBonusItem } from '../services/aiService';
-import { getQuestRewardExp, getNextLevelReward } from '../lib/gameLogic';
+import { getQuestRewardExp, getNextLevelReward, checkLevelUp } from '../lib/gameLogic';
 import { HandDrawnTimer } from '../components/HandDrawnTimer';
 
 export const Quest: React.FC<{ progress: UserProgress; setProgress: React.Dispatch<React.SetStateAction<UserProgress>> }> = ({ progress, setProgress }) => {
@@ -49,9 +49,10 @@ export const Quest: React.FC<{ progress: UserProgress; setProgress: React.Dispat
   };
 
   const handleQuestChoice = async (option: any) => {
+    if (!pet) return;
     // Determine success/failure for reward calculation
     const isSuccess = Math.random() > 0.3; // 70% success rate for quests
-    const calculatedXP = getQuestRewardExp(pet!.level, isSuccess);
+    const calculatedXP = getQuestRewardExp(pet.level, isSuccess);
     const calculatedRubles = Math.floor(calculatedXP * 0.5); // Rubles derived from XP effort
 
     // TZ Rewards Distribution:
@@ -83,8 +84,7 @@ export const Quest: React.FC<{ progress: UserProgress; setProgress: React.Dispat
     setProgress(prev => {
       const updatedPets = prev.pets.map(p => {
         if (p.id === pet!.id) {
-          const newXP = p.experience + calculatedXP;
-          return { ...p, experience: newXP };
+          return checkLevelUp({ ...p, experience: p.experience + calculatedXP });
         }
         return p;
       });
@@ -215,7 +215,7 @@ export const Quest: React.FC<{ progress: UserProgress; setProgress: React.Dispat
             animate={{ opacity: 1, scale: 1 }}
             className="w-full flex flex-col items-center space-y-8"
           >
-            <div className="h-20 w-20 bg-sticker-yellow border-4 border-pen-blue flex items-center justify-center rotate-6 shadow-xl">
+            <div className="h-20 w-20 bg-sticker-yellow border-4 border-pen-blue flex items-center justify-center rotate-6">
                <Sparkles className="h-10 w-10 text-pen-blue" />
             </div>
 
@@ -234,7 +234,7 @@ export const Quest: React.FC<{ progress: UserProgress; setProgress: React.Dispat
                <motion.div 
                  initial={{ y: 20, opacity: 0 }}
                  animate={{ y: 0, opacity: 1 }}
-                 className="w-full max-w-sm flex items-center gap-4 bg-pen-blue text-white p-4 hatching-shadow"
+                 className="w-full max-w-sm flex items-center gap-4 bg-pen-blue text-white p-4"
                >
                  <Box className="h-12 w-12" />
                  <div>
@@ -245,11 +245,11 @@ export const Quest: React.FC<{ progress: UserProgress; setProgress: React.Dispat
             )}
 
             <div className="flex justify-center gap-4 w-full max-w-sm">
-              <div className="flex-1 flex flex-col items-center bg-sticker-yellow border-2 border-black/10 p-4 rotate-2 shadow-sm">
+              <div className="flex-1 flex flex-col items-center bg-sticker-yellow border-2 border-black/10 p-4 rotate-2">
                 <span className="text-2xl font-black italic text-pen-blue">+{questResult.rewardRubles}</span>
                 <span className="text-[11px] font-black text-pen-blue/40 italic">Рублей</span>
               </div>
-              <div className="flex-1 flex flex-col items-center bg-sticker-pink border-2 border-black/10 p-4 -rotate-2 shadow-sm">
+              <div className="flex-1 flex flex-col items-center bg-sticker-pink border-2 border-black/10 p-4 -rotate-2">
                 <span className="text-2xl font-black italic text-pen-blue">+{questResult.rewardXP}</span>
                 <span className="text-[11px] font-black text-pen-blue/40 italic">Опыта</span>
               </div>

@@ -4,24 +4,15 @@ import { cn } from '../lib/utils';
 import { NeonButton } from '../components/UI';
 import { Pet, Rarity, UserProfile } from '../types';
 import { generatePetStatsAndLore, generatePetArt } from '../services/aiService';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Loader2, Plus } from 'lucide-react';
-
-const forcedRarityMap: Record<string, string> = {
-  normal: 'ОБЫЧНЫЙ',
-  advanced: 'ПРОДВИНУТЫЙ',
-  rare: 'РЕДКИЙ',
-  perfect: 'ИДЕАЛЬНЫЙ',
-  epic: 'ЭПИЧЕСКИЙ',
-  legendary: 'ЛЕГЕНДАРНЫЙ',
-  mythical: 'МИФИЧЕСКИЙ',
-  eternal: 'ВЕЧНЫЙ',
-  divine: 'БОЖЕСТВЕННЫЙ',
-  transcendent: 'ТРАНСЦЕНДЕНТНЫЙ'
-};
+import { RARITY_LABELS } from '../constants/gameData';
+import { ElementSticker, AttributeSticker } from '../components/GameUI';
 
 export const Setup: React.FC<{ 
   onComplete: (pet: Pet) => void; 
+  profile: UserProfile;
+  setProfile: (profile: UserProfile) => void;
   step?: number; 
   isMarketSummon?: boolean;
   side?: 'left' | 'right';
@@ -33,6 +24,8 @@ export const Setup: React.FC<{
   setExternalError?: (error: string | null) => void;
 }> = ({ 
   onComplete, 
+  profile,
+  setProfile,
   step: currentStep = 1, 
   isMarketSummon, 
   side,
@@ -53,6 +46,9 @@ export const Setup: React.FC<{
   const pet = externalPet !== undefined ? externalPet : localPet;
   const errorMessage = externalError !== undefined ? externalError : localError;
 
+  const [customHobby, setCustomHobby] = useState('');
+  const [customTrait, setCustomTrait] = useState('');
+
   const setLoading = (val: boolean) => {
     if (setExternalLoading) setExternalLoading(val);
     else setLocalLoading(val);
@@ -65,27 +61,6 @@ export const Setup: React.FC<{
     if (setExternalError) setExternalError(val);
     else setLocalError(val);
   };
-
-  const [profile, setProfile] = useState<UserProfile>(() => {
-    const saved = localStorage.getItem('aisai_user_profile');
-    const defaults: UserProfile = {
-      name: 'Призыватель', gender: 'male', age: 18, city: '', hobbies: [], traits: [], about: ''
-    };
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        return { ...defaults, ...parsed };
-      } catch (e) { return defaults; }
-    }
-    return defaults;
-  });
-
-  const [customHobby, setCustomHobby] = useState('');
-  const [customTrait, setCustomTrait] = useState('');
-
-  useEffect(() => {
-    localStorage.setItem('aisai_user_profile', JSON.stringify(profile));
-  }, [profile]);
 
   const HOBBIES = [
     'Рисование', 'Пение', 'Танцы', 'Чтение', 'Кино', 'Видеоигры', 'Программирование', 
@@ -146,7 +121,14 @@ export const Setup: React.FC<{
         personality: profile.traits[0] as any, 
         habitat: 'forest', 
         image: art,
-        stats: { ...stats, maxHealth: stats.health, maxRage: 100, rage: 0 },
+        stats: { 
+          ...stats, 
+          health: stats?.health || 100,
+          maxHealth: stats?.health || 100, 
+          luck: stats?.luck || 5,
+          maxRage: 100, 
+          rage: 0 
+        },
         classification, 
         abilities, 
         lore, 
@@ -178,6 +160,86 @@ export const Setup: React.FC<{
       setCustomTrait('');
     }
   };
+
+  const [editingField, setEditingField] = useState<'name' | 'city' | 'about' | 'hobby' | 'trait' | null>(null);
+  const [modalValue, setModalValue] = useState('');
+
+  const openEditModal = (field: 'name' | 'city' | 'about' | 'hobby' | 'trait', currentValue: string = '') => {
+    setEditingField(field);
+    setModalValue(currentValue);
+  };
+
+  const saveEditModal = () => {
+    if (editingField === 'hobby') {
+      if (modalValue.trim() && !profile.hobbies.includes(modalValue.trim()) && profile.hobbies.length < 8) {
+        setProfile({ ...profile, hobbies: [...profile.hobbies, modalValue.trim()] });
+      }
+    } else if (editingField === 'trait') {
+      if (modalValue.trim() && !profile.traits.includes(modalValue.trim()) && profile.traits.length < 8) {
+        setProfile({ ...profile, traits: [...profile.traits, modalValue.trim()] });
+      }
+    } else if (editingField) {
+      setProfile({ ...profile, [editingField]: modalValue });
+    }
+    setEditingField(null);
+    setModalValue('');
+  };
+
+  const EditModal = () => (
+    <AnimatePresence>
+      {editingField && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="w-full max-w-md bg-[#f2ede0] border-2 border-pen-blue p-8 shadow-none rotate-1"
+          >
+            <h3 className="text-2xl font-black italic text-pen-blue mb-4">
+              {editingField === 'name' ? 'Введите Имя' : 
+               editingField === 'city' ? 'Ваш Регион' : 
+               editingField === 'hobby' ? 'Новое Увлечение' :
+               editingField === 'trait' ? 'Черта Души' :
+               'Голос Разума'}
+            </h3>
+            
+            {editingField === 'about' ? (
+              <textarea 
+                value={modalValue}
+                onChange={(e) => setModalValue(e.target.value)}
+                rows={5}
+                autoFocus
+                className="w-full bg-white/40 border-2 border-black/5 p-4 text-sm font-black italic text-pen-blue focus:border-pen-blue outline-none transition-all resize-none mb-6"
+              />
+            ) : (
+              <input 
+                type="text" 
+                value={modalValue}
+                onChange={(e) => setModalValue(e.target.value)}
+                autoFocus
+                className="w-full bg-transparent border-b-2 border-black/20 py-2 text-2xl font-black italic text-pen-blue focus:border-pen-blue outline-none transition-all mb-6"
+              />
+            )}
+
+            <div className="flex gap-4">
+              <button 
+                onClick={saveEditModal}
+                className="flex-1 py-4 bg-pen-blue text-white font-black italic border-2 border-pen-blue hover:brightness-110"
+              >
+                ПРИНЯТЬ
+              </button>
+              <button 
+                onClick={() => setEditingField(null)}
+                className="flex-1 py-4 bg-transparent border-2 border-pen-blue text-pen-blue font-black italic hover:bg-black/5"
+              >
+                ОТМЕНА
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
 
   const isStep1Valid = profile.name.trim().length >= 2 && profile.city.trim().length >= 2 && profile.about.trim().length > 5;
   const isStep2Valid = profile.hobbies.length >= 1 && profile.traits.length >= 1;
@@ -224,7 +286,11 @@ export const Setup: React.FC<{
       </motion.div>
       <div>
         <h2 className="text-3xl font-black italic text-pen-blue leading-none mb-1">{pet.name}</h2>
-        <div className="text-[10px] font-black italic text-pen-blue/40 uppercase tracking-widest">Ранг: {forcedRarityMap[pet.rarity]}</div>
+        <div className="text-[10px] font-black italic text-pen-blue/40 uppercase tracking-widest mb-4">Ранг: {RARITY_LABELS[pet.rarity] || pet.rarity}</div>
+        <div className="flex justify-center gap-2">
+           <ElementSticker element={pet.element} />
+           <AttributeSticker attribute={pet.attribute} />
+        </div>
       </div>
     </div>
   );
@@ -240,12 +306,13 @@ export const Setup: React.FC<{
       <NeonButton onClick={() => { 
         onComplete(pet);
         navigate(isMarketSummon ? '/shop' : '/main');
-      }} className="w-full py-6 text-xl font-black italic bg-sticker-yellow border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">ПОДПИСАТЬ КОНТРАКТ</NeonButton>
+      }} className="w-full py-6 text-xl font-black italic bg-sticker-yellow border-2 border-black">ПОДПИСАТЬ КОНТРАКТ</NeonButton>
     </div>
   );
 
   return (
     <div className="h-full flex flex-col p-6 pt-[10px] space-y-4 overflow-hidden relative">
+      <EditModal />
       {currentStep === 1 && (
         side === 'left' ? (
           <div className="space-y-4 flex-1 flex flex-col overflow-hidden">
@@ -253,18 +320,20 @@ export const Setup: React.FC<{
             <div className="space-y-6 flex-1 overflow-y-auto no-scrollbar">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-pen-blue/40 uppercase tracking-widest">Инициалы</label>
-                <input 
-                  type="text" 
-                  value={profile.name}
-                  onChange={(e) => setProfile({...profile, name: e.target.value})}
-                  className="w-full bg-transparent border-b-2 border-black/10 py-1 text-3xl font-black italic text-pen-blue focus:border-pen-blue outline-none transition-all"
-                />
+                <button 
+                  onClick={() => openEditModal('name', profile.name)}
+                  className="w-full text-left bg-transparent border-b-2 border-black/10 py-1 text-3xl font-black italic text-pen-blue focus:border-pen-blue outline-none transition-all min-h-[3rem]"
+                >
+                  {profile.name || 'Введите имя...'}
+                </button>
               </div>
               <div className="space-y-4 pt-2">
                  <div>
                     <label className="text-[10px] font-black text-pen-blue/40 uppercase block mb-3 italic tracking-wider">Биологический цикл: {profile.age}</label>
                     <input 
                        type="range" min="5" max="99" value={profile.age}
+                       onMouseDown={(e) => e.stopPropagation()}
+                       onKeyDown={(e) => e.stopPropagation()}
                        onChange={(e) => setProfile({...profile, age: parseInt(e.target.value)})}
                        className="w-full h-1 bg-black/10 rounded-full appearance-none cursor-pointer accent-pen-blue"
                     />
@@ -274,14 +343,14 @@ export const Setup: React.FC<{
                       onClick={() => setProfile({...profile, gender: 'male'})}
                       className={cn(
                         "flex-1 py-3 text-xs font-black italic border-2 transition-all",
-                        profile.gender === 'male' ? "bg-pen-blue text-white border-pen-blue rotate-1 shadow-sm" : "border-black/5 text-black/20"
+                        profile.gender === 'male' ? "bg-pen-blue text-white border-pen-blue rotate-1" : "border-black/5 text-black/20"
                       )}
                     >МУЖСКОЙ</button>
                     <button 
                       onClick={() => setProfile({...profile, gender: 'female'})}
                       className={cn(
                         "flex-1 py-3 text-xs font-black italic border-2 transition-all",
-                        profile.gender === 'female' ? "bg-pen-blue text-white border-pen-blue -rotate-1 shadow-sm" : "border-black/5 text-black/20"
+                        profile.gender === 'female' ? "bg-pen-blue text-white border-pen-blue -rotate-1" : "border-black/5 text-black/20"
                       )}
                     >ЖЕНСКИЙ</button>
                  </div>
@@ -294,23 +363,21 @@ export const Setup: React.FC<{
             <div className="flex-1 flex flex-col space-y-6 overflow-y-auto no-scrollbar">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-pen-blue/40 uppercase tracking-widest">Регион связи</label>
-                <input 
-                  type="text" 
-                  value={profile.city}
-                  onChange={(e) => setProfile({...profile, city: e.target.value})}
-                  placeholder="Где вы сейчас?"
-                  className="w-full bg-transparent border-b-2 border-black/10 py-1 text-2xl font-black italic text-pen-blue focus:border-pen-blue outline-none transition-all placeholder:text-black/5"
-                />
+                <button 
+                  onClick={() => openEditModal('city', profile.city)}
+                  className="w-full text-left bg-transparent border-b-2 border-black/10 py-1 text-2xl font-black italic text-pen-blue focus:border-pen-blue outline-none transition-all placeholder:text-black/5 min-h-[2.5rem]"
+                >
+                  {profile.city || 'Укажите город...'}
+                </button>
               </div>
               <div className="space-y-1 pt-2">
                  <label className="text-[10px] font-black text-pen-blue/40 uppercase block italic tracking-wider mb-2">Голос Разума</label>
-                 <textarea 
-                    value={profile.about}
-                    onChange={(e) => setProfile({...profile, about: e.target.value})}
-                    placeholder="Напишите пару строк о своей философии..."
-                    rows={5}
-                    className="w-full bg-white/20 border-2 border-black/5 p-4 text-sm font-black italic text-pen-blue focus:border-pen-blue/20 outline-none transition-all resize-none placeholder:text-black/5 leading-relaxed"
-                 />
+                 <button 
+                    onClick={() => openEditModal('about', profile.about)}
+                    className="w-full text-left bg-white/20 border-2 border-black/5 p-4 text-sm font-black italic text-pen-blue focus:border-pen-blue/20 outline-none transition-all resize-none placeholder:text-black/5 leading-relaxed min-h-[8rem]"
+                 >
+                    {profile.about || 'Напишите кратко о себе...'}
+                 </button>
               </div>
               <div className="mt-8">
                 <NeonButton 
@@ -344,7 +411,7 @@ export const Setup: React.FC<{
                       onClick={() => setProfile({...profile, hobbies: toggleSelection(profile.hobbies, h, 8)})}
                       className={cn(
                         "px-3 py-1.5 border-2 text-[11px] font-black italic transition-all",
-                        profile.hobbies.includes(h) ? "bg-sticker-yellow border-black rotate-1 shadow-md" : "border-black/5 text-black/20 hover:border-black/20"
+                        profile.hobbies.includes(h) ? "bg-sticker-yellow border-black rotate-1" : "border-pen-blue/20 text-pen-blue/30 hover:border-pen-blue/40"
                       )}
                     >{h}</button>
                   ))}
@@ -352,24 +419,17 @@ export const Setup: React.FC<{
                     <button 
                       key={`custom-${h}`}
                       onClick={() => setProfile({...profile, hobbies: profile.hobbies.filter(i => i !== h)})}
-                      className="px-3 py-1.5 border-2 text-[11px] font-black italic bg-sticker-yellow border-black rotate-1 shadow-md"
+                      className="px-3 py-1.5 border-2 text-[11px] font-black italic bg-sticker-yellow border-black rotate-1"
                     >{h}</button>
                   ))}
                   
-                  {/* Inline custom input */}
-                  <div className="flex gap-2 items-center min-w-[150px] border-b-2 border-black/10 px-2">
-                    <input 
-                      type="text" 
-                      value={customHobby}
-                      onChange={(e) => setCustomHobby(e.target.value)}
-                      placeholder="Добавить..."
-                      className="flex-1 bg-transparent py-1 text-xs font-black italic text-pen-blue outline-none"
-                      onKeyDown={(e) => e.key === 'Enter' && addCustomHobby()}
-                    />
-                    <button onClick={addCustomHobby} className="p-1">
-                      <Plus className="h-4 w-4 text-pen-blue" />
-                    </button>
-                  </div>
+                  {/* Custom input triggers */}
+                  <button 
+                    onClick={() => openEditModal('hobby')}
+                    className="px-3 py-1.5 border-2 border-dashed border-pen-blue/20 text-[11px] font-black italic text-pen-blue/40 hover:border-pen-blue/40 transition-all flex items-center gap-1"
+                  >
+                    <Plus className="h-3 w-3" /> Добавить своё
+                  </button>
                 </div>
             </div>
           </div>
@@ -387,7 +447,7 @@ export const Setup: React.FC<{
                       onClick={() => setProfile({...profile, traits: toggleSelection(profile.traits, t, 8)})}
                       className={cn(
                         "px-3 py-1.5 border-2 text-[11px] font-black italic transition-all",
-                        profile.traits.includes(t) ? "bg-sticker-pink border-black -rotate-1 shadow-md" : "border-black/5 text-black/20 hover:border-black/20"
+                        profile.traits.includes(t) ? "bg-sticker-pink border-black -rotate-1" : "border-pen-blue/20 text-pen-blue/30 hover:border-pen-blue/40"
                       )}
                     >{t}</button>
                   ))}
@@ -395,32 +455,24 @@ export const Setup: React.FC<{
                     <button 
                       key={`custom-${t}`}
                       onClick={() => setProfile({...profile, traits: profile.traits.filter(i => i !== t)})}
-                      className="px-3 py-1.5 border-2 text-[11px] font-black italic bg-sticker-pink border-black -rotate-1 shadow-md"
+                      className="px-3 py-1.5 border-2 text-[11px] font-black italic bg-sticker-pink border-black -rotate-1"
                     >{t}</button>
                   ))}
                   
-                  {/* Inline custom input */}
-                  <div className="flex gap-2 items-center min-w-[150px] border-b-2 border-black/10 px-2">
-                    <input 
-                      type="text" 
-                      value={customTrait}
-                      onChange={(e) => setCustomTrait(e.target.value)}
-                      placeholder="Черта..."
-                      className="flex-1 bg-transparent py-1 text-xs font-black italic text-pen-blue outline-none"
-                      onKeyDown={(e) => e.key === 'Enter' && addCustomTrait()}
-                    />
-                    <button onClick={addCustomTrait} className="p-1">
-                      <Plus className="h-4 w-4 text-pen-blue" />
-                    </button>
-                  </div>
+                  {/* Custom input triggers */}
+                  <button 
+                    onClick={() => openEditModal('trait')}
+                    className="px-3 py-1.5 border-2 border-dashed border-pen-blue/20 text-[11px] font-black italic text-pen-blue/40 hover:border-pen-blue/40 transition-all flex items-center gap-1"
+                  >
+                    <Plus className="h-3 w-3" /> Добавить своё
+                  </button>
 
-                  {/* Inline button */}
                   <div className="w-full pt-8">
                     <NeonButton 
                       onClick={handleNext} 
                       disabled={!isStep2Valid}
                       className={cn(
-                        "w-full py-6 text-xl font-black italic transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] border-2 border-black",
+                        "w-full py-6 text-xl font-black italic transition-all border-2 border-black",
                         !isStep2Valid ? "opacity-20 grayscale cursor-not-allowed" : "bg-sticker-yellow"
                       )}
                     >
@@ -441,7 +493,7 @@ export const Setup: React.FC<{
                 <div className="h-[2px] w-12 bg-pen-blue/20 mx-auto" />
                 <p className="text-[12px] font-black italic text-pen-blue/40 uppercase tracking-[0.2em]">Протокол слияния активен</p>
              </div>
-             <NeonButton onClick={handleGenerate} className="px-16 py-10 text-3xl font-black italic bg-sticker-yellow shadow-2xl hover:scale-105 transition-transform">
+             <NeonButton onClick={handleGenerate} className="px-16 py-10 text-3xl font-black italic bg-sticker-yellow hover:scale-105 transition-transform">
                 НАЧАТЬ СИНТЕЗ
              </NeonButton>
           </div>

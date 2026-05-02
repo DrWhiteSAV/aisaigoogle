@@ -48,19 +48,19 @@ export const Market: React.FC<{
             </div>
           </div>
           
-          <div className="flex bg-transparent rounded-none p-1 border-2 border-black/5 w-full shadow-sm">
+          <div className="flex bg-transparent rounded-none p-1 border-2 border-black/5 w-full">
              <button 
                onClick={() => navigate('/shop')}
                className={cn(
                  "flex-1 py-3 px-4 text-xs font-black italic transition-all",
-                 mode === 'buy' ? "bg-sticker-yellow border-2 border-black text-pen-blue rotate-1 shadow-sm" : "text-pen-blue/30"
+                 mode === 'buy' ? "bg-sticker-yellow border-2 border-black text-pen-blue rotate-1" : "text-pen-blue/30"
                )}
              >Товары</button>
              <button 
                onClick={() => navigate('/sale')}
                className={cn(
                  "flex-1 py-3 px-4 text-xs font-black italic transition-all",
-                 mode === 'sell' ? "bg-sticker-pink border-2 border-black text-pen-blue -rotate-1 shadow-sm" : "text-pen-blue/30"
+                 mode === 'sell' ? "bg-sticker-pink border-2 border-black text-pen-blue -rotate-1" : "text-pen-blue/30"
                )}
              >Продажа</button>
           </div>
@@ -71,7 +71,7 @@ export const Market: React.FC<{
             <div className="space-y-4">
                <GlassCard color="white" className="p-6 text-center border-2 border-black/5 hover:border-black/10 transition-all cursor-pointer" onClick={() => navigate('/summon')}>
                   <div className="mb-4 relative mx-auto w-12 h-12 flex items-center justify-center">
-                     <div className="h-10 w-10 bg-sticker-yellow border-2 border-black rotate-12 flex items-center justify-center shadow-md">
+                     <div className="h-10 w-10 bg-sticker-yellow border-2 border-black rotate-12 flex items-center justify-center">
                         <Plus className="h-5 w-5 text-pen-blue" />
                      </div>
                   </div>
@@ -97,7 +97,7 @@ export const Market: React.FC<{
                 <GlassCard 
                   key={pet.id} 
                   color="white" 
-                  className="flex gap-4 p-3 border-2 border-black/5 group hover:border-pen-red/20 transition-all shadow-sm items-center cursor-pointer"
+                  className="flex gap-4 p-3 border-2 border-black/5 group hover:border-pen-red/20 transition-all items-center cursor-pointer"
                   onClick={() => navigate(`/pet/${pet.id}`)}
                 >
                    <div className="h-14 w-14 rounded-sm overflow-hidden shrink-0 border-2 border-black/5 rotate-1">

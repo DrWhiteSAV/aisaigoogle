@@ -19,7 +19,7 @@ export const Welcome: React.FC<{ onSetup?: () => void; side?: 'left' | 'right' }
           <img 
             src="https://i.ibb.co/k2PN7Q8y/aisailogo.png" 
             alt="aiSai Logo" 
-            className="w-full object-contain transform -rotate-1 mix-blend-multiply drop-shadow-sm filter contrast-125"
+            className="w-full object-contain transform -rotate-1 mix-blend-multiply filter contrast-125"
           />
         </motion.div>
         
@@ -51,7 +51,7 @@ export const Welcome: React.FC<{ onSetup?: () => void; side?: 'left' | 'right' }
       >
         <NeonButton 
           onClick={onSetup || (() => navigate('/setup'))}
-          className="px-12 py-8 text-2xl font-black italic shadow-xl bg-sticker-yellow"
+          className="px-12 py-8 text-2xl font-black italic bg-sticker-yellow"
         >
           <Plus className="h-8 w-8 mr-4" />
           <span>Призвать сущность</span>

@@ -146,7 +146,7 @@ export const generatePetStatsAndLore = async (
     - Хобби: ${profile.hobbies.join(', ')}
     - Черты души: ${profile.traits.join(', ')}
     - Потенциал: ${RARITY_WEIGHTS[forcedRarity].label} (${forcedRarity})
-    - Общий бюджет очков характеристик: ${baseStatsTotal}
+    - Общий баланс характеристик: ${baseStatsTotal}
     
     Задача: Создай ЕДИНСТВЕННОЕ В СВОЕМ РОДЕ существо в стадии МЛАДЕНЧЕСТВА, которое духовно связано с этим человеком.
     Существо должно базироваться на РЕАЛЬНО СУЩЕСТВУЮЩЕМ биологическом виде, но быть ГИБРИДИЗИРОВАННЫМ с фантастическими элементами.
@@ -156,7 +156,10 @@ export const generatePetStatsAndLore = async (
     2. element: одна из [water, fire, air, earth].
     3. attribute: одна из [light, dark, void, time].
     4. classification: биологическая структура (все поля type, class, species и т.д. на русском).
-    5. stats: распредели ${baseStatsTotal} очков между attack, defense, speed, magic, regeneration, health. health и maxHealth должны быть одинаковыми. rage=0, maxRage=100.
+    5. stats: распредели СЛУЧАЙНЫМ ОБРАЗОМ ровно ${baseStatsTotal} очков между: attack, defense, health, speed, regeneration, magic. 
+       - Каждая характеристика НЕ МОЖЕТ быть больше 999.
+       - health и maxHealth должны быть одинаковыми. 
+       - rage=0, maxRage=100.
     6. abilities: 1 начальный навык на русском.
     7. lore: легенда появления на русском языке, объясняющая связь с личностью пользователя.`;
 
@@ -240,6 +243,7 @@ export const generatePetStatsAndLore = async (
         regeneration: parsed.stats?.regeneration || 5,
         health: parsed.stats?.health || 100,
         maxHealth: parsed.stats?.health || 100,
+        luck: 5,
         maxRage: 100,
         rage: 0
       },

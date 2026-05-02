@@ -72,7 +72,7 @@ export const GlassCard: React.FC<StickyNoteProps> = ({
       transition={{ duration: 0.8, delay, ease: [0.16, 1, 0.3, 1] }}
       onClick={onClick}
       className={cn(
-        "hatching-shadow mb-4 relative group",
+        "mb-4 relative group",
         onClick && "cursor-pointer active:scale-[0.98]",
         className
       )}

@@ -33,6 +33,19 @@ export function getExpNeeded(level: number): number {
   return Math.floor(100 * Math.pow(1.1, level));
 }
 
+export const AGE_STAGE_RECORDS: Record<number, { code: string; label: string }> = {
+  10: { code: 'F', label: 'младенчество' },
+  20: { code: 'E', label: 'детство' },
+  30: { code: 'D', label: 'отрочество' },
+  40: { code: 'C', label: 'молодость' },
+  50: { code: 'B', label: 'взросление' },
+  60: { code: 'A', label: 'зрелость' },
+  70: { code: 'S', label: 'мудрость' },
+  80: { code: 'EX', label: 'единство' },
+  90: { code: 'UX', label: 'пробуждение' },
+  100: { code: 'Z', label: 'абсолютность' }
+};
+
 export function getQuestRewardExp(level: number, success: boolean): number {
   const n = level;
   // (30±25)*0,95^n*100% for success, (5±3)*0,95^n*100% for failure
@@ -41,9 +54,11 @@ export function getQuestRewardExp(level: number, success: boolean): number {
   const randomPercent = (mid + (Math.random() * scatter * 2 - scatter)) / 100;
   const modifier = Math.pow(0.95, n);
   
-  // Percentage of CURRENT level's requirement
-  const baseReward = getExpNeeded(n) * randomPercent * modifier;
-  return Math.max(1, Math.round(baseReward));
+  // Percentage of CURRENT level's requirement (100 * 1.1^n)
+  const expNeeded = getExpNeeded(n);
+  const rewardXP = Math.round(expNeeded * randomPercent * modifier);
+  
+  return Math.max(1, rewardXP);
 }
 
 export function getPetRankByLevel(level: number): AgeStage {
@@ -70,20 +85,43 @@ export function getElementAdvantageMultiplier(attacker: Element, defender: Eleme
 export function getAttributeDefenseMultiplier(attacker: Attribute, defender: Attribute): number {
   const attackIndex = ATTRIBUTE_CYCLE.indexOf(attacker);
   const targetIndex = ATTRIBUTE_CYCLE.indexOf(defender);
-  // Light -> Dark -> Void -> Time -> Light
-  // Defender is stronger if attacker is the one defender beats? 
+  // Light -> Dark -> Void -> Time -> Light (Stronger beats weaker)
   // User: "Питомцы с более сильным атрибутом имеют защиту в 2 раза выше"
-  // If Defender Attribute > Attacker Attribute, defense is 2x.
-  if ((targetIndex + 1) % ATTRIBUTE_CYCLE.length === attackIndex) return 2;
+  // Stronger beats weaker. So if defender is the stronger one in the cycle relative to attacker.
+  // Cycle: Light beats Dark beats Void beats Time beats Light
+  if ((targetIndex + 1) % ATTRIBUTE_CYCLE.length === attackIndex) return 1; // Defender is weaker
+  if ((attackIndex + 1) % ATTRIBUTE_CYCLE.length === targetIndex) return 2; // Defender is stronger
   return 1;
 }
 
+export function checkLevelUp(pet: Pet): Pet {
+  let currentPet = { ...pet };
+  let expNeeded = getExpNeeded(currentPet.level);
+  
+  while (currentPet.experience >= expNeeded && currentPet.level < 100) {
+    currentPet.experience -= expNeeded;
+    currentPet.level += 1;
+    
+    // Add stat points based on rarity growth
+    const growth = RARITY_WEIGHTS[currentPet.rarity].growth;
+    currentPet.statPoints += growth;
+    
+    // Update age stage if needed
+    currentPet.ageStage = getPetRankByLevel(currentPet.level);
+    
+    expNeeded = getExpNeeded(currentPet.level);
+  }
+  
+  return currentPet;
+}
+
 export function calculateCP(pet: Pet): number {
+  if (!pet || !pet.stats) return 0;
   const { attack, defense, health, speed, regeneration, magic } = pet.stats;
+  const luck = pet.stats.luck || 0;
   // TZ: "сумма всех статов, навыков, предметов, материалов, корма - все что влияет на показатели"
-  // Assuming abilities/materials etc are already reflected in stats or we add a bonus.
   const abilitiesBonus = pet.abilities.length * 50; 
-  return attack + defense + health + speed + regeneration + magic + abilitiesBonus;
+  return attack + defense + health + speed + regeneration + magic + luck + abilitiesBonus;
 }
 
 export function getSummonerRank(pets: Pet[]): { name: string, limit: number } {

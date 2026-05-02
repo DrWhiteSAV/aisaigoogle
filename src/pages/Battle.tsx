@@ -5,7 +5,7 @@ import { GlassCard, NeonButton, HandwrittenText } from '../components/UI';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sword, Shield, Zap, Sparkles, Coins, Flame, Droplets, Wind, Mountain, Sun, Moon, Ghost, Clock } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { getElementAdvantageMultiplier, getAttributeDefenseMultiplier, calculateCP, getExpNeeded, getNextLevelReward } from '../lib/gameLogic';
+import { getElementAdvantageMultiplier, getAttributeDefenseMultiplier, calculateCP, getExpNeeded, getNextLevelReward, checkLevelUp } from '../lib/gameLogic';
 
 export const Battle: React.FC<{ progress: UserProgress; setProgress: React.Dispatch<React.SetStateAction<UserProgress>> }> = ({ progress, setProgress }) => {
   const navigate = useNavigate();
@@ -15,7 +15,10 @@ export const Battle: React.FC<{ progress: UserProgress; setProgress: React.Dispa
   const [battleLog, setBattleLog] = useState<string[]>(['Битва началась!']);
   
   // HP must be initialized safely
-  const [hp, setHp] = useState({ player: playerPet?.stats.health || 100, enemy: 100 });
+  const [hp, setHp] = useState({ 
+    player: playerPet?.stats?.health ?? 100, 
+    enemy: 100 
+  });
   const [rage, setRage] = useState({ player: 0, enemy: 0 });
   const [turn, setTurn] = useState<'player' | 'enemy' | 'waiting'>('waiting');
   const [winner, setWinner] = useState<'player' | 'enemy' | null>(null);
@@ -52,21 +55,24 @@ export const Battle: React.FC<{ progress: UserProgress; setProgress: React.Dispa
       attribute: ['light', 'dark', 'void', 'time'][Math.floor(Math.random() * 4)] as any,
       stats: {
         ...playerPet.stats,
-        attack: Math.floor(playerPet.stats.attack * cpModifier),
-        defense: Math.floor(playerPet.stats.defense * cpModifier),
-        health: Math.floor(playerPet.stats.health * cpModifier),
-        maxHealth: Math.floor(playerPet.stats.health * cpModifier),
-        speed: Math.floor(playerPet.stats.speed * cpModifier),
-        magic: Math.floor(playerPet.stats.magic * cpModifier),
-        regeneration: Math.floor(playerPet.stats.regeneration * cpModifier),
+        attack: Math.floor((playerPet.stats?.attack || 10) * cpModifier),
+        defense: Math.floor((playerPet.stats?.defense || 10) * cpModifier),
+        health: Math.floor((playerPet.stats?.health || 100) * cpModifier),
+        maxHealth: Math.floor((playerPet.stats?.health || 100) * cpModifier),
+        speed: Math.floor((playerPet.stats?.speed || 10) * cpModifier),
+        magic: Math.floor((playerPet.stats?.magic || 10) * cpModifier),
+        regeneration: Math.floor((playerPet.stats?.regeneration || 5) * cpModifier),
+        luck: Math.floor((playerPet.stats?.luck || 5) * cpModifier),
+        rage: 0,
+        maxRage: 100
       }
     };
 
     setEnemy(mockEnemy);
-    setHp({ player: playerPet.stats.health, enemy: mockEnemy.stats.health });
+    setHp({ player: playerPet.stats?.health || 100, enemy: mockEnemy.stats.health });
     
     // Who starts?
-    if (playerPet.stats.speed >= mockEnemy.stats.speed) {
+    if ((playerPet.stats?.speed || 0) >= (mockEnemy.stats?.speed || 0)) {
       setTurn('player');
     } else {
       setTurn('enemy');
@@ -78,11 +84,12 @@ export const Battle: React.FC<{ progress: UserProgress; setProgress: React.Dispa
   }, []);
 
   const calculateDamage = useCallback((attacker: Pet, defender: Pet, isUlt: boolean = false) => {
+    if (!attacker?.stats || !defender?.stats) return 0;
     const elemMult = getElementAdvantageMultiplier(attacker.element, defender.element);
     const attrMult = getAttributeDefenseMultiplier(attacker.attribute, defender.attribute);
 
-    const baseDmg = isUlt ? (attacker.stats.attack + attacker.stats.magic) * 1.5 : attacker.stats.attack;
-    const finalDmg = Math.max(1, (baseDmg * elemMult) - (defender.stats.defense * attrMult));
+    const baseDmg = isUlt ? ((attacker.stats.attack || 0) + (attacker.stats.magic || 0)) * 1.5 : (attacker.stats.attack || 0);
+    const finalDmg = Math.max(1, (baseDmg * elemMult) - ((defender.stats.defense || 0) * attrMult));
     return Math.floor(finalDmg);
   }, []);
 
@@ -92,9 +99,9 @@ export const Battle: React.FC<{ progress: UserProgress; setProgress: React.Dispa
     let hits = 1;
     // Speed-based multi-attacks: speed ratio
     if (type === 'attack') {
-      const speedRatio = playerPet.stats.speed / enemy.stats.speed;
-      hits = Math.max(1, Math.floor(speedRatio));
-      if (hits > 3) hits = 3; // Cap to 3
+      const speed = playerPet?.stats?.speed || 1;
+      // Proportional hits: speed of 20 = 2 hits, 30 = 3 hits. Divisor of 10.
+      hits = Math.max(1, Math.min(5, Math.floor(speed / 10)));
     }
 
     setTurn('waiting');
@@ -116,8 +123,9 @@ export const Battle: React.FC<{ progress: UserProgress; setProgress: React.Dispa
           setShowUlt(true);
           setTimeout(() => setShowUlt(false), 1500);
         } else if (type === 'defend') {
-          log = `${playerPet.name} восстанавливает ${playerPet.stats.regeneration} HP!`;
-          setHp(prev => ({ ...prev, player: Math.min(playerPet.stats.health, prev.player + playerPet.stats.regeneration) }));
+          const regen = playerPet.stats?.regeneration || 0;
+          log = `${playerPet.name} восстанавливает ${regen} HP!`;
+          setHp(prev => ({ ...prev, player: Math.min(playerPet.stats?.health || 100, prev.player + regen) }));
         }
 
         if (damage > 0) {
@@ -132,9 +140,10 @@ export const Battle: React.FC<{ progress: UserProgress; setProgress: React.Dispa
         }
 
         // Passive Regen for player
-        if (playerPet.stats.regeneration > 0 && i === hits - 1) {
-            setHp(prev => ({ ...prev, player: Math.min(playerPet.stats.health, prev.player + playerPet.stats.regeneration) }));
-            setBattleLog(prev => [`${playerPet.name} восстанавливает ${playerPet.stats.regeneration} HP`, ...prev]);
+        if ((playerPet.stats?.regeneration || 0) > 0 && i === hits - 1) {
+            const regen = playerPet.stats?.regeneration || 0;
+            setHp(prev => ({ ...prev, player: Math.min(playerPet.stats?.health || 100, prev.player + regen) }));
+            setBattleLog(prev => [`${playerPet.name} восстанавливает ${regen} HP`, ...prev]);
         }
         
         setBattleLog(prev => [log, ...prev]);
@@ -164,17 +173,23 @@ export const Battle: React.FC<{ progress: UserProgress; setProgress: React.Dispa
       setProgress(prev => ({
         ...prev,
         currency: prev.currency + rublesAwarded,
-        pets: prev.pets.map(p => p.id === playerPet.id ? { ...p, experience: p.experience + xpAwarded } : p)
+        pets: prev.pets.map(p => p.id === playerPet.id ? checkLevelUp({ ...p, experience: p.experience + xpAwarded }) : p)
+      }));
+    } else {
+      // Small consolidation XP for losing
+      setProgress(prev => ({
+        ...prev,
+        pets: prev.pets.map(p => p.id === playerPet.id ? checkLevelUp({ ...p, experience: p.experience + Math.floor(xpAwarded * 0.1) }) : p)
       }));
     }
   }, [enemy, playerPet, setProgress]);
 
   const performEnemyTurn = useCallback(async (currentEnemy: Pet) => {
-    if (winner || !currentEnemy) return;
+    if (winner || !currentEnemy || !playerPet) return;
 
     const useUlt = rage.enemy >= 100;
-    const speedRatio = currentEnemy.stats.speed / playerPet.stats.speed;
-    const hits = useUlt ? 1 : Math.max(1, Math.min(3, Math.floor(speedRatio)));
+    const speed = currentEnemy?.stats?.speed || 1;
+    const hits = useUlt ? 1 : Math.max(1, Math.min(5, Math.floor(speed / 10)));
 
     let currentPlayerHp = hp.player;
     for (let i = 0; i < hits; i++) {
@@ -197,9 +212,11 @@ export const Battle: React.FC<{ progress: UserProgress; setProgress: React.Dispa
         setTimeout(() => setIsPlayerHit(false), 300);
 
         // Passive Regen for enemy
-        if (currentEnemy.stats.regeneration > 0 && i === hits - 1) {
-            setHp(prev => ({ ...prev, enemy: Math.min(currentEnemy.stats.health, prev.enemy + currentEnemy.stats.regeneration) }));
-            setBattleLog(prev => [`[ВРАГ] ${currentEnemy.name} восстанавливает ${currentEnemy.stats.regeneration} HP`, ...prev]);
+        if ((currentEnemy?.stats?.regeneration || 0) > 0 && i === hits - 1) {
+            const regen = currentEnemy.stats?.regeneration || 0;
+            const maxHp = currentEnemy.stats?.health || 100;
+            setHp(prev => ({ ...prev, enemy: Math.min(maxHp, prev.enemy + regen) }));
+            setBattleLog(prev => [`[ВРАГ] ${currentEnemy.name} восстанавливает ${regen} HP`, ...prev]);
         }
         
         await new Promise(r => setTimeout(r, 600));
@@ -208,7 +225,7 @@ export const Battle: React.FC<{ progress: UserProgress; setProgress: React.Dispa
     if (currentPlayerHp > 0 && !winner) {
         setTurn('player');
     }
-  }, [winner, rage.enemy, playerPet.stats.speed, hp.player, calculateDamage, playerPet]);
+  }, [winner, rage.enemy, playerPet?.stats?.speed, hp.player, calculateDamage, playerPet]);
 
   // Watch for HP changes
   useEffect(() => {
@@ -288,11 +305,11 @@ export const Battle: React.FC<{ progress: UserProgress; setProgress: React.Dispa
                <div className="w-full h-4 bg-black/10 rounded-full overflow-hidden border-2 border-black backdrop-blur-sm">
                   <motion.div 
                     className="h-full bg-pen-red" 
-                    animate={{ width: `${(hp.enemy / enemy.stats.health) * 100}%` }} 
+                    animate={{ width: `${(hp.enemy / (enemy?.stats?.health || 100)) * 100}%` }} 
                   />
                </div>
                <div className="flex justify-between w-full px-1">
-                  <div className="text-[10px] font-black text-pen-blue italic bg-white/80 px-1">HP: {Math.max(0, hp.enemy)} / {enemy.stats.health}</div>
+                  <div className="text-[10px] font-black text-pen-blue italic bg-white/80 px-1">HP: {Math.max(0, hp.enemy)} / {enemy?.stats?.health || 100}</div>
                   <div className="text-[10px] font-black text-pen-blue italic bg-white/80 px-1">CP: {calculateCP(enemy)}</div>
                </div>
             </div>
@@ -333,11 +350,11 @@ export const Battle: React.FC<{ progress: UserProgress; setProgress: React.Dispa
                <div className="w-full h-4 bg-black/10 rounded-full overflow-hidden border-2 border-black backdrop-blur-sm">
                   <motion.div 
                     className="h-full bg-pen-blue" 
-                    animate={{ width: `${(hp.player / playerPet.stats.health) * 100}%` }} 
+                    animate={{ width: `${(hp.player / (playerPet?.stats?.health || 100)) * 100}%` }} 
                   />
                </div>
                <div className="flex justify-between w-full px-1">
-                  <div className="text-[10px] font-black text-pen-blue italic bg-white/80 px-1">HP: {Math.max(0, hp.player)} / {playerPet.stats.health}</div>
+                  <div className="text-[10px] font-black text-pen-blue italic bg-white/80 px-1">HP: {Math.max(0, hp.player)} / {playerPet?.stats?.health || 100}</div>
                   <div className="text-[10px] font-black text-pen-blue italic bg-white/80 px-1">CP: {calculateCP(playerPet)}</div>
                </div>
             </div>
@@ -409,7 +426,7 @@ export const Battle: React.FC<{ progress: UserProgress; setProgress: React.Dispa
             animate={{ opacity: 1 }}
             className="fixed inset-0 z-50 flex items-center justify-center bg-white/80 backdrop-blur-md p-6"
           >
-            <GlassCard color={winner === 'player' ? "yellow" : "pink"} className="text-center p-12 max-w-sm border-2 border-black hatching-shadow">
+            <GlassCard color={winner === 'player' ? "yellow" : "pink"} className="text-center p-12 max-w-sm border-2 border-black">
               <h2 className="text-6xl font-black italic mb-6 text-pen-blue tracking-tighter">
                 {winner === 'player' ? 'Победа!' : 'Фиаско'}
               </h2>

@@ -5,7 +5,6 @@ import { LayoutGrid, ShoppingBag, User, Coins } from 'lucide-react';
 export const Navbar: React.FC<{ rubles?: number }> = ({ rubles }) => {
   const navItems = [
     { to: '/main', icon: LayoutGrid, label: 'Бестиарий' },
-    { to: '/inventory', icon: ShoppingBag, label: 'Сумка' },
     { to: '/shop', icon: Coins, label: 'Рынок' },
     { to: '/profile', icon: User, label: 'Профиль' },
   ];

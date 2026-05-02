@@ -101,7 +101,7 @@ export const Evolve: React.FC<{ progress: UserProgress; setProgress: React.Dispa
 
        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
           <div className="lg:col-span-7">
-            <GlassCard color="white" className="p-10 border-2 border-black/5 hatching-shadow relative overflow-hidden group">
+            <GlassCard color="white" className="p-10 border-2 border-black/5 relative overflow-hidden group">
                <div className="relative z-10 space-y-12">
                   <div className="text-center space-y-2">
                      <div className="text-[12px] font-black text-pen-blue/30 italic">Текущая Стадия</div>
@@ -156,7 +156,7 @@ export const Evolve: React.FC<{ progress: UserProgress; setProgress: React.Dispa
           </div>
 
           <div className="lg:col-span-5 space-y-8">
-             <GlassCard color="blue" rotation={-1} className="p-8 border-2 border-black/5 hatching-shadow">
+             <GlassCard color="blue" rotation={-1} className="p-8 border-2 border-black/5">
                 <h3 className="text-lg font-black text-pen-blue/60 mb-8 flex items-center gap-2 italic">
                    <FlaskConical className="h-5 w-5" />
                    Лаборатория материалов
@@ -171,7 +171,7 @@ export const Evolve: React.FC<{ progress: UserProgress; setProgress: React.Dispa
                 </div>
              </GlassCard>
 
-             <GlassCard color="pink" rotation={1} className="p-8 border-2 border-black/5 hatching-shadow">
+             <GlassCard color="pink" rotation={1} className="p-8 border-2 border-black/5">
                 <h4 className="text-lg font-black text-pen-blue/60 mb-4 flex items-center gap-2 italic">
                    <Info className="h-4 w-4" />
                    Справочник эволюции

@@ -4,8 +4,10 @@ import { UserProgress, Pet } from '../types';
 import { GlassCard, NeonButton, HandwrittenText } from '../components/UI';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
-import { Shield, Sword, Brain, Zap, Star, Sparkles, Heart, Activity, Compass, Coins, Plus, Box, Package, ChevronRight, Zap as EnergyIcon } from 'lucide-react';
-import { getPetRankByLevel, calculateCP } from '../lib/gameLogic';
+import { Shield, Sword, Brain, Zap, Star, Sparkles, Heart, Activity, Compass, Coins, Plus, Box, Package, ChevronRight, Zap as EnergyIcon, ShoppingBag } from 'lucide-react';
+import { getPetRankByLevel, calculateCP, getExpNeeded } from '../lib/gameLogic';
+import { ELEMENT_DATA, RARITY_LABELS } from '../constants/gameData';
+import { ElementSticker } from '../components/GameUI';
 
 export const Main: React.FC<{ 
   progress: UserProgress; 
@@ -51,7 +53,7 @@ export const Main: React.FC<{
       {/* Header with Energy & Currency */}
       <header className="flex flex-col gap-6 border-b-2 border-black/5 pb-10">
         <div className="flex items-center gap-4">
-          <div className="h-16 w-16 bg-sticker-yellow border-2 border-black rotate-3 flex items-center justify-center shadow-lg p-2 cursor-pointer hover:scale-110 transition-transform" onClick={() => navigate('/main')}>
+          <div className="h-16 w-16 bg-sticker-yellow border-2 border-black rotate-3 flex items-center justify-center p-2 cursor-pointer hover:scale-110 transition-transform" onClick={() => navigate('/main')}>
              <img src="https://i.ibb.co/k2PN7Q8y/aisailogo.png" alt="aiSai" className="h-full w-full object-contain mix-blend-multiply" />
           </div>
           <div>
@@ -68,17 +70,11 @@ export const Main: React.FC<{
                 <span>Заряд: {progress.energy}</span>
                 <span className="text-[10px] opacity-40">({timeLeft})</span>
              </div>
-             <div className="w-32 h-2.5 bg-black/5 rounded-full overflow-hidden border border-black/5">
-                <motion.div 
-                  className="h-full bg-pen-blue opacity-50" 
-                  animate={{ width: `${Math.min((progress.energy / 50) * 100, 100)}%` }} 
-                />
-             </div>
           </div>
 
           <div
             onClick={() => navigate('/topup')}
-            className="group cursor-pointer bg-sticker-blue px-4 py-2 border-2 border-black rotate-1 flex items-center gap-3 text-lg font-black italic shadow-sm hover:-translate-y-1 transition-all"
+            className="group cursor-pointer bg-sticker-blue px-4 py-2 border-2 border-black rotate-1 flex items-center gap-3 text-lg font-black italic hover:-translate-y-1 transition-all"
           >
             <Coins className="h-5 w-5" />
             <span>{progress.currency.toLocaleString()} ₽</span>
@@ -117,35 +113,44 @@ export const Main: React.FC<{
                    noPadding 
                    className={cn(
                      "border-2 overflow-hidden rotation-1 group-hover:rotate-0 transition-all",
-                     activeId === pet.id ? "border-pen-blue shadow-xl !rotate-0 scale-[1.02]" : "border-black/10"
+                     activeId === pet.id ? "border-pen-blue !rotate-0 scale-[1.02]" : "border-black/10"
                    )}
                  >
                    <div className="aspect-[9/16] relative bg-white">
                      <img src={pet.image} alt={pet.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 grayscale-[10%]" />
                      
                      <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
-                        <div className="px-2 py-0.5 bg-black text-white text-[9px] font-black italic lowercase shadow-sm">
-                           {pet.rarity}
+                        <div className="px-2 py-0.5 bg-black text-white text-[9px] font-black italic lowercase">
+                           {RARITY_LABELS[pet.rarity] || pet.rarity}
                         </div>
                         <button 
-                          onClick={(e) => { e.stopPropagation(); navigate(`/inventory`); }}
-                          className="h-8 w-8 bg-sticker-blue border border-black flex items-center justify-center hover:bg-sticker-yellow transition-colors shadow-sm"
+                          onClick={(e) => { e.stopPropagation(); navigate(`/inventory/${pet.id}`); }}
+                          className="h-8 w-8 bg-sticker-blue border border-black flex items-center justify-center hover:bg-sticker-yellow transition-colors"
                         >
                            <ShoppingBag className="h-4 w-4" />
                         </button>
                      </div>
 
-                     <div className="absolute top-2 right-2 h-8 w-8 bg-sticker-yellow border border-black rotate-6 flex flex-col items-center justify-center shadow-sm z-10">
+                     <div className="absolute top-2 right-2 h-8 w-8 bg-sticker-yellow border border-black rotate-6 flex flex-col items-center justify-center z-10">
                         <span className="text-[10px] font-black italic leading-none">{cp}</span>
                      </div>
 
                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-white via-white/80 to-transparent p-4 pt-12 z-10">
+                        {/* XP Progress Bar */}
+                        <div className="w-full h-1 bg-black/5 rounded-full overflow-hidden mb-3">
+                          <motion.div 
+                            className="h-full bg-pen-blue opacity-40"
+                            initial={{ width: 0 }}
+                            animate={{ width: `${Math.min((pet.experience / getExpNeeded(pet.level)) * 100, 100)}%` }}
+                          />
+                        </div>
+                        
                         <h3 className="text-xl font-black italic truncate leading-none mb-1">
                           {pet.name}
                         </h3>
-                        <div className="flex justify-between items-center text-[10px] font-black italic text-pen-blue/40">
-                          <span>LVL {pet.level}</span>
-                          <span className="uppercase">{pet.element}</span>
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-black italic text-pen-blue/40 uppercase">LVL {pet.level}</span>
+                          <ElementSticker element={pet.element} showLabel={true} className="scale-90 origin-right" />
                         </div>
                      </div>
                    </div>
