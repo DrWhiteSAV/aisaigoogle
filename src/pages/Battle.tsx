@@ -449,26 +449,73 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
       }
     };
 
+    const EdgeIcon = ({ icon: Icon, value, label, position }: any) => (
+      <div className={cn(
+        "absolute flex items-center bg-white border-2 border-pen-blue px-1 py-0.5 rounded shadow-sm z-50",
+        position === 'left' ? "right-[102%]" : "left-[102%]"
+      )}>
+        <Icon className="w-3 h-3 text-pen-blue mr-1" />
+        <span className="text-[10px] font-black text-pen-blue">{value}</span>
+      </div>
+    );
+
     return (
       <motion.div 
         animate={{ 
-          scale: (isPlayer ? (turn === 'player' ? 0.85 : 0.8) : (turn === 'enemy' ? 0.85 : 0.8)),
+          scale: (isPlayer ? (turn === 'player' ? 0.95 : 0.9) : (turn === 'enemy' ? 0.95 : 0.9)),
           y: isHit ? [0, -10, 10, -5, 5, 0] : 0,
           zIndex: isTop ? 40 : 20,
           rotate: isPlayer ? -1.5 : 1.5
         }}
         className={cn(
-          "relative w-[85%] aspect-[3/4.8] bg-white border-[5px] border-pen-blue shadow-2xl flex flex-col select-none",
+          "relative w-[75%] aspect-[3/4.8] bg-white border-[5px] border-pen-blue shadow-2xl flex flex-col select-none",
           !isPlayer && "brightness-95"
         )}
       >
+        {/* Edge Stat Icons */}
+        <div className={cn(
+          "absolute inset-y-0 flex flex-col justify-end gap-1.5 pb-4",
+          isPlayer ? "left-0" : "right-0"
+        )}>
+           <div className={cn("absolute bottom-6 flex flex-col gap-2", isPlayer ? "right-full mr-2 items-end" : "left-full ml-2 items-start")}>
+              <div className="bg-white border-2 border-pen-blue p-1 rounded rotate-3 flex items-center gap-1">
+                <Target className="w-3 h-3 text-pen-blue" />
+                <span className="text-[10px] font-black text-pen-blue">{cp}</span>
+              </div>
+              <div className="bg-white border-2 border-pen-red p-1 rounded -rotate-2 flex items-center gap-1">
+                <Heart className="w-3 h-3 text-pen-red" />
+                <span className="text-[10px] font-black text-pen-red">{Math.floor(currentHp)}</span>
+              </div>
+              <div className="bg-white border-2 border-pen-blue p-1 rounded rotate-1 flex items-center gap-1">
+                <Sword className="w-3 h-3 text-pen-blue" />
+                <span className="text-[10px] font-black text-pen-blue">{pet.stats?.attack}</span>
+              </div>
+              <div className="bg-white border-2 border-pen-blue p-1 rounded -rotate-3 flex items-center gap-1">
+                <Shield className="w-3 h-3 text-pen-blue" />
+                <span className="text-[10px] font-black text-pen-blue">{pet.stats?.defense}</span>
+              </div>
+              <div className="bg-white border-2 border-pen-blue p-1 rounded rotate-2 flex items-center gap-1">
+                <Zap className="w-3 h-3 text-pen-blue" />
+                <span className="text-[10px] font-black text-pen-blue">{pet.stats?.speed}</span>
+              </div>
+              <div className="bg-white border-2 border-pen-blue p-1 rounded -rotate-1 flex items-center gap-1">
+                <Flame className="w-3 h-3 text-pen-blue" />
+                <span className="text-[10px] font-black text-pen-blue">{pet.stats?.magic}</span>
+              </div>
+              <div className="bg-white border-2 border-pen-blue p-1 rounded rotate-3 flex items-center gap-1">
+                <Timer className="w-3 h-3 text-pen-blue" strokeWidth={3} />
+                <span className="text-[10px] font-black text-pen-blue">{pet.stats?.regeneration}</span>
+              </div>
+           </div>
+        </div>
+
         {/* Header with integrated Health Bar */}
         <div className="relative h-10 border-b-[4px] border-pen-blue/40 overflow-hidden bg-white">
           <motion.div 
             initial={{ width: "100%" }}
             animate={{ width: `${(currentHp / maxHp) * 100}%` }}
             className={cn(
-              "absolute inset-0 opacity-40",
+              "absolute inset-0 opacity-40 transition-all duration-500",
               isPlayer ? "bg-pen-blue" : "bg-pen-red"
             )}
           />
@@ -482,14 +529,14 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
           <img src={pet.image} className="w-full h-full object-cover pointer-events-none" alt={pet.name} />
           
           {/* Bottom Info Overlay with distinct gradient */}
-          <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-white via-white/80 to-transparent flex justify-between items-end z-10">
+          <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-white via-white/40 to-transparent flex justify-between items-end z-20">
              <div className="flex flex-col">
-                <span className="text-[10px] font-black text-pen-blue italic uppercase tracking-tighter opacity-70">Стихия</span>
-                <span className="text-[14px] font-black text-pen-blue italic uppercase tracking-tighter">{translateElement(pet.element)}</span>
+                <span className="text-[9px] font-black text-pen-blue uppercase tracking-tighter opacity-70 leading-none">Стихия</span>
+                <span className="text-[12px] font-black text-pen-blue italic uppercase tracking-tighter">{translateElement(pet.element)}</span>
              </div>
              <div className="text-right flex flex-col">
-                <span className="text-[10px] font-black text-pen-blue italic uppercase tracking-tighter opacity-70">Атрибут</span>
-                <span className="text-[14px] font-black text-pen-blue italic uppercase tracking-tighter">{translateAttribute(pet.attribute)}</span>
+                <span className="text-[9px] font-black text-pen-blue uppercase tracking-tighter opacity-70 leading-none">Атрибут</span>
+                <span className="text-[12px] font-black text-pen-blue italic uppercase tracking-tighter">{translateAttribute(pet.attribute)}</span>
              </div>
           </div>
           
@@ -497,7 +544,7 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="absolute inset-0 bg-pen-blue/40 flex items-center justify-center backdrop-blur-[1px] z-10"
+              className="absolute inset-0 bg-pen-blue/40 flex items-center justify-center z-10"
             >
               <Shield className="w-20 h-20 text-white animate-pulse drop-shadow-2xl" />
             </motion.div>
@@ -513,68 +560,20 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
           )}
 
           <div className="absolute top-2 right-2 flex flex-col gap-2 items-end pointer-events-none z-10">
-             <div className="bg-white border-[3px] border-pen-blue px-2 py-0.5 rounded-sm shadow-md">
-                <span className="text-[11px] font-black text-pen-blue italic uppercase tracking-tighter">CP: {cp}</span>
-             </div>
-             <div className={cn("px-2 py-0.5 rounded-sm shadow-md border-[3px] border-pen-blue", 
-               pet.rank === 'S' || pet.rank === 'SS' ? "bg-sticker-yellow" : "bg-white"
-             )}>
+             <div className={cn("px-2 py-0.5 rounded-sm shadow-md border-[3px] border-pen-blue bg-white")}>
                 <span className="text-[10px] font-black text-pen-blue tracking-[0.1em] uppercase">РАНГ {pet.rank ?? 'B'}</span>
              </div>
           </div>
         </div>
 
-        <div className="bg-white p-3 grid grid-cols-2 gap-x-4 gap-y-3 border-t-[3px] border-pen-blue/20">
-
-           <div className="flex items-center gap-2 border-b-2 border-pen-blue/10 pb-1">
-              <Sword className="w-6 h-6 text-pen-blue" />
-              <div className="flex flex-col">
-                 <span className="text-[8px] font-black text-pen-blue/50 uppercase leading-none mb-0.5">АТАКА</span>
-                 <span className="text-[14px] font-black text-pen-blue leading-none">{pet.stats?.attack}</span>
-              </div>
-           </div>
-           <div className="flex items-center gap-2 border-b-2 border-pen-blue/10 pb-1">
-              <Shield className="w-6 h-6 text-pen-blue" />
-              <div className="flex flex-col">
-                 <span className="text-[8px] font-black text-pen-blue/50 uppercase leading-none mb-0.5">ЗАЩИТА</span>
-                 <span className="text-[14px] font-black text-pen-blue leading-none">{pet.stats?.defense}</span>
-              </div>
-           </div>
-           <div className="flex items-center gap-2 border-b-2 border-pen-blue/10 pb-1">
-              <Zap className="w-6 h-6 text-pen-blue" />
-              <div className="flex flex-col">
-                 <span className="text-[8px] font-black text-pen-blue/50 uppercase leading-none mb-0.5">СКОРОСТЬ</span>
-                 <span className="text-[14px] font-black text-pen-blue leading-none">{pet.stats?.speed}</span>
-              </div>
-           </div>
-           <div className="flex items-center gap-2 border-b-2 border-pen-blue/10 pb-1">
-              <Flame className="w-6 h-6 text-pen-blue" />
-              <div className="flex flex-col">
-                 <span className="text-[8px] font-black text-pen-blue/50 uppercase leading-none mb-0.5">МАГИЯ</span>
-                 <span className="text-[14px] font-black text-pen-blue leading-none">{pet.stats?.magic}</span>
-              </div>
-           </div>
-           <div className="flex items-center gap-2">
-              <Timer className="w-6 h-6 text-pen-blue" />
-              <div className="flex flex-col">
-                 <span className="text-[8px] font-black text-pen-blue/50 uppercase leading-none mb-0.5">РЕГЕН.</span>
-                 <span className="text-[14px] font-black text-pen-blue leading-none">{pet.stats?.regeneration}</span>
-              </div>
-           </div>
-           <div className="flex items-center gap-2">
-              <Heart className="w-6 h-6 text-pen-red" />
-              <div className="flex flex-col">
-                 <span className="text-[8px] font-black text-pen-red/50 uppercase leading-none mb-0.5">ЗДОРОВЬЕ</span>
-                 <span className="text-[14px] font-black text-pen-red leading-none">{Math.floor(currentHp)}</span>
-              </div>
-           </div>
-        </div>
-
-        <div className="h-2 bg-black/10 w-full overflow-hidden border-t-2 border-black/5">
+        <div className="h-3 bg-black/10 w-full overflow-hidden border-t-2 border-black/5 relative">
            <motion.div 
-             className="h-full bg-sticker-yellow" 
+             className="h-full bg-pen-red" 
              animate={{ width: `${Math.min(100, isPlayer ? rage.player : rage.enemy)}%` }} 
            />
+           <div className="absolute inset-0 flex items-center justify-center text-[8px] font-black text-white mix-blend-difference">
+              {Math.floor(isPlayer ? rage.player : rage.enemy)}%
+           </div>
         </div>
       </motion.div>
     );
@@ -587,19 +586,16 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
           {showUlt && <UltAnimation element={playerPet.element} />}
         </AnimatePresence>
         
-        <div className="flex-1 relative mb-4 min-h-0">
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
-          </div>
-
-          <div className="absolute bottom-16 right-[-5%] w-[65%] flex justify-end z-10">
-             <BattleCard pet={enemy} currentHp={hp.enemy} maxHp={enemy.stats?.health || 100} isPlayer={false} isHit={isEnemyHit} isBlocking={isEnemyBlocking} />
-          </div>
-
-          <div className="absolute top-16 left-[-5%] w-[65%] flex justify-start z-30">
+        <div className="flex-1 relative mb-2 min-h-0">
+          <div className="absolute top-2 left-2 w-[60%] flex justify-start z-30">
              <BattleCard pet={playerPet} currentHp={hp.player} maxHp={playerPet.stats?.health || 100} isPlayer={true} isHit={isPlayerHit} isBlocking={isPlayerBlocking} isTop />
           </div>
 
-          <div className="absolute top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-[60] flex flex-col gap-8 scale-110">
+          <div className="absolute bottom-2 right-2 w-[60%] flex justify-end z-10">
+             <BattleCard pet={enemy} currentHp={hp.enemy} maxHp={enemy.stats?.health || 100} isPlayer={false} isHit={isEnemyHit} isBlocking={isEnemyBlocking} />
+          </div>
+
+          <div className="absolute top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-[60] flex flex-col gap-4 scale-[0.85]">
              <motion.div className="flex flex-col items-center">
                 <motion.button 
                   whileHover={{ scale: 1.1 }}
@@ -607,24 +603,23 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
                   disabled={turn !== 'player' || !!winner}
                   onClick={() => handleAction('attack')}
                   className={cn(
-                    "w-22 h-22 flex items-center justify-center rounded-full border-[5px] border-pen-blue bg-white shadow-xl transition-all",
+                    "w-20 h-20 flex items-center justify-center rounded-full border-[4px] border-pen-blue bg-transparent transition-all relative overflow-hidden",
                     turn === 'player' ? "cursor-pointer" : "opacity-30 grayscale cursor-not-allowed"
                   )}
                 >
                   <motion.div 
                     animate={turn === 'player' ? { 
-                      rotate: [-10, 10, -10], 
-                      scale: [1, 1.1, 1],
-                      boxShadow: ["0 0 0px rgba(28,49,152,0)", "0 0 15px rgba(28,49,152,0.4)", "0 0 0px rgba(28,49,152,0)"]
+                      borderColor: ["#1c3198", "#ffc107", "#1c3198"],
                     } : {}} 
-                    transition={{ repeat: Infinity, duration: 1.2 }}
-                    className="flex items-center justify-center"
-                  >
-                    <Sword className="w-12 h-12 text-pen-blue" strokeWidth={2.5} />
-                  </motion.div>
+                    transition={{ repeat: Infinity, duration: 1.5 }}
+                    className="absolute inset-0 border-[4px] rounded-full pointer-events-none"
+                  />
+                  <div className="flex items-center justify-center bg-white/10 backdrop-blur-[2px] rounded-full w-full h-full">
+                    <Sword className="w-10 h-10 text-pen-blue" strokeWidth={3} />
+                  </div>
                 </motion.button>
-                <div className="mt-1 bg-white/90 border-2 border-pen-blue px-3 py-0.5 rounded shadow-sm rotate-[-2deg]">
-                  <span className="text-[12px] font-black text-pen-blue uppercase tracking-widest italic">АТАКА</span>
+                <div className="mt-1 bg-white/80 border border-pen-blue px-2 py-0 min-w-[70px] text-center rounded shadow-sm rotate-[-2deg]">
+                  <span className="text-[10px] font-black text-pen-blue uppercase tracking-widest italic leading-tight">АТАКА</span>
                 </div>
              </motion.div>
 
@@ -635,19 +630,24 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
                   disabled={turn !== 'player' || rage.player < 100 || !!winner}
                   onClick={() => handleAction('ult')}
                   className={cn(
-                    "w-22 h-22 flex items-center justify-center rounded-full border-[5px] border-pen-blue bg-white shadow-xl transition-all overflow-hidden",
-                    turn === 'player' && rage.player >= 100 ? "bg-sticker-yellow" : "opacity-30 grayscale cursor-not-allowed"
+                    "w-20 h-20 flex items-center justify-center rounded-full border-[4px] border-pen-blue bg-transparent transition-all relative overflow-hidden",
+                    turn === 'player' && rage.player >= 100 ? "" : "opacity-30 grayscale cursor-not-allowed"
                   )}
                 >
                   <motion.div
-                    animate={rage.player >= 100 ? { scale: [1, 1.2, 1], opacity: [0.8, 1, 0.8] } : {}}
-                    transition={{ repeat: Infinity, duration: 0.7 }}
-                  >
-                    <Zap className={cn("w-12 h-12 text-pen-blue", rage.player >= 100 && "fill-current")} strokeWidth={2.5} />
-                  </motion.div>
+                    animate={rage.player >= 100 ? { 
+                      borderColor: ["#ffc107", "#ff4444", "#ffc107"],
+                      scale: [1, 1.05, 1]
+                    } : {}}
+                    transition={{ repeat: Infinity, duration: 0.8 }}
+                    className={cn("absolute inset-0 border-[4px] rounded-full pointer-events-none", rage.player >= 100 ? "border-sticker-yellow" : "border-pen-blue")}
+                  />
+                  <div className={cn("flex items-center justify-center rounded-full w-full h-full uppercase", rage.player >= 100 ? "bg-sticker-yellow/20" : "bg-white/10")}>
+                    <Zap className={cn("w-10 h-10 text-pen-blue", rage.player >= 100 && "fill-current")} strokeWidth={3} />
+                  </div>
                 </motion.button>
-                <div className="mt-1 bg-white/90 border-2 border-pen-blue px-3 py-0.5 rounded shadow-sm rotate-[3deg]">
-                  <span className="text-[12px] font-black text-pen-blue uppercase tracking-widest italic">УЛЬТА</span>
+                <div className="mt-1 bg-white/80 border border-pen-blue px-2 py-0 min-w-[70px] text-center rounded shadow-sm rotate-[3deg]">
+                  <span className="text-[10px] font-black text-pen-blue uppercase tracking-widest italic leading-tight">УЛЬТА</span>
                 </div>
              </motion.div>
 
@@ -658,26 +658,33 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
                   disabled={turn !== 'player' || !!winner}
                   onClick={() => handleAction('block')}
                   className={cn(
-                    "w-22 h-22 flex items-center justify-center rounded-full border-[5px] border-pen-blue bg-white shadow-xl transition-all",
+                    "w-20 h-20 flex items-center justify-center rounded-full border-[4px] border-pen-blue bg-transparent transition-all relative overflow-hidden",
                     turn === 'player' ? "cursor-pointer" : "opacity-30 grayscale cursor-not-allowed"
                   )}
                 >
-                  <Shield className="w-12 h-12 text-pen-blue" strokeWidth={2.5} />
+                  <div className="flex items-center justify-center bg-white/10 backdrop-blur-[2px] rounded-full w-full h-full">
+                    <Shield className="w-10 h-10 text-pen-blue" strokeWidth={3} />
+                  </div>
                 </motion.button>
-                <div className="mt-1 bg-white/90 border-2 border-pen-blue px-3 py-0.5 rounded shadow-sm rotate-[-1deg]">
-                  <span className="text-[12px] font-black text-pen-blue uppercase tracking-widest italic">БЛОК</span>
+                <div className="mt-1 bg-white/80 border border-pen-blue px-2 py-0 min-w-[70px] text-center rounded shadow-sm rotate-[-1deg]">
+                  <span className="text-[10px] font-black text-pen-blue uppercase tracking-widest italic leading-tight">БЛОК</span>
                 </div>
              </motion.div>
           </div>
         </div>
 
-        <div className="h-44 bg-[#fdfaf3] border-[6px] border-pen-blue p-5 overflow-y-auto relative rounded-2xl shadow-[inset_0_4px_15px_rgba(0,0,0,0.1)] scrollbar-hide">
-           <div className="text-[14px] font-black text-pen-blue/40 mb-4 uppercase tracking-[0.2em] sticky top-0 bg-[#fdfaf3]/95 pb-2 backdrop-blur-none italic border-b-2 border-pen-blue/10">ЛОГ СРАЖЕНИЯ:</div>
-           <div className="space-y-4">
+        <div className="flex flex-col bg-[#fdfaf3]/80 border border-pen-blue/30 p-3 overflow-hidden relative rounded-xl shadow-sm max-h-[180px]">
+           <div className="text-[10px] font-black text-pen-blue/30 mb-2 uppercase tracking-[0.2em] italic border-b border-pen-blue/5 pb-1">Журнал боя:</div>
+           <div className="flex flex-col gap-2 overflow-y-auto scrollbar-hide">
               {battleLog.map((log, i) => (
-                <div key={i} className={cn("text-[24px] font-black leading-[1.1] tracking-tight italic", i === 0 ? "text-pen-blue" : "text-pen-blue/40")}>
-                  {i === 0 ? "⚡ " : "• "} {log}
-                </div>
+                <motion.div 
+                   key={i} 
+                   initial={{ opacity: 0, height: 0 }}
+                   animate={{ opacity: 1, height: 'auto' }}
+                   className={cn("text-[16px] font-black leading-[1.2] italic", i === 0 ? "text-pen-blue" : "text-pen-blue/30")}
+                >
+                  <Typewriter text={log} delay={20} />
+                </motion.div>
               ))}
            </div>
         </div>
@@ -711,11 +718,11 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
             className="w-full max-w-lg bg-white border-[8px] border-pen-blue p-10 flex flex-col items-center ledger-grid relative"
           >
             <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-sticker-yellow border-[4px] border-pen-blue px-8 py-2 rotate-[-3deg] shadow-lg z-10">
-               <span className="text-4xl font-black text-pen-blue italic uppercase tracking-tighter">ИТОГ</span>
+               <span className="text-3xl font-black text-pen-blue italic uppercase tracking-tighter">ИТОГ</span>
             </div>
 
             <h2 className={cn(
-              "text-8xl font-black italic uppercase tracking-tighter mb-10 transform -rotate-2 mt-4",
+              "text-4xl font-black italic uppercase tracking-tighter mb-10 transform -rotate-2 mt-4",
               winner === 'player' ? "text-pen-blue" : "text-pen-red"
             )}>
               {winner === 'player' ? "ПОБЕДА!" : "ПОРАЖЕНИЕ"}
@@ -723,18 +730,18 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
 
             <div className="w-full space-y-6 mb-10">
                <div className="flex justify-between items-center border-b-[4px] border-pen-blue/10 pb-3">
-                  <span className="text-[24px] font-black text-pen-blue/60 italic uppercase tracking-widest">ДОБЫЧА:</span>
-                  <span className="text-[32px] font-black text-pen-blue italic">{rewards?.rubles || 0} ₽</span>
+                  <span className="text-[18px] font-black text-pen-blue/60 italic uppercase tracking-widest">ДОБЫЧА:</span>
+                  <span className="text-[28px] font-black text-pen-blue italic">{rewards?.rubles || 0} ₽</span>
                </div>
                <div className="flex justify-between items-center border-b-[4px] border-pen-blue/10 pb-3">
-                  <span className="text-[24px] font-black text-pen-blue/60 italic uppercase tracking-widest">ОПЫТ:</span>
-                  <span className="text-[32px] font-black text-pen-blue italic">+{rewards?.xp || 0} XP</span>
+                  <span className="text-[18px] font-black text-pen-blue/60 italic uppercase tracking-widest">ОПЫТ:</span>
+                  <span className="text-[28px] font-black text-pen-blue italic">+{rewards?.xp || 0} XP</span>
                </div>
             </div>
 
             <div className="w-full bg-pen-blue/5 border-[4px] border-pen-blue/20 p-8 rounded-2xl mb-10 rotate-[1deg]">
                <span className="text-[14px] font-black text-pen-blue/40 uppercase tracking-[0.2em] block mb-3">АНАЛИЗ БИТВЫ:</span>
-               <p className="text-[28px] font-black text-pen-blue italic leading-[1.1]">
+               <p className="text-[22px] font-black text-pen-blue italic leading-[1.1]">
                   {winner === 'player' 
                     ? "Ваша стратегия и мощь питомца сокрушили оппонента. Вы достойны звания ветерана!"
                     : "Противник оказался хитрее. Но каждое поражение — это лишь шаг к будущей победе!"}
@@ -745,10 +752,10 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => {
-                // Return leads to pet parameters with flipping animation
-                navigate(`/pet/${playerPet.id}`, { state: { flipFromBattle: true } });
+                 // Clean up and navigate to detail page
+                 navigate(`/pet/${playerPet.id}`);
               }}
-              className="w-full py-5 bg-sticker-yellow border-[6px] border-pen-blue text-[36px] font-black text-pen-blue uppercase italic tracking-widest transition-all"
+              className="w-full py-5 bg-sticker-yellow border-[6px] border-pen-blue text-[28px] font-black text-pen-blue uppercase italic tracking-widest transition-all"
             >
               ВЕРНУТЬСЯ
             </motion.button>
