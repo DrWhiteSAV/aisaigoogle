@@ -158,19 +158,19 @@ export const PetDetail: React.FC<{
                    className="space-y-6"
                 >
                    <div className="border-4 border-pen-blue p-4 sm:px-6 rounded-sm bg-white/50 ledger-grid shadow-[8px_8px_0px_0px_rgba(28,49,152,0.1)]">
-                      <div className="flex items-center justify-between mb-4 border-b-2 border-pen-blue pb-2">
+                      <div className="flex items-center justify-between mb-2 border-b-2 border-pen-blue pb-1">
                          <div className="flex items-center gap-2 text-pen-blue">
-                            <Sword className="h-5 w-5" />
-                            <span className="text-lg font-black italic uppercase tracking-tighter">Характеристики</span>
+                            <Sword className="h-4 w-4" />
+                            <span className="text-base font-black italic tracking-tighter">Характеристики</span>
                          </div>
                          {pet.statPoints > 0 && (
                             <div className="bg-pen-red text-white px-2 py-0.5 rounded-full text-[10px] font-black animate-pulse">
-                               +{pet.statPoints} ОЧКОВ
+                               +{pet.statPoints} очков
                             </div>
                          )}
                       </div>
                       
-                      <div className="grid grid-cols-1 gap-4 px-1">
+                      <div className="grid grid-cols-1 gap-1 px-1">
                         <StatItem icon={Heart} label="Здоровье" value={pet.stats.health} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('health')} />
                         <StatItem icon={Sword} label="Атака" value={pet.stats.attack} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('attack')} />
                         <StatItem icon={Shield} label="Защита" value={pet.stats.defense} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('defense')} />
@@ -184,7 +184,7 @@ export const PetDetail: React.FC<{
                       <div className="flex items-center justify-between mb-6 border-b border-pen-blue/10 pb-4">
                          <div className="flex items-center gap-2 text-pen-blue/60">
                             <Compass className="h-4 w-4" />
-                            <span className="text-sm font-black italic">Биологическая Сводка</span>
+                            <span className="text-sm font-black italic">Биологическая сводка</span>
                          </div>
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -198,7 +198,7 @@ export const PetDetail: React.FC<{
                    </div>
 
                    <GlassCard color="pink" className="border-2 border-black/5 space-y-4">
-                      <h3 className="text-sm font-black text-pen-blue/60 tracking-tight">Навыки Души</h3>
+                      <h3 className="text-sm font-black text-pen-blue/60 tracking-tight">Навыки души</h3>
                       <div className="flex flex-wrap gap-2">
                          {pet.abilities.map((a, i) => (
                             <span key={i} className="px-3 py-1.5 bg-white border-2 border-black text-xs font-black italic -rotate-1">
@@ -233,9 +233,9 @@ export const PetDetail: React.FC<{
                       </NeonButton>
                    </div>
 
-                   <GlassCard color="blue" rotation={-1} className="border-2 border-black/5 p-6 mt-6">
-                      <div className="text-lg leading-relaxed text-pen-blue/80">
-                         <HandwrittenText text={pet.lore} delay={0.1} speed={30} />
+                   <GlassCard key={`lore-${pet.id}-${Date.now()}`} color="blue" rotation={-1} className="border-2 border-black/5 p-4 mt-4">
+                      <div className="text-base leading-relaxed text-pen-blue/80">
+                         <HandwrittenText text={pet.lore} delay={0.2} speed={25} />
                       </div>
                    </GlassCard>
                 </motion.div>
@@ -354,39 +354,35 @@ export const PetDetail: React.FC<{
 };
 
 const StatItem = ({ icon: Icon, label, value, max, showAdd, onAdd }: any) => (
-  <div className="space-y-2 py-2 border-b border-pen-blue/5">
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-full bg-pen-blue/[0.03] flex items-center justify-center">
-          <Icon className="h-4 w-4 text-pen-blue/40" />
-        </div>
-        <span className="text-[14px] font-black text-pen-blue/60 tracking-tight">{label}</span>
-      </div>
-      <div className="flex items-center gap-4">
-        <span className="text-xl font-black text-pen-blue tabular-nums">
-          {value || 0} <span className="text-pen-blue/20 text-sm">/ {max}</span>
-        </span>
-        {showAdd && (
-          <motion.button 
-            whileHover={{ scale: 1.2, rotate: 5 }}
-            whileTap={{ scale: 0.8 }}
-            onClick={(e) => {
-              e.stopPropagation();
-              onAdd();
-            }}
-            className="h-8 w-8 bg-white border-[3px] border-pen-blue flex items-center justify-center shadow-[4px_4px_0px_0px_rgba(28,49,152,1)] hover:bg-sticker-yellow transition-colors relative z-[100] cursor-pointer"
-          >
-            <Plus className="h-5 w-5 text-pen-blue" strokeWidth={3} />
-          </motion.button>
-        )}
-      </div>
+  <div className="flex items-center gap-2 py-1 border-b border-pen-blue/5">
+    <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
+      <Icon className="h-3.5 w-3.5 text-pen-blue/40" />
     </div>
-    <div className="h-2 bg-black/5 rounded-full overflow-hidden">
+    <span className="text-[12px] font-black text-pen-blue/60 tracking-tight w-20 text-left truncate">{label}</span>
+    <div className="flex-1 h-1.5 bg-black/5 rounded-full overflow-hidden mx-1">
       <motion.div 
         initial={{ width: 0 }}
         animate={{ width: `${Math.min(((value || 0) / max) * 100, 100)}%` }}
-        className="h-full bg-pen-blue opacity-40 shadow-[0_0_10px_rgba(28,49,152,0.2)]"
+        className="h-full bg-pen-blue opacity-40"
       />
+    </div>
+    <div className="flex items-center gap-2 min-w-[70px] justify-end">
+      <span className="text-sm font-black text-pen-blue tabular-nums">
+        {value || 0} <span className="text-pen-blue/20 text-[10px]">/ {max}</span>
+      </span>
+      {showAdd && (
+        <motion.button 
+          whileHover={{ scale: 1.2 }}
+          whileTap={{ scale: 0.8 }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onAdd();
+          }}
+          className="h-5 w-5 bg-white border-2 border-pen-blue flex items-center justify-center shadow-[1px_1px_0px_0px_rgba(28,49,152,1)] hover:bg-sticker-yellow transition-colors relative z-[100] cursor-pointer"
+        >
+          <Plus className="h-3 w-3 text-pen-blue" strokeWidth={4} />
+        </motion.button>
+      )}
     </div>
   </div>
 );

@@ -191,13 +191,7 @@ export const PetCard: React.FC<PetCardProps> = ({
           </button>
         </div>
 
-        {/* Rank Letter */}
-        <button 
-          onClick={(e) => { e.stopPropagation(); onOpenRankInfo?.(e); }}
-          className="absolute top-8 left-[-16px] z-50 text-6xl font-black text-pen-blue hover:scale-110 transition-transform leading-none mix-blend-multiply rotate-[-6deg] active:scale-95"
-        >
-          {rankLetter}
-        </button>
+
       </div>
     </motion.div>
   );

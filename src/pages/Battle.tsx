@@ -3,9 +3,26 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Pet, UserProgress } from '../types';
 import { NeonButton } from '../components/UI';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sword, Shield, Zap, Coins, Flame, Droplets, Wind, Mountain, Star, Sparkles, Timer, Target, Heart } from 'lucide-react';
+import { Sword, Shield, Zap, Coins, Flame, Droplets, Wind, Mountain, Star, Sparkles, Timer, Target, Heart, PenLine } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { getElementAdvantageMultiplier, getAttributeDefenseMultiplier, calculateCP, getNextLevelReward, checkLevelUp } from '../lib/gameLogic';
+
+const Typewriter: React.FC<{ text: string; delay?: number; className?: string }> = ({ text, delay = 30, className }) => {
+  const [displayedText, setDisplayedText] = useState("");
+  
+  useEffect(() => {
+    setDisplayedText("");
+    let i = 0;
+    const timer = setInterval(() => {
+      setDisplayedText(text.slice(0, i + 1));
+      i++;
+      if (i >= text.length) clearInterval(timer);
+    }, delay);
+    return () => clearInterval(timer);
+  }, [text, delay]);
+
+  return <span className={className}>{displayedText}</span>;
+};
 
 interface BattleState {
   enemy: Pet | null;
@@ -17,6 +34,8 @@ interface BattleState {
   rewards: { rubles: number; xp: number } | null;
   isEnemyHit: boolean;
   isPlayerHit: boolean;
+  isPlayerAttacking: boolean;
+  isEnemyAttacking: boolean;
   showUlt: boolean;
   isPlayerBlocking: boolean;
   isEnemyBlocking: boolean;
@@ -79,11 +98,11 @@ const UltAnimation: React.FC<{ element: string }> = ({ element }) => {
         transition={{ type: "spring", damping: 12 }}
         className="relative z-10 bg-white border-[12px] border-pen-blue p-16 shadow-[40px_40px_0px_0px_rgba(28,49,152,1)]"
       >
-        <span className="text-8xl font-black text-pen-blue italic uppercase tracking-tighter block text-center min-w-[600px] drop-shadow-lg">
-          {element === 'fire' && "ПЫЛАЮЩИЙ ГНЕВ!"}
-          {element === 'water' && "ВОДНЫЙ ПОТОК!"}
-          {element === 'air' && "УРАГАННЫЙ УДАР!"}
-          {element === 'earth' && "СЕЙСМИЧЕСКИЙ РАЗЛОМ!"}
+        <span className="text-8xl font-black text-pen-blue italic tracking-tighter block text-center min-w-[600px] drop-shadow-lg">
+          {element === 'fire' && "Пылающий гнев!"}
+          {element === 'water' && "Водный поток!"}
+          {element === 'air' && "Ураганный удар!"}
+          {element === 'earth' && "Сейсмический разлом!"}
         </span>
       </motion.div>
     </motion.div>
@@ -138,6 +157,8 @@ const BattleProvider: React.FC<{
       rewards: null,
       isEnemyHit: false,
       isPlayerHit: false,
+      isPlayerAttacking: false,
+      isEnemyAttacking: false,
       showUlt: false,
       isPlayerBlocking: false,
       isEnemyBlocking: false,
@@ -183,10 +204,18 @@ const BattleProvider: React.FC<{
     if (!attacker?.stats || !defender?.stats) return 0;
     const elemMult = getElementAdvantageMultiplier(attacker.element, defender.element);
     const attrMult = getAttributeDefenseMultiplier(attacker.attribute, defender.attribute);
-    const baseDmg = isUlt ? ((attacker.stats.attack || 0) + (attacker.stats.magic || 0)) * 2.5 : (attacker.stats.attack || 0);
-    let finalDmg = Math.max(1, (baseDmg * elemMult) - ((defender.stats.defense || 0) * attrMult));
-    if (targetIsBlocking) finalDmg = Math.floor(finalDmg / 2.5);
-    return Math.floor(finalDmg);
+    
+    // Increased base damage to ensure it's not always 1 HP
+    const attackPower = attacker.stats.attack || 10;
+    const magicPower = attacker.stats.magic || 10;
+    const baseDmg = isUlt ? (attackPower + magicPower) * 2.5 : attackPower * 1.5;
+    
+    const defenseBuffer = (defender.stats.defense || 5) * 0.7 * attrMult; // Defense is slightly less oppressive
+    
+    let finalDmg = Math.max(15 + Math.floor(Math.random() * 10), (baseDmg * elemMult) - defenseBuffer);
+    if (targetIsBlocking) finalDmg = Math.floor(finalDmg * 0.4);
+    
+    return Math.max(5, Math.floor(finalDmg)); // Minimum 5 damage for better game feel
   }, []);
 
   const handleEndBattle = useCallback((playerWon: boolean, currentEnemy: Pet) => {
@@ -240,32 +269,31 @@ const BattleProvider: React.FC<{
     }
 
     const useUlt = currentRage.enemy >= 100;
-    const hits = useUlt ? 1 : 1; // Simplified to 1 hit per turn as requested by "why attack 3 times"
-
-    let currentPlayerHp = currentHp.player;
-    let newRage = { ...currentRage };
     const damage = calculateDamage(currentEnemy, playerPet, useUlt, currentIsPlayerBlocking);
-    
-    // Add exact numbers to logs
     const log = useUlt 
-      ? `[Враг] ${currentEnemy.name} ИСПОЛЬЗУЕТ ТЕХНИКУ: -${damage} HP!`
+      ? `[Враг] ${currentEnemy.name} использует технику: -${damage} HP!`
       : `[Враг] ${currentEnemy.name} наносит удар: -${damage} HP!`;
 
-    currentPlayerHp = Math.max(0, currentPlayerHp - damage);
-        newRage = {
-          enemy: useUlt ? 0 : Math.min(100, newRage.enemy + 15),
-          player: Math.min(100, newRage.player + 18)
-        };
-        
-        syncState({ 
-          hp: { ...currentHp, player: currentPlayerHp },
-          rage: newRage,
-          battleLog: [log, ...state.battleLog],
-          isPlayerHit: true
-        });
-        
-        setTimeout(() => syncState({ isPlayerHit: false }), 300);
-        await new Promise(r => setTimeout(r, 600));
+    // Animation: Move Forward
+    syncState({ isEnemyAttacking: true });
+    await new Promise(r => setTimeout(r, 400));
+
+    const currentPlayerHp = Math.max(0, currentHp.player - damage);
+    const newRage = {
+      enemy: useUlt ? 0 : Math.min(100, currentRage.enemy + 15),
+      player: Math.min(100, currentRage.player + 18)
+    };
+    
+    syncState({ 
+      hp: { ...currentHp, player: currentPlayerHp },
+      rage: newRage,
+      battleLog: [log, ...state.battleLog],
+      isPlayerHit: true,
+      isEnemyAttacking: false
+    });
+    
+    setTimeout(() => syncState({ isPlayerHit: false }), 300);
+    await new Promise(r => setTimeout(r, 600));
 
     syncState({ isPlayerBlocking: false });
     if (currentPlayerHp > 0 && !state.winner) {
@@ -281,7 +309,7 @@ const BattleProvider: React.FC<{
 
     syncState({ turn: 'waiting', isPlayerBlocking: false });
 
-    // Regeneration logic at start of turn
+    // Regeneration
     const regen = playerPet.stats?.regeneration || 0;
     if (regen > 0 && state.hp.player < (playerPet.stats?.health || 100)) {
       const actualRegen = Math.min(regen, (playerPet.stats?.health || 100) - state.hp.player);
@@ -301,7 +329,9 @@ const BattleProvider: React.FC<{
       return;
     }
 
-    let hits = 1;
+    // Player Attack Start
+    syncState({ isPlayerAttacking: true });
+    await new Promise(r => setTimeout(r, 400));
 
     let currentEnemyHp = state.hp.enemy;
     let newRage = { ...state.rage };
@@ -314,30 +344,28 @@ const BattleProvider: React.FC<{
     if (type === 'attack') {
       log = `${playerPet.name} атакует: -${damage} HP!`;
     } else if (type === 'ult') {
-      log = `КОМБО-УДАР: ${playerPet.name} наносит -${damage} HP!`;
+      log = `Комбо-удар: ${playerPet.name} наносит -${damage} HP!`;
       newRage.player = 0;
       syncState({ showUlt: true });
       setTimeout(() => syncState({ showUlt: false }), 2000);
-      await new Promise(r => setTimeout(r, 1000));
-    } else if (type === 'block') {
-      // Logic handled above but for completion
+      await new Promise(r => setTimeout(r, 1200));
     }
 
-    if (damage > 0 || type === 'attack') {
-      currentEnemyHp = Math.max(0, currentEnemyHp - damage);
-      newRage = {
-        player: type === 'ult' ? 0 : Math.min(100, newRage.player + 15),
-        enemy: Math.min(100, newRage.enemy + 18)
-      };
-      syncState({ 
-        hp: { ...state.hp, enemy: currentEnemyHp },
-        rage: newRage,
-        battleLog: [log, ...state.battleLog],
-        isEnemyHit: true
-      });
-      setTimeout(() => syncState({ isEnemyHit: false }), 300);
-    }
+    currentEnemyHp = Math.max(0, currentEnemyHp - damage);
+    newRage = {
+      player: type === 'ult' ? 0 : Math.min(100, newRage.player + 15),
+      enemy: Math.min(100, newRage.enemy + 18)
+    };
     
+    syncState({ 
+      hp: { ...state.hp, enemy: currentEnemyHp },
+      rage: newRage,
+      battleLog: [log, ...state.battleLog],
+      isEnemyHit: true,
+      isPlayerAttacking: false
+    });
+    
+    setTimeout(() => syncState({ isEnemyHit: false }), 300);
     await new Promise(r => setTimeout(r, 600));
 
     syncState({ isEnemyBlocking: false });
@@ -424,87 +452,84 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
     );
   }
 
-  const { playerPet, enemy, hp, rage, turn, winner, rewards, isEnemyHit, isPlayerHit, showUlt, isPlayerBlocking, isEnemyBlocking, handleAction, battleLog } = context;
+  const { playerPet, enemy, hp, rage, turn, winner, rewards, isEnemyHit, isPlayerHit, isPlayerAttacking, isEnemyAttacking, showUlt, isPlayerBlocking, isEnemyBlocking, handleAction, battleLog } = context;
 
-  const BattleCard = ({ pet, currentHp, maxHp, isPlayer, isHit, isBlocking, isTop }: { pet: Pet, currentHp: number, maxHp: number, isPlayer: boolean, isHit?: boolean, isBlocking?: boolean, isTop?: boolean }) => {
+  const BattleCard = ({ pet, currentHp, maxHp, isPlayer, isHit, isAttacking, isBlocking, isTop }: { pet: Pet, currentHp: number, maxHp: number, isPlayer: boolean, isHit?: boolean, isAttacking?: boolean, isBlocking?: boolean, isTop?: boolean }) => {
     const cp = calculateCP(pet);
     
     const translateElement = (el: string) => {
       switch(el) {
-        case 'fire': return 'ОГОНЬ';
-        case 'water': return 'ВОДА';
-        case 'air': return 'ВОЗДУХ';
-        case 'earth': return 'ЗЕМЛЯ';
-        default: return el.toUpperCase();
+        case 'fire': return 'Огонь';
+        case 'water': return 'Вода';
+        case 'air': return 'Воздух';
+        case 'earth': return 'Земля';
+        default: return el;
       }
     };
 
     const translateAttribute = (attr: string) => {
       switch(attr) {
-        case 'light': return 'СВЕТ';
-        case 'dark': return 'ТЬМА';
-        case 'void': return 'ПУСТОТА';
-        case 'time': return 'ВРЕМЯ';
-        default: return attr.toUpperCase();
+        case 'light': return 'Свет';
+        case 'dark': return 'Тьма';
+        case 'void': return 'Пустота';
+        case 'time': return 'Время';
+        default: return attr;
       }
     };
-
-    const EdgeIcon = ({ icon: Icon, value, label, position }: any) => (
-      <div className={cn(
-        "absolute flex items-center bg-white border-2 border-pen-blue px-1 py-0.5 rounded shadow-sm z-50",
-        position === 'left' ? "right-[102%]" : "left-[102%]"
-      )}>
-        <Icon className="w-3 h-3 text-pen-blue mr-1" />
-        <span className="text-[10px] font-black text-pen-blue">{value}</span>
-      </div>
-    );
 
     return (
       <motion.div 
         animate={{ 
-          scale: (isPlayer ? (turn === 'player' ? 0.95 : 0.9) : (turn === 'enemy' ? 0.95 : 0.9)),
-          y: isHit ? [0, -10, 10, -5, 5, 0] : 0,
-          zIndex: isTop ? 40 : 20,
-          rotate: isPlayer ? -1.5 : 1.5
+          scale: isAttacking ? 1.05 : (isPlayer ? (turn === 'player' ? 0.95 : 0.9) : (turn === 'enemy' ? 0.95 : 0.9)),
+          x: isAttacking ? (isPlayer ? 40 : -40) : 0,
+          y: isAttacking ? (isPlayer ? 20 : -20) : (isHit ? [0, -10, 10, -5, 5, 0] : 0),
+          zIndex: isAttacking ? 100 : (isTop ? 40 : 20),
+          rotate: isAttacking ? (isPlayer ? 5 : -5) : (isPlayer ? -1.5 : 1.5)
+        }}
+        transition={{ 
+          type: "spring", 
+          damping: 10, 
+          stiffness: 200,
+          y: isHit ? { type: "tween", duration: 0.3 } : undefined
         }}
         className={cn(
-          "relative w-[75%] aspect-[3/4.8] bg-white border-[5px] border-pen-blue shadow-2xl flex flex-col select-none",
+          "relative w-[82%] aspect-[3/4.8] bg-white border-[5px] border-pen-blue shadow-2xl flex flex-col select-none",
           !isPlayer && "brightness-95"
         )}
       >
-        {/* Edge Stat Icons */}
+        {/* Edge Stat Icons stacked from bottom to top overlapping the border */}
         <div className={cn(
-          "absolute inset-y-0 flex flex-col justify-end gap-1.5 pb-4",
-          isPlayer ? "left-0" : "right-0"
+          "absolute inset-y-0 flex flex-col justify-end gap-1 pb-4",
+          isPlayer ? "-left-4" : "-right-4"
         )}>
-           <div className={cn("absolute bottom-6 flex flex-col gap-2", isPlayer ? "right-full mr-2 items-end" : "left-full ml-2 items-start")}>
-              <div className="bg-white border-2 border-pen-blue p-1 rounded rotate-3 flex items-center gap-1">
-                <Target className="w-3 h-3 text-pen-blue" />
-                <span className="text-[10px] font-black text-pen-blue">{cp}</span>
-              </div>
-              <div className="bg-white border-2 border-pen-red p-1 rounded -rotate-2 flex items-center gap-1">
-                <Heart className="w-3 h-3 text-pen-red" />
-                <span className="text-[10px] font-black text-pen-red">{Math.floor(currentHp)}</span>
-              </div>
-              <div className="bg-white border-2 border-pen-blue p-1 rounded rotate-1 flex items-center gap-1">
-                <Sword className="w-3 h-3 text-pen-blue" />
-                <span className="text-[10px] font-black text-pen-blue">{pet.stats?.attack}</span>
-              </div>
-              <div className="bg-white border-2 border-pen-blue p-1 rounded -rotate-3 flex items-center gap-1">
-                <Shield className="w-3 h-3 text-pen-blue" />
-                <span className="text-[10px] font-black text-pen-blue">{pet.stats?.defense}</span>
-              </div>
-              <div className="bg-white border-2 border-pen-blue p-1 rounded rotate-2 flex items-center gap-1">
-                <Zap className="w-3 h-3 text-pen-blue" />
-                <span className="text-[10px] font-black text-pen-blue">{pet.stats?.speed}</span>
-              </div>
-              <div className="bg-white border-2 border-pen-blue p-1 rounded -rotate-1 flex items-center gap-1">
-                <Flame className="w-3 h-3 text-pen-blue" />
-                <span className="text-[10px] font-black text-pen-blue">{pet.stats?.magic}</span>
-              </div>
-              <div className="bg-white border-2 border-pen-blue p-1 rounded rotate-3 flex items-center gap-1">
+           <div className={cn("absolute bottom-6 flex flex-col gap-1", isPlayer ? "items-start" : "items-end")}>
+              <div className="bg-white border-2 border-pen-blue px-1.5 py-0.5 rounded rotate-1 flex items-center gap-1 shadow-sm">
                 <Timer className="w-3 h-3 text-pen-blue" strokeWidth={3} />
                 <span className="text-[10px] font-black text-pen-blue">{pet.stats?.regeneration}</span>
+              </div>
+              <div className="bg-white border-2 border-pen-blue px-1.5 py-0.5 rounded -rotate-1 flex items-center gap-1 shadow-sm">
+                <Flame className="w-3 h-3 text-pen-blue" strokeWidth={3} />
+                <span className="text-[10px] font-black text-pen-blue">{pet.stats?.magic}</span>
+              </div>
+              <div className="bg-white border-2 border-pen-blue px-1.5 py-0.5 rounded rotate-2 flex items-center gap-1 shadow-sm">
+                <Zap className="w-3 h-3 text-pen-blue" strokeWidth={3} />
+                <span className="text-[10px] font-black text-pen-blue">{pet.stats?.speed}</span>
+              </div>
+              <div className="bg-white border-2 border-pen-blue px-1.5 py-0.5 rounded -rotate-3 flex items-center gap-1 shadow-sm">
+                <Shield className="w-3 h-3 text-pen-blue" strokeWidth={3} />
+                <span className="text-[10px] font-black text-pen-blue">{pet.stats?.defense}</span>
+              </div>
+              <div className="bg-white border-2 border-pen-blue px-1.5 py-0.5 rounded rotate-1 flex items-center gap-1 shadow-sm">
+                <Sword className="w-3 h-3 text-pen-blue" strokeWidth={3} />
+                <span className="text-[10px] font-black text-pen-blue">{pet.stats?.attack}</span>
+              </div>
+              <div className="bg-white border-2 border-pen-red px-1.5 py-0.5 rounded -rotate-2 flex items-center gap-1 shadow-md">
+                <Heart className="w-3 h-3 text-pen-red" />
+                <span className="text-[10px] font-black text-pen-red">{Math.floor(currentHp)}/{Math.floor(maxHp)}</span>
+              </div>
+              <div className="bg-white border-2 border-pen-blue px-1.5 py-0.5 rounded rotate-3 flex items-center gap-1 shadow-lg">
+                <Target className="w-3 h-3 text-pen-blue" />
+                <span className="text-[10px] font-black text-pen-blue">{cp}</span>
               </div>
            </div>
         </div>
@@ -520,23 +545,25 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
             )}
           />
           <div className="relative h-full flex justify-between items-center px-4">
-            <span className="truncate pr-2 text-[16px] font-black italic tracking-wide text-pen-blue uppercase">{pet.name}</span>
-            <span className="bg-pen-blue text-white px-2 py-0.5 rounded-sm font-black text-[12px] shadow-sm">LV.{pet.level}</span>
+            <span className="truncate pr-2 text-[14px] font-black italic tracking-wide text-pen-blue">{pet.name}</span>
+            <span className="bg-pen-blue text-white px-2 py-0.5 rounded-sm font-black text-[12px] shadow-sm">Lv.{pet.level}</span>
           </div>
         </div>
 
         <div className="flex-1 relative overflow-hidden group">
           <img src={pet.image} className="w-full h-full object-cover pointer-events-none" alt={pet.name} />
           
-          {/* Bottom Info Overlay with distinct gradient */}
-          <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-white via-white/40 to-transparent flex justify-between items-end z-20">
-             <div className="flex flex-col">
-                <span className="text-[9px] font-black text-pen-blue uppercase tracking-tighter opacity-70 leading-none">Стихия</span>
-                <span className="text-[12px] font-black text-pen-blue italic uppercase tracking-tighter">{translateElement(pet.element)}</span>
+          {/* Bottom Info Overlay - stickers only, no labels */}
+          <div className="absolute inset-x-0 bottom-2 px-2 flex justify-between items-end z-20">
+             <div className={cn(
+               "bg-white border-2 border-pen-blue px-2 py-0.5 rounded-sm shadow-sm rotate-[-2deg] flex items-center gap-1.5"
+             )}>
+                <div className="w-3 h-3 rounded-full bg-pen-blue opacity-20" />
+                <span className="text-[11px] font-black text-pen-blue italic">{translateElement(pet.element)}</span>
              </div>
-             <div className="text-right flex flex-col">
-                <span className="text-[9px] font-black text-pen-blue uppercase tracking-tighter opacity-70 leading-none">Атрибут</span>
-                <span className="text-[12px] font-black text-pen-blue italic uppercase tracking-tighter">{translateAttribute(pet.attribute)}</span>
+             <div className="bg-white border-2 border-pen-blue px-2 py-0.5 rounded-sm shadow-sm rotate-[2deg] flex items-center gap-1.5">
+                <span className="text-[11px] font-black text-pen-blue italic">{translateAttribute(pet.attribute)}</span>
+                <div className="w-3 h-3 rounded-full bg-pen-blue opacity-20" />
              </div>
           </div>
           
@@ -558,12 +585,6 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
                <div className="w-full h-full bg-gradient-to-tr from-pen-red/60 via-sticker-yellow/40 to-transparent animate-pulse" />
             </motion.div>
           )}
-
-          <div className="absolute top-2 right-2 flex flex-col gap-2 items-end pointer-events-none z-10">
-             <div className={cn("px-2 py-0.5 rounded-sm shadow-md border-[3px] border-pen-blue bg-white")}>
-                <span className="text-[10px] font-black text-pen-blue tracking-[0.1em] uppercase">РАНГ {pet.rank ?? 'B'}</span>
-             </div>
-          </div>
         </div>
 
         <div className="h-3 bg-black/10 w-full overflow-hidden border-t-2 border-black/5 relative">
@@ -587,15 +608,15 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
         </AnimatePresence>
         
         <div className="flex-1 relative mb-2 min-h-0">
-          <div className="absolute top-2 left-2 w-[60%] flex justify-start z-30">
-             <BattleCard pet={playerPet} currentHp={hp.player} maxHp={playerPet.stats?.health || 100} isPlayer={true} isHit={isPlayerHit} isBlocking={isPlayerBlocking} isTop />
+          <div className="absolute top-2 left-[15%] w-[60%] flex justify-start z-30">
+             <BattleCard pet={playerPet} currentHp={hp.player} maxHp={playerPet.stats?.health || 100} isPlayer={true} isHit={isPlayerHit} isAttacking={isPlayerAttacking} isBlocking={isPlayerBlocking} isTop />
           </div>
 
-          <div className="absolute bottom-2 right-2 w-[60%] flex justify-end z-10">
-             <BattleCard pet={enemy} currentHp={hp.enemy} maxHp={enemy.stats?.health || 100} isPlayer={false} isHit={isEnemyHit} isBlocking={isEnemyBlocking} />
+          <div className="absolute bottom-2 right-[15%] w-[60%] flex justify-end z-10">
+             <BattleCard pet={enemy} currentHp={hp.enemy} maxHp={enemy.stats?.health || 100} isPlayer={false} isHit={isEnemyHit} isAttacking={isEnemyAttacking} isBlocking={isEnemyBlocking} />
           </div>
 
-          <div className="absolute top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-[60] flex flex-col gap-4 scale-[0.85]">
+          <div className="absolute top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-[60] flex flex-col gap-3 scale-[0.8]">
              <motion.div className="flex flex-col items-center">
                 <motion.button 
                   whileHover={{ scale: 1.1 }}
@@ -614,12 +635,12 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
                     transition={{ repeat: Infinity, duration: 1.5 }}
                     className="absolute inset-0 border-[4px] rounded-full pointer-events-none"
                   />
-                  <div className="flex items-center justify-center bg-white/10 backdrop-blur-[2px] rounded-full w-full h-full">
+                  <div className="flex items-center justify-center bg-transparent rounded-full w-full h-full">
                     <Sword className="w-10 h-10 text-pen-blue" strokeWidth={3} />
                   </div>
                 </motion.button>
                 <div className="mt-1 bg-white/80 border border-pen-blue px-2 py-0 min-w-[70px] text-center rounded shadow-sm rotate-[-2deg]">
-                  <span className="text-[10px] font-black text-pen-blue uppercase tracking-widest italic leading-tight">АТАКА</span>
+                  <span className="text-[10px] font-black text-pen-blue tracking-widest italic leading-tight">Атака</span>
                 </div>
              </motion.div>
 
@@ -642,12 +663,12 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
                     transition={{ repeat: Infinity, duration: 0.8 }}
                     className={cn("absolute inset-0 border-[4px] rounded-full pointer-events-none", rage.player >= 100 ? "border-sticker-yellow" : "border-pen-blue")}
                   />
-                  <div className={cn("flex items-center justify-center rounded-full w-full h-full uppercase", rage.player >= 100 ? "bg-sticker-yellow/20" : "bg-white/10")}>
+                  <div className={cn("flex items-center justify-center rounded-full w-full h-full uppercase", rage.player >= 100 ? "bg-sticker-yellow/10" : "bg-transparent")}>
                     <Zap className={cn("w-10 h-10 text-pen-blue", rage.player >= 100 && "fill-current")} strokeWidth={3} />
                   </div>
                 </motion.button>
                 <div className="mt-1 bg-white/80 border border-pen-blue px-2 py-0 min-w-[70px] text-center rounded shadow-sm rotate-[3deg]">
-                  <span className="text-[10px] font-black text-pen-blue uppercase tracking-widest italic leading-tight">УЛЬТА</span>
+                  <span className="text-[10px] font-black text-pen-blue tracking-widest italic leading-tight">Ульта</span>
                 </div>
              </motion.div>
 
@@ -662,26 +683,26 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
                     turn === 'player' ? "cursor-pointer" : "opacity-30 grayscale cursor-not-allowed"
                   )}
                 >
-                  <div className="flex items-center justify-center bg-white/10 backdrop-blur-[2px] rounded-full w-full h-full">
+                  <div className="flex items-center justify-center bg-transparent rounded-full w-full h-full">
                     <Shield className="w-10 h-10 text-pen-blue" strokeWidth={3} />
                   </div>
                 </motion.button>
                 <div className="mt-1 bg-white/80 border border-pen-blue px-2 py-0 min-w-[70px] text-center rounded shadow-sm rotate-[-1deg]">
-                  <span className="text-[10px] font-black text-pen-blue uppercase tracking-widest italic leading-tight">БЛОК</span>
+                  <span className="text-[10px] font-black text-pen-blue tracking-widest italic leading-tight">Блок</span>
                 </div>
              </motion.div>
           </div>
         </div>
 
-        <div className="flex flex-col bg-[#fdfaf3]/80 border border-pen-blue/30 p-3 overflow-hidden relative rounded-xl shadow-sm max-h-[180px]">
-           <div className="text-[10px] font-black text-pen-blue/30 mb-2 uppercase tracking-[0.2em] italic border-b border-pen-blue/5 pb-1">Журнал боя:</div>
-           <div className="flex flex-col gap-2 overflow-y-auto scrollbar-hide">
+        <div className="flex flex-col bg-[#fdfaf3]/40 border border-pen-blue/20 p-2 overflow-hidden relative rounded-xl shadow-sm min-h-[140px] max-h-[140px]">
+           <div className="text-[9px] font-black text-pen-blue/30 mb-1 tracking-[0.2em] italic border-b border-pen-blue/5 pb-0.5">Журнал боя:</div>
+           <div className="flex flex-col gap-1.5 overflow-y-auto scrollbar-hide flex-1">
               {battleLog.map((log, i) => (
                 <motion.div 
-                   key={i} 
-                   initial={{ opacity: 0, height: 0 }}
-                   animate={{ opacity: 1, height: 'auto' }}
-                   className={cn("text-[16px] font-black leading-[1.2] italic", i === 0 ? "text-pen-blue" : "text-pen-blue/30")}
+                   key={`${i}-${log.length}`}
+                   initial={{ opacity: 0, x: -10 }}
+                   animate={{ opacity: 1, x: 0 }}
+                   className={cn("text-[16px] font-black leading-[1.2] italic", i === 0 ? "text-pen-blue" : "text-pen-blue/20")}
                 >
                   <Typewriter text={log} delay={20} />
                 </motion.div>
@@ -701,8 +722,8 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
             animate={{ opacity: 1, scale: 1 }} 
             className="flex flex-col items-center gap-10 text-center pointer-events-none"
           >
-             <div className="text-8xl font-black text-pen-blue/5 italic uppercase tracking-[0.4em] transform -rotate-6 select-none leading-none">
-                БИТВА В РАЗГАРЕ
+             <div className="text-8xl font-black text-pen-blue/5 italic tracking-[0.4em] transform -rotate-6 select-none leading-none">
+                Битва в разгаре
              </div>
              <motion.div 
                animate={{ rotate: [0, 360], scale: [1, 1.2, 1] }} 
@@ -718,29 +739,29 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
             className="w-full max-w-lg bg-white border-[8px] border-pen-blue p-10 flex flex-col items-center ledger-grid relative"
           >
             <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-sticker-yellow border-[4px] border-pen-blue px-8 py-2 rotate-[-3deg] shadow-lg z-10">
-               <span className="text-3xl font-black text-pen-blue italic uppercase tracking-tighter">ИТОГ</span>
+               <span className="text-3xl font-black text-pen-blue italic tracking-tighter">Итог</span>
             </div>
 
             <h2 className={cn(
-              "text-4xl font-black italic uppercase tracking-tighter mb-10 transform -rotate-2 mt-4",
+              "text-4xl font-black italic tracking-tighter mb-10 transform -rotate-2 mt-4",
               winner === 'player' ? "text-pen-blue" : "text-pen-red"
             )}>
-              {winner === 'player' ? "ПОБЕДА!" : "ПОРАЖЕНИЕ"}
+              {winner === 'player' ? "Победа!" : "Поражение"}
             </h2>
 
             <div className="w-full space-y-6 mb-10">
                <div className="flex justify-between items-center border-b-[4px] border-pen-blue/10 pb-3">
-                  <span className="text-[18px] font-black text-pen-blue/60 italic uppercase tracking-widest">ДОБЫЧА:</span>
+                  <span className="text-[18px] font-black text-pen-blue/60 italic tracking-widest">Добыча:</span>
                   <span className="text-[28px] font-black text-pen-blue italic">{rewards?.rubles || 0} ₽</span>
                </div>
                <div className="flex justify-between items-center border-b-[4px] border-pen-blue/10 pb-3">
-                  <span className="text-[18px] font-black text-pen-blue/60 italic uppercase tracking-widest">ОПЫТ:</span>
+                  <span className="text-[18px] font-black text-pen-blue/60 italic tracking-widest">Опыт:</span>
                   <span className="text-[28px] font-black text-pen-blue italic">+{rewards?.xp || 0} XP</span>
                </div>
             </div>
 
             <div className="w-full bg-pen-blue/5 border-[4px] border-pen-blue/20 p-8 rounded-2xl mb-10 rotate-[1deg]">
-               <span className="text-[14px] font-black text-pen-blue/40 uppercase tracking-[0.2em] block mb-3">АНАЛИЗ БИТВЫ:</span>
+               <span className="text-[14px] font-black text-pen-blue/40 tracking-[0.2em] block mb-3">Анализ битвы:</span>
                <p className="text-[22px] font-black text-pen-blue italic leading-[1.1]">
                   {winner === 'player' 
                     ? "Ваша стратегия и мощь питомца сокрушили оппонента. Вы достойны звания ветерана!"
@@ -752,12 +773,13 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => {
-                 // Clean up and navigate to detail page
+                 // Clean up global state and navigate
+                 globalBattleState = null;
                  navigate(`/pet/${playerPet.id}`);
               }}
-              className="w-full py-5 bg-sticker-yellow border-[6px] border-pen-blue text-[28px] font-black text-pen-blue uppercase italic tracking-widest transition-all"
+              className="w-full py-5 bg-sticker-yellow border-[6px] border-pen-blue text-[28px] font-black text-pen-blue italic tracking-widest transition-all"
             >
-              ВЕРНУТЬСЯ
+              Вернуться
             </motion.button>
           </motion.div>
         )}
