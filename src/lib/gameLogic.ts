@@ -145,6 +145,8 @@ export function checkLevelUp(pet: Pet): Pet {
     const growth = RARITY_WEIGHTS[currentPet.rarity].growth;
     const gStats = distributeStats(growth);
     
+    currentPet.statPoints = (currentPet.statPoints || 0) + growth; // Use correct growth points from weights
+    
     currentPet.stats.attack += gStats.attack;
     currentPet.stats.defense += gStats.defense;
     currentPet.stats.health += gStats.health;

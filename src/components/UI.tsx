@@ -163,7 +163,7 @@ export const HandwrittenText: React.FC<{
           transition={{ repeat: Infinity, duration: 0.2, ease: "linear" }}
           className="inline-block ml-1 align-top bg-transparent"
         >
-          <PenLine className="w-5 h-5 text-pen-blue transform -scale-x-100 opacity-60" strokeWidth={3} />
+          <PenLine className="w-5 h-5 text-pen-blue opacity-60" strokeWidth={3} />
         </motion.span>
       )}
     </span>

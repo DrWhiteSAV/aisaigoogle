@@ -288,6 +288,8 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
         experience: 0, 
         materials: {}, 
         ageStage: 'F - младенчество',
+        rank: 'B',
+        potential: Math.floor(Math.random() * 30) + 70,
         isRankRevealed: false, 
         statPoints: 0,
       };

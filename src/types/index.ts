@@ -88,6 +88,8 @@ export interface Pet {
   experience: number;
   materials: Record<string, number>;
   ageStage: AgeStage;
+  rank: string;
+  potential: number;
   isRankRevealed: boolean;
   statPoints: number;
 }

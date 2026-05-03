@@ -157,6 +157,29 @@ export const PetDetail: React.FC<{
                    transition={{ type: "spring", damping: 25, stiffness: 120 }}
                    className="space-y-6"
                 >
+                   <div className="border-4 border-pen-blue p-6 sm:px-10 rounded-sm bg-white/50 ledger-grid shadow-[8px_8px_0px_0px_rgba(28,49,152,0.1)]">
+                      <div className="flex items-center justify-between mb-6 border-b-2 border-pen-blue pb-4">
+                         <div className="flex items-center gap-2 text-pen-blue">
+                            <Sword className="h-6 w-6" />
+                            <span className="text-xl font-black italic uppercase tracking-tighter">Характеристики</span>
+                         </div>
+                         {pet.statPoints > 0 && (
+                            <div className="bg-pen-red text-white px-3 py-1 rounded-full text-xs font-black animate-pulse">
+                               +{pet.statPoints} ОЧКОВ
+                            </div>
+                         )}
+                      </div>
+                      
+                      <div className="grid grid-cols-1 gap-6 px-2">
+                        <StatItem icon={Heart} label="Здоровье" value={pet.stats.health} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('health')} />
+                        <StatItem icon={Sword} label="Атака" value={pet.stats.attack} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('attack')} />
+                        <StatItem icon={Shield} label="Защита" value={pet.stats.defense} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('defense')} />
+                        <StatItem icon={Zap} label="Скорость" value={pet.stats.speed} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('speed')} />
+                        <StatItem icon={Brain} label="Магия" value={pet.stats.magic} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('magic')} />
+                        <StatItem icon={Activity} label="Реген." value={pet.stats.regeneration} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('regeneration')} />
+                      </div>
+                   </div>
+
                    <div className="border-2 border-pen-blue/10 p-6 rounded-sm bg-white/30">
                       <div className="flex items-center justify-between mb-6 border-b border-pen-blue/10 pb-4">
                          <div className="flex items-center gap-2 text-pen-blue/60">
@@ -171,29 +194,6 @@ export const PetDetail: React.FC<{
                          <ClassificationItem label="Семейство" value={pet.classification?.family} />
                          <ClassificationItem label="Род" value={pet.classification?.genus} />
                          <ClassificationItem label="Вид" value={pet.classification?.species} />
-                      </div>
-                   </div>
-
-                   {pet.statPoints > 0 && (
-                      <div className="border-2 border-pen-red/10 p-6 rounded-sm bg-pen-red/5">
-                        <div className="flex items-center justify-between mb-4">
-                           <span className="text-sm font-black text-pen-red">Свободные очки: {pet.statPoints}</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                           <StatItem icon={Heart} label="Здоровье" value={pet.stats.health} max={999} showAdd={true} onAdd={() => allocatePoint('health')} />
-                           <StatItem icon={Sword} label="Атака" value={pet.stats.attack} max={999} showAdd={true} onAdd={() => allocatePoint('attack')} />
-                        </div>
-                      </div>
-                   )}
-
-                   <div className="border-2 border-pen-blue/10 p-6 rounded-sm bg-white/30">
-                      <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-                        <StatItem icon={Heart} label="Здоровье" value={pet.stats.health} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('health')} />
-                        <StatItem icon={Sword} label="Атака" value={pet.stats.attack} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('attack')} />
-                        <StatItem icon={Shield} label="Защита" value={pet.stats.defense} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('defense')} />
-                        <StatItem icon={Zap} label="Скорость" value={pet.stats.speed} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('speed')} />
-                        <StatItem icon={Brain} label="Магия" value={pet.stats.magic} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('magic')} />
-                        <StatItem icon={Activity} label="Реген." value={pet.stats.regeneration} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('regeneration')} />
                       </div>
                    </div>
 
@@ -354,31 +354,38 @@ export const PetDetail: React.FC<{
 };
 
 const StatItem = ({ icon: Icon, label, value, max, showAdd, onAdd }: any) => (
-  <div className="space-y-1.5">
+  <div className="space-y-2 py-2 border-b border-pen-blue/5">
     <div className="flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        <Icon className="h-3.5 w-3.5 text-pen-blue/30" />
-        <span className="text-[12px] font-black text-pen-blue/50">{label}</span>
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-full bg-pen-blue/[0.03] flex items-center justify-center">
+          <Icon className="h-4 w-4 text-pen-blue/40" />
+        </div>
+        <span className="text-[14px] font-black text-pen-blue/60 uppercase tracking-tight">{label}</span>
       </div>
-      <div className="flex items-center gap-2">
-        {showAdd && (
-          <button 
-            onClick={onAdd}
-            className="h-5 w-5 bg-white border-2 border-black flex items-center justify-center hover:bg-sticker-pink transition-all rotate-[5deg] active:scale-90"
-          >
-            <Plus className="h-3 w-3" />
-          </button>
-        )}
-        <span className="text-sm font-black text-pen-blue">
-          {value || 0} / <span className="opacity-30">{max}</span>
+      <div className="flex items-center gap-4">
+        <span className="text-xl font-black text-pen-blue tabular-nums">
+          {value || 0} <span className="text-pen-blue/20 text-sm">/ {max}</span>
         </span>
+        {showAdd && (
+          <motion.button 
+            whileHover={{ scale: 1.2, rotate: 5 }}
+            whileTap={{ scale: 0.8 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onAdd();
+            }}
+            className="h-8 w-8 bg-white border-[3px] border-pen-blue flex items-center justify-center shadow-[4px_4px_0px_0px_rgba(28,49,152,1)] hover:bg-sticker-yellow transition-colors relative z-[100] cursor-pointer"
+          >
+            <Plus className="h-5 w-5 text-pen-blue" strokeWidth={3} />
+          </motion.button>
+        )}
       </div>
     </div>
-    <div className="h-1 bg-black/5 rounded-full overflow-hidden">
+    <div className="h-2 bg-black/5 rounded-full overflow-hidden">
       <motion.div 
         initial={{ width: 0 }}
         animate={{ width: `${Math.min(((value || 0) / max) * 100, 100)}%` }}
-        className="h-full bg-pen-blue opacity-30"
+        className="h-full bg-pen-blue opacity-40 shadow-[0_0_10px_rgba(28,49,152,0.2)]"
       />
     </div>
   </div>
