@@ -29,22 +29,33 @@ const getAI = () => {
   return aiInstance;
 };
 
+// Use recommended models for this environment
+const TEXT_MODEL = "gemini-3-flash-preview";
+const IMAGE_MODEL = "gemini-2.5-flash-image";
+
 export const generatePetArt = async (pet: Partial<Pet>) => {
-  const prompt = `A hand-drawn BLUE PEN SKETCH of a mythical creature. 
-                  SUBJECT: ${pet.rarity} ${pet.element} ${pet.attribute} creature, biology based on ${pet.classification?.species}.
+  const isInfant = !pet.ageStage || pet.ageStage === 'F - младенчество';
+  const prompt = `A hand-drawn BLUE PEN SKETCH of a mythical creature in its ${isInfant ? 'INFANCY/BABY/NEWBORN' : 'ADULT/EVOLVED'} stage. 
+                  SUBJECT: ${isInfant ? 'Newborn' : 'Evolved'} ${pet.rarity} ${pet.element} ${pet.attribute} creature, biology based on ${pet.classification?.species}.
+                  DETAILS: ${isInfant ? 'Small, cute but wild, youthful features, hatching from egg or just born.' : 'Powerful, majestic, fully developed features.'}
                   ART STYLE: Scribbled ballpoint pen illustration, blue ink drawing only, with hatching and cross-hatching shadows.
                   ENVIRONMENT: Centered on white GRID GRAPH PAPER.
-                  ORIENTATION: STRICTLY PORTRAIT orientation, long vertical image.
-                  ASPECT RATIO: 9:16 (height is much larger than width).
-                  MANDATORY: MONOCHROMATIC BLUE PEN INK. No other colors. No background images other than the grid paper.
-                  Composition: The entire creature MUST BE FULLY VISIBLE and vertically balanced.`;
+                  FORMAT: Vertical portrait 9:16 aspect ratio.
+                  MANDATORY: MONOCHROMATIC BLUE PEN INK ON WHITE PAPER.`;
   
   try {
     const ai = getAI();
     if (!ai) throw new Error("AI not initialized");
+    
+    // Using image generation model
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: { parts: [{ text: prompt }] }
+      model: IMAGE_MODEL,
+      contents: prompt,
+      config: {
+        imageConfig: {
+          aspectRatio: "9:16"
+        }
+      }
     });
 
     if (response.candidates?.[0]?.content?.parts) {
@@ -55,10 +66,12 @@ export const generatePetArt = async (pet: Partial<Pet>) => {
       }
     }
     
-    return `https://picsum.photos/seed/${pet.id}-${pet.level}/1080/1920`;
+    // Fallback seed as standard response for now since we want consistency
+    const seed = `${pet.element}-${pet.attribute}-${pet.rarity}-${Date.now()}`;
+    return `https://picsum.photos/seed/${seed}/1080/1920`;
   } catch (error) {
     console.error("Image generation failed:", error);
-    return `https://picsum.photos/seed/${pet.id}-${pet.level}/1080/1920`;
+    return `https://picsum.photos/seed/fallback-${Date.now()}/1080/1920`;
   }
 };
 
@@ -68,15 +81,15 @@ export const generateEvolutionUpdate = async (
 ): Promise<{ abilities: string[]; lore: string }> => {
   const prompt = `Питомец ${pet.name} эволюционировал до ранга ${newRank}!
     Текущая информация:
-    - Вид: ${pet.classification.species}
+    - Биологическая классификация: ${pet.classification.genus} ${pet.classification.species} (${pet.classification.family})
     - Элемент: ${pet.element}
     - Атрибут: ${pet.attribute}
     - Текущие способности: ${pet.abilities.join(', ')}
-    - Легенда: ${pet.lore}
+    - Текущая легенда: ${pet.lore}
     
     Сгенерируй:
-    1. Новую уникальную способность, которая добавляется к текущему списку. Она должна соответствовать элементу (${pet.element}) и атрибуту (${pet.attribute}) и быть мощнее предыдущих.
-    2. Обновленную легенду, описывающую качественное изменение существа на новом этапе развития (${newRank}).
+    1. Новую уникальную способность, которая добавляется к текущему списку. Она должна строго соответствовать биологическому виду (${pet.classification.species}), элементу (${pet.element}) и атрибуту (${pet.attribute}).
+    2. Обновленную легенду, описывающую качественное биологическое изменение существа на новом этапе развития.
     
     Верни JSON объект на русском языке.`;
 
@@ -84,18 +97,10 @@ export const generateEvolutionUpdate = async (
     const ai = getAI();
     if (!ai) throw new Error("AI not initialized");
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: TEXT_MODEL,
       contents: prompt,
       config: {
         responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            newAbility: { type: Type.STRING },
-            updatedLore: { type: Type.STRING }
-          },
-          required: ['newAbility', 'updatedLore']
-        }
       }
     });
 
@@ -146,63 +151,51 @@ export const generatePetStatsAndLore = async (
     - Хобби: ${profile.hobbies.join(', ')}
     - Черты души: ${profile.traits.join(', ')}
     - Потенциал: ${RARITY_WEIGHTS[forcedRarity].label} (${forcedRarity})
-    - Общий баланс характеристик: ${baseStatsTotal}
     
-    Задача: Создай ЕДИНСТВЕННОЕ В СВОЕМ РОДЕ существо в стадии МЛАДЕНЧЕСТВА, которое духовно связано с этим человеком.
+    Задача: Создай ЕДИНСТВЕННОЕ В СВОЕМ РОДЕ существо в стадии МЛАДЕНЧЕСТВА (INFANCY), которое духовно связано с этим человеком.
     Существо должно базироваться на РЕАЛЬНО СУЩЕСТВУЮЩЕМ биологическом виде, но быть ГИБРИДИЗИРОВАННЫМ с фантастическими элементами.
     
+    ВАЖНО: Обеспечь МАКСИМАЛЬНОЕ РАЗНООБРАЗИЕ. Не ограничивайся млекопитающими. Выбирай среди насекомых, глубоководных существ, грибов, растений, редких птиц, рептилий или даже микроорганизмов. Каждое создание должно быть уникальным.
+    
+    Важно: Так как это стадия МЛАДЕНЧЕСТВА, описание должно подчеркивать его потенциал и хрупкость, но в рамках его вида.
+    
     Верни JSON (ВСЕ ТЕКСТОВЫЕ ПОЛЯ ДОЛЖНЫ БЫТЬ НА РУССКОМ ЯЗЫКЕ):
-    1. name: Эпичное имя на русском (например, "Аурон, Архитектор Небес").
-    2. element: одна из [water, fire, air, earth].
-    3. attribute: одна из [light, dark, void, time].
-    4. classification: биологическая структура (все поля type, class, species и т.д. на русском).
-    5. stats: распредели СЛУЧАЙНЫМ ОБРАЗОМ ровно ${baseStatsTotal} очков между: attack, defense, health, speed, regeneration, magic. 
-       - Каждая характеристика НЕ МОЖЕТ быть больше 999.
-       - health и maxHealth должны быть одинаковыми. 
-       - rage=0, maxRage=100.
-    6. abilities: 1 начальный навык на русском.
-    7. lore: легенда появления на русском языке, объясняющая связь с личностью пользователя.`;
+    {
+      "name": "Эпичное имя на русском",
+      "element": "water|fire|air|earth",
+      "attribute": "light|dark|void|time",
+      "classification": {
+        "type": "Тип (напр. Хордовые)",
+        "class": "Класс (напр. Млекопитающие)",
+        "order": "Отряд (напр. Хищные)",
+        "family": "Семейство (напр. Пандовые)",
+        "genus": "Род (напр. Малые панды)",
+        "species": "Биологический вид-основа"
+      },
+      "stats_distribution": {
+        "attack": 0.1,
+        "defense": 0.2,
+        "health": 0.4,
+        "speed": 0.1,
+        "regeneration": 0.1,
+        "magic": 0.1
+      },
+      "abilities": ["название способности"],
+      "lore": "легенда появления (акцент на рождении и связи с пользователем)"
+    }
+
+    Условия для stats_distribution:
+    - Сумма всех значений в stats_distribution должна быть равна 1.0. 
+    - Это определит, на какие характеристики существо опирается биологически.`;
 
   try {
     const ai = getAI();
     if (!ai) throw new Error("AI not initialized");
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: TEXT_MODEL,
       contents: prompt,
       config: {
         responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            name: { type: Type.STRING },
-            element: { type: Type.STRING },
-            attribute: { type: Type.STRING },
-            classification: {
-              type: Type.OBJECT,
-              properties: {
-                type: { type: Type.STRING },
-                class: { type: Type.STRING },
-                order: { type: Type.STRING },
-                family: { type: Type.STRING },
-                genus: { type: Type.STRING },
-                species: { type: Type.STRING }
-              }
-            },
-            stats: {
-              type: Type.OBJECT,
-              properties: {
-                attack: { type: Type.NUMBER },
-                defense: { type: Type.NUMBER },
-                speed: { type: Type.NUMBER },
-                magic: { type: Type.NUMBER },
-                regeneration: { type: Type.NUMBER },
-                health: { type: Type.NUMBER }
-              }
-            },
-            abilities: { type: Type.ARRAY, items: { type: Type.STRING } },
-            lore: { type: Type.STRING }
-          }
-        }
       }
     });
 
@@ -236,13 +229,13 @@ export const generatePetStatsAndLore = async (
       attribute,
       classification,
       stats: {
-        attack: parsed.stats?.attack || 10,
-        defense: parsed.stats?.defense || 10,
-        speed: parsed.stats?.speed || 10,
-        magic: parsed.stats?.magic || 10,
-        regeneration: parsed.stats?.regeneration || 5,
-        health: parsed.stats?.health || 100,
-        maxHealth: parsed.stats?.health || 100,
+        attack: Math.round(baseStatsTotal * (parsed.stats_distribution?.attack || 0.15)),
+        defense: Math.round(baseStatsTotal * (parsed.stats_distribution?.defense || 0.15)),
+        speed: Math.round(baseStatsTotal * (parsed.stats_distribution?.speed || 0.15)),
+        magic: Math.round(baseStatsTotal * (parsed.stats_distribution?.magic || 0.15)),
+        regeneration: Math.round(baseStatsTotal * (parsed.stats_distribution?.regeneration || 0.1)),
+        health: Math.round(baseStatsTotal * (parsed.stats_distribution?.health || 0.3)),
+        maxHealth: Math.round(baseStatsTotal * (parsed.stats_distribution?.health || 0.3)),
         luck: 5,
         maxRage: 100,
         rage: 0
@@ -265,10 +258,13 @@ export const generateBonusItem = async (type: 'material' | 'food' | 'egg'): Prom
     const ai = getAI();
     if (!ai) throw new Error("AI not initialized");
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: TEXT_MODEL,
       contents: prompt,
-      config: { responseMimeType: "application/json" }
+      config: {
+        responseMimeType: "application/json",
+      }
     });
+
     const text = response.text;
 
     if (!text) throw new Error("Empty response from AI for Item");
@@ -310,31 +306,10 @@ export const generateQuest = async (pet: Pet) => {
     const ai = getAI();
     if (!ai) throw new Error("AI not initialized");
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: TEXT_MODEL,
       contents: prompt,
       config: {
         responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            title: { type: Type.STRING },
-            scenario: { type: Type.STRING },
-            options: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  text: { type: Type.STRING },
-                  outcome: { type: Type.STRING },
-                  rewardXP: { type: Type.NUMBER },
-                  rewardRubles: { type: Type.NUMBER }
-                },
-                required: ['text', 'outcome', 'rewardXP', 'rewardRubles']
-              }
-            }
-          },
-          required: ['title', 'scenario', 'options']
-        }
       }
     });
 

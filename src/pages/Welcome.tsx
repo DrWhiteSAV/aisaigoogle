@@ -7,56 +7,49 @@ import { Plus } from 'lucide-react';
 export const Welcome: React.FC<{ onSetup?: () => void; side?: 'left' | 'right' }> = ({ onSetup, side = 'left' }) => {
   const navigate = useNavigate();
   
-  if (side === 'left') {
-    return (
-      <div className="relative flex flex-col items-center justify-center h-full text-center p-8 space-y-10">
-        <motion.div
-          initial={{ clipPath: 'inset(0 100% 0 0)', opacity: 0, scale: 0.95 }}
-          animate={{ clipPath: 'inset(0 0% 0 0)', opacity: 1, scale: 1 }}
-          transition={{ duration: 2.5, ease: "easeInOut" }}
-          className="w-[80%] max-w-[450px]"
-        >
-          <img 
-            src="https://i.ibb.co/k2PN7Q8y/aisailogo.png" 
-            alt="aiSai Logo" 
-            className="w-full object-contain transform -rotate-1 mix-blend-multiply filter contrast-125"
-          />
-        </motion.div>
-        
-        <div className="space-y-2">
-          <h1 className="text-7xl sm:text-8xl font-black italic tracking-tighter text-pen-blue leading-none mb-1">
-            aiSai
-          </h1>
-          <p className="text-2xl sm:text-3xl font-medium italic text-pen-blue/50 tracking-wide font-hand">
-            цифровой бестиарий
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="relative flex flex-col items-center justify-center h-full text-center p-8 space-y-12">
-      <div className="max-w-xs text-xl sm:text-2xl italic text-pen-blue/60 leading-relaxed font-black">
+    <div className="relative flex flex-col items-center justify-center h-full text-center p-8 space-y-8">
+      <motion.div
+        initial={{ clipPath: 'inset(0 100% 0 0)', opacity: 0, scale: 0.95 }}
+        animate={{ clipPath: 'inset(0 0% 0 0)', opacity: 1, scale: 1 }}
+        transition={{ duration: 2.5, ease: "easeInOut" }}
+        className="w-[70%] max-w-[400px]"
+      >
+        <img 
+          src="https://i.ibb.co/k2PN7Q8y/aisailogo.png" 
+          alt="aiSai Logo" 
+          className="w-full object-contain transform -rotate-1 mix-blend-multiply filter contrast-125"
+        />
+      </motion.div>
+      
+      <div className="space-y-1">
+        <h1 className="text-6xl sm:text-7xl font-black tracking-tighter text-pen-blue leading-none mb-1">
+          aiSai
+        </h1>
+        <p className="text-xl sm:text-2xl font-medium text-pen-blue/50 tracking-wide font-hand">
+          цифровой бестиарий
+        </p>
+      </div>
+
+      <div className="max-w-[280px] text-lg sm:text-xl text-pen-blue/40 leading-relaxed font-black pt-4 border-t border-black/5">
         <HandwrittenText 
           text="Инициализируйте протокол слияния для проявления вашей первой цифровой сущности." 
-          speed={30}
+          speed={40}
         />
       </div>
 
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 1.5 }}
-      >
+      <div className="pt-4 flex flex-col items-center gap-4">
         <NeonButton 
-          onClick={onSetup || (() => navigate('/setup'))}
-          className="px-12 py-8 text-2xl font-black italic bg-sticker-yellow"
+          onClick={onSetup}
+          className="bg-sticker-yellow font-black px-12 py-4 border-2 border-black rotate-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:rotate-1 transition-all"
         >
-          <Plus className="h-8 w-8 mr-4" />
-          <span>Призвать сущность</span>
+          Начать
         </NeonButton>
-      </motion.div>
+        <div className="opacity-20 mt-2">
+          <div className="w-12 h-0.5 bg-pen-blue mx-auto mb-2" />
+          <p className="text-[12px] font-black tracking-wide text-pen-blue">протокол 0.1.а</p>
+        </div>
+      </div>
     </div>
   );
 };

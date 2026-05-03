@@ -29,7 +29,7 @@ export const HandDrawnTimer: React.FC<HandDrawnTimerProps> = ({ duration, onComp
   return (
     <div className="w-full max-w-md mx-auto space-y-4 text-center">
       {label && (
-        <div className="text-sm font-black italic uppercase tracking-[0.2em] text-pen-blue/40">
+        <div className="text-sm font-black tracking-[0.2em] text-pen-blue/40">
           {label}
         </div>
       )}
@@ -48,8 +48,8 @@ export const HandDrawnTimer: React.FC<HandDrawnTimerProps> = ({ duration, onComp
         <div className="absolute inset-0 pointer-events-none opacity-20 bg-[repeating-linear-gradient(45deg,transparent,transparent_5px,black_5px,black_6px)]" />
       </div>
 
-      <div className="text-xs font-black italic text-pen-blue/30 tracking-widest">
-        {Math.round(progress)}% • В ПРОЦЕССЕ СИНТЕЗА...
+      <div className="text-xs font-black text-pen-blue/30 tracking-widest">
+        {Math.round(progress)}% • В процессе синтеза...
       </div>
     </div>
   );

@@ -111,3 +111,16 @@ export const RARITY_LABELS: Record<Rarity, string> = {
   divine: 'Божественный',
   transcendent: 'Трансцендентный'
 };
+
+export const RARITY_STYLES: Record<Rarity, { color: string; bgColor: string; borderColor: string }> = {
+  normal: { color: '#6B7280', bgColor: '#F3F4F6', borderColor: '#D1D5DB' },
+  advanced: { color: '#10B981', bgColor: '#ECFDF5', borderColor: '#6EE7B7' },
+  rare: { color: '#3B82F6', bgColor: '#F0F9FF', borderColor: '#93C5FD' },
+  perfect: { color: '#8B5CF6', bgColor: '#F5F3FF', borderColor: '#C4B5FD' },
+  epic: { color: '#EC4899', bgColor: '#FDF2F8', borderColor: '#F9A8D4' },
+  legendary: { color: '#F59E0B', bgColor: '#FFFBEB', borderColor: '#FCD34D' },
+  mythical: { color: '#EF4444', bgColor: '#FEF2F2', borderColor: '#FCA5A5' },
+  eternal: { color: '#06B6D4', bgColor: '#ECFEFF', borderColor: '#67E8F9' },
+  divine: { color: '#FCD34D', bgColor: '#FFFBEB', borderColor: '#FBBF24' },
+  transcendent: { color: '#FFFFFF', bgColor: '#111827', borderColor: '#4B5563' }
+};

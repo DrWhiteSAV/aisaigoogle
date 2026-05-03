@@ -16,21 +16,21 @@ export const TopUp: React.FC<{ progress: UserProgress; setProgress: React.Dispat
       <header className="space-y-4">
         <button 
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-pen-blue/40 hover:text-pen-blue font-black italic transition-colors"
+          className="flex items-center gap-2 text-pen-blue/40 hover:text-pen-blue font-black transition-colors"
         >
           <ArrowLeft className="h-4 w-4" /> Назад
         </button>
         <div>
-          <h1 className="text-3xl font-black italic text-pen-blue leading-none">aiSai Pay</h1>
-          <div className="text-[10px] font-black italic text-pen-blue/30 mt-1 uppercase tracking-widest">Протокол пополнения баланса</div>
+          <h1 className="text-3xl font-black text-pen-blue leading-none">aiSai Pay</h1>
+          <div className="text-[10px] font-black text-pen-blue/30 mt-1 tracking-widest">Протокол пополнения баланса</div>
         </div>
       </header>
 
       <div className="space-y-6">
         <GlassCard color="white" className="border-2 border-black/5 p-6">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-[10px] font-black italic text-pen-blue/40 uppercase">Текущий баланс:</span>
-            <div className="flex items-center gap-2 text-lg font-black italic text-pen-blue">
+            <span className="text-[10px] font-black text-pen-blue/40">Текущий баланс:</span>
+            <div className="flex items-center gap-2 text-lg font-black text-pen-blue">
                <Coins className="h-4 w-4" />
                {progress.currency.toLocaleString()} ₽
             </div>
@@ -53,11 +53,11 @@ export const TopUp: React.FC<{ progress: UserProgress; setProgress: React.Dispat
                 className="p-5 flex items-center justify-between border-2 border-black/5 group-hover:border-pen-blue/20 transition-all text-left"
               >
                 <div>
-                   <div className="text-sm font-black italic text-pen-blue">{pkg.label}</div>
-                   <div className="text-[10px] font-black italic text-pen-blue/40">+{pkg.amount} ₽ {pkg.bonus !== '0' && <span className="text-pen-red">+{pkg.bonus} BONUS</span>}</div>
+                   <div className="text-sm font-black text-pen-blue">{pkg.label}</div>
+                   <div className="text-[10px] font-black text-pen-blue/40">+{pkg.amount} ₽ {pkg.bonus !== '0' && <span className="text-pen-red">+{pkg.bonus} Бонус</span>}</div>
                 </div>
-                <div className="text-lg font-black italic text-pen-blue">
-                   {(pkg.amount * 0.1).toFixed(0)} <span className="text-[10px]">USD</span>
+                <div className="text-lg font-black text-pen-blue">
+                   {(pkg.amount * 0.1).toFixed(0)} <span className="text-[10px]">Usd</span>
                 </div>
               </GlassCard>
             </button>
@@ -66,12 +66,12 @@ export const TopUp: React.FC<{ progress: UserProgress; setProgress: React.Dispat
 
         <div className="p-8 border-2 border-dashed border-black/5 rounded-none text-center space-y-2 opacity-50">
            <CreditCard className="mx-auto h-6 w-6 text-pen-blue/20" />
-           <p className="text-[10px] font-black italic text-pen-blue/30 leading-none">Другие способы оплаты временно недоступны</p>
+           <p className="text-[10px] font-black text-pen-blue/30 leading-none">Другие способы оплаты временно недоступны</p>
         </div>
 
         <div className="mt-auto flex items-center gap-3 opacity-30">
           <ShieldCheck className="h-4 w-4 text-pen-blue" />
-          <p className="text-[9px] font-black italic leading-tight">Ваши транзакции защищены протоколом шифрования aiSai</p>
+          <p className="text-[9px] font-black leading-tight">Ваши транзакции защищены протоколом шифрования aiSai</p>
         </div>
       </div>
     </div>

@@ -8,14 +8,27 @@ import { generateQuest, generateBonusItem } from '../services/aiService';
 import { getQuestRewardExp, getNextLevelReward, checkLevelUp } from '../lib/gameLogic';
 import { HandDrawnTimer } from '../components/HandDrawnTimer';
 
-export const Quest: React.FC<{ progress: UserProgress; setProgress: React.Dispatch<React.SetStateAction<UserProgress>> }> = ({ progress, setProgress }) => {
+export const Quest: React.FC<{ 
+  progress: UserProgress; 
+  setProgress: React.Dispatch<React.SetStateAction<UserProgress>>;
+  toggleFlipLock?: (id: string, locked: boolean) => void;
+}> = ({ progress, setProgress, toggleFlipLock }) => {
   const navigate = useNavigate();
+  const componentId = React.useId();
+  const lockId = `quest-${componentId}`;
+  
   const location = useLocation();
   const [quest, setQuest] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [questResult, setQuestResult] = useState<any>(null);
   const [bonusItem, setBonusItem] = useState<InventoryItem | null>(null);
   const pet = progress.pets.find(p => p.id === progress.activePetId);
+
+  useEffect(() => {
+    if (toggleFlipLock) {
+      toggleFlipLock(lockId, loading || !!questResult);
+    }
+  }, [loading, questResult, toggleFlipLock, lockId]);
 
   useEffect(() => {
     if (!location.pathname.startsWith('/quest')) return;
@@ -104,7 +117,7 @@ export const Quest: React.FC<{ progress: UserProgress; setProgress: React.Dispat
 
   if (!pet) {
     return (
-      <div className="p-12 text-center h-full flex flex-col items-center justify-center font-bold italic text-pen-blue">
+      <div className="p-12 text-center h-full flex flex-col items-center justify-center font-bold text-pen-blue">
         Выберите питомца для квеста
       </div>
     );
@@ -112,14 +125,24 @@ export const Quest: React.FC<{ progress: UserProgress; setProgress: React.Dispat
 
   return (
     <div className="p-4 max-w-2xl mx-auto min-h-screen pb-24 pt-6 flex flex-col items-center relative">
-      <div className="w-full flex justify-start mb-4">
-        <button 
-          onClick={() => navigate('/main')}
-          className="flex items-center gap-2 text-pen-blue/40 hover:text-pen-blue font-black italic transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" /> Назад
-        </button>
-      </div>
+      <header className="w-full flex items-center justify-between mb-8 border-b-2 border-black/5 pb-4">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => navigate('/pet/' + pet.id)}
+            className="p-2 hover:bg-black/5 rounded-full transition-colors flex items-center gap-2 font-black text-pen-blue"
+          >
+            <ArrowLeft className="h-5 w-5" />
+            Назад
+          </button>
+          <div 
+            className="text-2xl font-black text-pen-blue hover:opacity-70 cursor-pointer"
+            onClick={() => navigate('/pet/' + pet.id)}
+          >
+            {pet.name}
+          </div>
+        </div>
+        <div className="text-xl font-black text-pen-blue/20 uppercase">Квест</div>
+      </header>
 
       <AnimatePresence mode="wait">
         {loading ? (
@@ -136,10 +159,10 @@ export const Quest: React.FC<{ progress: UserProgress; setProgress: React.Dispat
             </div>
             
             <div className="text-center space-y-4">
-              <h2 className="text-4xl font-black italic text-pen-blue tracking-tighter">
+              <h2 className="text-4xl font-black text-pen-blue tracking-tighter">
                 Исследование
               </h2>
-              <p className="max-w-md mx-auto text-pen-blue/60 italic font-black">
+              <p className="max-w-md mx-auto text-pen-blue/60 font-black">
                 Твой спутник погружается в информационные слои реальности...
               </p>
             </div>
@@ -157,13 +180,13 @@ export const Quest: React.FC<{ progress: UserProgress; setProgress: React.Dispat
               <span className="inline-block px-3 py-0.5 bg-pen-red text-white text-[10px] font-black tracking-[0.2em] rotate-1">
                 Событие
               </span>
-              <h1 className="text-3xl font-black italic text-pen-blue tracking-tighter">
+              <h1 className="text-3xl font-black text-pen-blue tracking-tighter">
                 {quest?.title}
               </h1>
             </div>
 
             <GlassCard color="white" className="p-6 border-2 border-black/10">
-              <div className="text-lg text-pen-blue/80 leading-relaxed italic min-h-[80px]">
+              <div className="text-lg text-pen-blue/80 leading-relaxed min-h-[80px]">
                 <HandwrittenText text={quest?.scenario} speed={30} />
               </div>
             </GlassCard>
@@ -172,7 +195,7 @@ export const Quest: React.FC<{ progress: UserProgress; setProgress: React.Dispat
               {quest?.options?.map((opt: any, i: number) => {
                 if (!opt) return null;
                 const isSuccess = i % 2 === 0; // Simple pattern for UI preview
-                const previewXP = getNextLevelReward(pet!.level, isSuccess);
+                const previewXP = getNextLevelReward(pet?.level || 1, isSuccess);
                 const previewRubles = Math.floor(previewXP * 0.5);
                 
                 return (
@@ -185,14 +208,14 @@ export const Quest: React.FC<{ progress: UserProgress; setProgress: React.Dispat
                       color={i % 2 === 0 ? "blue" : "pink"} 
                       className="p-5 text-left h-full border-2 border-black/5 group-hover:border-pen-blue/30 group-hover:-translate-y-1 transition-all"
                     >
-                      <div className="text-lg font-black italic mb-3 tracking-tight leading-tight">
+                      <div className="text-lg font-black mb-3 tracking-tight leading-tight">
                         {opt.text}
                       </div>
                       <div className="flex items-center gap-4 pt-3 border-t border-black/5">
-                        <div className="flex items-center gap-1.5 text-[11px] font-black italic text-pen-blue/40">
+                        <div className="flex items-center gap-1.5 text-[11px] font-black text-pen-blue/40">
                           <Coins className="h-3 w-3" /> +{previewRubles}
                         </div>
-                        <div className="flex items-center gap-1.5 text-[11px] font-black italic text-pen-blue/40">
+                        <div className="flex items-center gap-1.5 text-[11px] font-black text-pen-blue/40">
                           <Trophy className="h-3 w-3" /> +{previewXP}
                         </div>
                       </div>
@@ -220,11 +243,11 @@ export const Quest: React.FC<{ progress: UserProgress; setProgress: React.Dispat
             </div>
 
             <div className="text-center space-y-4 max-w-lg">
-              <h2 className="text-3xl font-black italic text-pen-blue tracking-tighter">
+              <h2 className="text-3xl font-black text-pen-blue tracking-tighter">
                 Результат
               </h2>
               <GlassCard color="yellow" className="p-6 border-2 border-black/5 rotate-1">
-                <div className="text-lg text-pen-blue/80 italic leading-snug min-h-[60px]">
+                <div className="text-lg text-pen-blue/80 leading-snug min-h-[60px]">
                   <HandwrittenText text={questResult.outcome} speed={35} />
                 </div>
               </GlassCard>
@@ -246,16 +269,16 @@ export const Quest: React.FC<{ progress: UserProgress; setProgress: React.Dispat
 
             <div className="flex justify-center gap-4 w-full max-w-sm">
               <div className="flex-1 flex flex-col items-center bg-sticker-yellow border-2 border-black/10 p-4 rotate-2">
-                <span className="text-2xl font-black italic text-pen-blue">+{questResult.rewardRubles}</span>
-                <span className="text-[11px] font-black text-pen-blue/40 italic">Рублей</span>
+                <span className="text-2xl font-black text-pen-blue">+{questResult.rewardRubles}</span>
+                <span className="text-[11px] font-black text-pen-blue/40">Рублей</span>
               </div>
               <div className="flex-1 flex flex-col items-center bg-sticker-pink border-2 border-black/10 p-4 -rotate-2">
-                <span className="text-2xl font-black italic text-pen-blue">+{questResult.rewardXP}</span>
-                <span className="text-[11px] font-black text-pen-blue/40 italic">Опыта</span>
+                <span className="text-2xl font-black text-pen-blue">+{questResult.rewardXP}</span>
+                <span className="text-[11px] font-black text-pen-blue/40">Опыта</span>
               </div>
             </div>
 
-            <NeonButton onClick={() => navigate('/main')} className="px-8 py-4 text-xl font-black italic mt-6 bg-sticker-yellow">
+            <NeonButton onClick={() => navigate('/main')} className="px-8 py-4 text-xl font-black mt-6 bg-sticker-yellow">
                В Бестиарий
             </NeonButton>
           </motion.div>

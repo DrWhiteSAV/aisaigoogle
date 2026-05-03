@@ -48,15 +48,17 @@ export const AGE_STAGE_RECORDS: Record<number, { code: string; label: string }> 
 
 export function getQuestRewardExp(level: number, success: boolean): number {
   const n = level;
-  // (30±25)*0,95^n*100% for success, (5±3)*0,95^n*100% for failure
+  // (30±25)*0,95^n for success, (5±3)*0,95^n for failure
   const mid = success ? 30 : 5;
   const scatter = success ? 25 : 3;
-  const randomPercent = (mid + (Math.random() * scatter * 2 - scatter)) / 100;
+  const baseRewardPercent = (mid + (Math.random() * scatter * 2 - scatter));
   const modifier = Math.pow(0.95, n);
   
-  // Percentage of CURRENT level's requirement (100 * 1.1^n)
+  const finalPercent = (baseRewardPercent * modifier) / 100;
+  
+  // Percentage of XP needed for current level
   const expNeeded = getExpNeeded(n);
-  const rewardXP = Math.round(expNeeded * randomPercent * modifier);
+  const rewardXP = Math.round(expNeeded * finalPercent);
   
   return Math.max(1, rewardXP);
 }
@@ -94,6 +96,39 @@ export function getAttributeDefenseMultiplier(attacker: Attribute, defender: Att
   return 1;
 }
 
+export function distributeStats(totalPoints: number): PetStats {
+  const stats: PetStats = {
+    attack: 0,
+    defense: 0,
+    health: 0,
+    maxHealth: 0,
+    speed: 0,
+    regeneration: 0,
+    magic: 0,
+    luck: 5,
+    rage: 0,
+    maxRage: 100
+  };
+
+  // Ensure health gets a chunk (30-50%)
+  const healthPoints = Math.floor(totalPoints * (0.3 + Math.random() * 0.2));
+  stats.health = healthPoints;
+  stats.maxHealth = healthPoints;
+  
+  let remaining = totalPoints - healthPoints;
+  const otherKeys: (keyof PetStats)[] = ['attack', 'defense', 'speed', 'regeneration', 'magic'];
+  
+  // Distribute remaining
+  while (remaining > 0) {
+    const key = otherKeys[Math.floor(Math.random() * otherKeys.length)];
+    const chunk = Math.min(remaining, Math.floor(Math.random() * 5) + 1);
+    (stats[key] as number) += chunk;
+    remaining -= chunk;
+  }
+
+  return stats;
+}
+
 export function checkLevelUp(pet: Pet): Pet {
   let currentPet = { ...pet };
   let expNeeded = getExpNeeded(currentPet.level);
@@ -102,13 +137,24 @@ export function checkLevelUp(pet: Pet): Pet {
     currentPet.experience -= expNeeded;
     currentPet.level += 1;
     
-    // Add stat points based on rarity growth
+    // Add stats automatically instead of just statPoints if preferred, 
+    // but the user mentions "распределите свободные очки характеристик" in Setup.tsx text.
+    // However, the prompt says "код распределяя случайно статы и суммируя в игровом процессе".
+    // I'll add to statPoints so user can distribute, OR distribute automatically.
+    // Let's do automatic distribution as well to show immediate CP growth.
     const growth = RARITY_WEIGHTS[currentPet.rarity].growth;
-    currentPet.statPoints += growth;
+    const gStats = distributeStats(growth);
+    
+    currentPet.stats.attack += gStats.attack;
+    currentPet.stats.defense += gStats.defense;
+    currentPet.stats.health += gStats.health;
+    currentPet.stats.maxHealth += gStats.health;
+    currentPet.stats.speed += gStats.speed;
+    currentPet.stats.regeneration += gStats.regeneration;
+    currentPet.stats.magic += gStats.magic;
     
     // Update age stage if needed
     currentPet.ageStage = getPetRankByLevel(currentPet.level);
-    
     expNeeded = getExpNeeded(currentPet.level);
   }
   
@@ -118,10 +164,9 @@ export function checkLevelUp(pet: Pet): Pet {
 export function calculateCP(pet: Pet): number {
   if (!pet || !pet.stats) return 0;
   const { attack, defense, health, speed, regeneration, magic } = pet.stats;
-  const luck = pet.stats.luck || 0;
-  // TZ: "сумма всех статов, навыков, предметов, материалов, корма - все что влияет на показатели"
-  const abilitiesBonus = pet.abilities.length * 50; 
-  return attack + defense + health + speed + regeneration + magic + luck + abilitiesBonus;
+  // CP is the sum of main stats + 10 points per ability
+  const abilitiesBonus = pet.abilities.length * 10; 
+  return attack + defense + health + speed + regeneration + magic + abilitiesBonus;
 }
 
 export function getSummonerRank(pets: Pet[]): { name: string, limit: number } {

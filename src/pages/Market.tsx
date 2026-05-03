@@ -7,12 +7,18 @@ import { Trash2, Scale, Plus } from 'lucide-react';
 import { getSummonerRank } from '../lib/gameLogic';
 
 const calculateSellPrice = (pet: Pet) => {
-  const basePrices: Record<string, number> = { common: 500, rare: 1500, epic: 4000, mythic: 8000, legendary: 20000, divine: 80000 };
-  const stageMultipliers: Record<string, number> = { 'F': 1, 'E': 1.2, 'D': 1.5, 'C': 2, 'B': 3, 'A': 5 };
+  const basePrices: Record<string, number> = { 
+    normal: 500, advanced: 1000, rare: 2500, perfect: 5000, 
+    epic: 10000, legendary: 25000, mythical: 60000, eternal: 150000, 
+    divine: 500000, transcendent: 1000000 
+  };
+  const stageMultipliers: Record<string, number> = { 
+    'F': 1, 'E': 1.2, 'D': 1.5, 'C': 2, 'B': 3, 'A': 5, 'S': 8, 'EX': 15, 'UX': 30, 'Z': 100 
+  };
   const stageCode = (pet.ageStage || 'F').split(' ')[0];
   const base = basePrices[pet.rarity] || 500;
   const mult = stageMultipliers[stageCode] || 1;
-  const levelBonus = pet.level * 150;
+  const levelBonus = (pet.level || 1) * 150;
   return Math.floor((base + levelBonus) * mult);
 };
 
@@ -42,8 +48,8 @@ export const Market: React.FC<{
     <div className="p-4 h-full flex flex-col space-y-6">
        <header className="flex flex-col gap-4">
           <div className="space-y-1">
-            <h1 className="text-3xl font-black italic text-pen-blue tracking-tighter leading-tight">Пристанище aiSai</h1>
-            <div className="text-pen-blue/40 text-[10px] font-black italic uppercase">
+            <h1 className="text-3xl font-black text-pen-blue tracking-tighter leading-tight">Пристанище aiSai</h1>
+            <div className="text-pen-blue/40 text-[10px] font-black">
                {mode === 'sell' ? 'Протокол реализации сущностей' : 'Центр призыва и обмена'}
             </div>
           </div>
@@ -75,8 +81,8 @@ export const Market: React.FC<{
                         <Plus className="h-5 w-5 text-pen-blue" />
                      </div>
                   </div>
-                  <h3 className="text-lg font-black italic text-pen-blue mb-1">Ритуал Синтеза</h3>
-                  <p className="text-[9px] text-pen-blue/60 font-black italic">
+                  <h3 className="text-lg font-black text-pen-blue mb-1">Ритуал Синтеза</h3>
+                  <p className="text-[9px] text-pen-blue/60 font-black">
                      Призыв новой уникальной сущности за {summonCost} ₽
                   </p>
                </GlassCard>
@@ -89,7 +95,7 @@ export const Market: React.FC<{
                     </GlassCard>
                   ))}
                </div>
-               <p className="text-center text-[9px] font-black italic text-pen-blue/30">Ожидание поставок...</p>
+               <p className="text-center text-[9px] font-black text-pen-blue/30">Ожидание поставок...</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -105,17 +111,17 @@ export const Market: React.FC<{
                    </div>
                    <div className="flex-1 text-left min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                         <h3 className="text-base font-black italic text-pen-blue leading-none truncate">{pet.name}</h3>
-                         <span className="text-[9px] text-pen-blue/40 font-black shrink-0">LVL {pet.level}</span>
+                         <h3 className="text-base font-black text-pen-blue leading-none truncate">{pet.name}</h3>
+                         <span className="text-[9px] text-pen-blue/40 font-black shrink-0">Lvl {pet.level}</span>
                       </div>
                       <div className="flex items-center justify-between mt-1">
-                        <div className="font-black text-pen-blue text-xs italic">{calculateSellPrice(pet)} ₽</div>
+                        <div className="font-black text-pen-blue text-xs">{calculateSellPrice(pet)} ₽</div>
                         <button 
                           onClick={(e) => {
                              e.stopPropagation();
                              handleSell(pet.id);
                           }}
-                          className="flex items-center gap-1 text-pen-red hover:scale-110 transition-transform text-[9px] font-black italic"
+                          className="flex items-center gap-1 text-pen-red hover:scale-110 transition-transform text-[9px] font-black"
                         >
                            <Trash2 className="h-3 w-3" />
                            Продать
@@ -124,18 +130,18 @@ export const Market: React.FC<{
                    </div>
                 </GlassCard>
                ))}
-               {progress.pets.length === 0 && <p className="text-center italic text-pen-blue/30 py-10">Пусто...</p>}
+               {progress.pets.length === 0 && <p className="text-center text-pen-blue/30 py-10">Пусто...</p>}
             </div>
           )}
        </div>
 
        <div className="border-t-2 border-dashed border-black/5 pt-4 text-center mt-auto">
-          <p className="text-[9px] font-black italic text-pen-blue/30 uppercase tracking-widest leading-none">
+          <p className="text-[9px] font-black text-pen-blue/30 tracking-widest leading-none">
             {progress.currency.toLocaleString()} ₽ • Лимит: {progress.pets.length}/{rankInfo.limit}
           </p>
           <div className="flex items-center justify-center gap-2 mt-2 opacity-30">
              <Scale className="h-3 w-3 text-pen-blue" />
-             <span className="text-[8px] font-black italic text-pen-blue">БАЛАНС СИСТЕМЫ СТАБИЛЕН</span>
+             <span className="text-[8px] font-black text-pen-blue">Баланс системы стабилен</span>
           </div>
        </div>
     </div>

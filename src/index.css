@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Neucha&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bad+Script&family=Neucha&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -14,9 +14,9 @@
   --color-rarity-epic: #7e22ce;
   --color-rarity-legendary: #b45309;
 
-  --font-sans: "Neucha", cursive, sans-serif;
-  --font-hand: "Neucha", cursive;
-  --font-serif: "Neucha", cursive, serif;
+  --font-sans: "Bad Script", "Neucha", cursive, sans-serif;
+  --font-hand: "Bad Script", "Neucha", cursive;
+  --font-serif: "Bad Script", "Neucha", cursive, serif;
   --font-mono: "Courier New", Courier, monospace;
 
   --radius-sketch: 2px 2px 4px 2px;
@@ -29,7 +29,7 @@
 
   /* Aged paper effect */
   body {
-    @apply text-pen-blue antialiased relative font-sans p-0 m-0;
+    @apply text-pen-blue antialiased relative font-sans p-0 m-0 italic;
     background-color: #f2ede0;
     background-image: 
       /* Notebook Grid */
@@ -47,10 +47,20 @@
   }
 
   .ledger-grid {
+    background-color: #f2ede0;
     background-image: 
       linear-gradient(to right, rgba(0, 71, 171, 0.05) 1px, transparent 1px),
       linear-gradient(to bottom, rgba(0, 71, 171, 0.05) 1px, transparent 1px);
     background-size: 25px 25px;
+  }
+  
+  /* Fix for react-pageflip back side content */
+  .st-page {
+    background-color: #f2ede0 !important;
+  }
+  
+  .st-page--back {
+    background-color: #f2ede0 !important;
   }
   
   /* Noise and worn edges */
@@ -71,6 +81,7 @@
   h1, h2, h3, h4, .handwritten {
     font-family: var(--font-hand);
     font-weight: normal;
+    font-style: italic !important;
     text-transform: none !important;
     letter-spacing: normal !important;
   }
@@ -88,18 +99,17 @@
     transform: rotate(var(--rotation, 0deg));
     position: relative;
     z-index: 10; 
-    background-color: white; 
+    background-color: transparent; 
     background-clip: padding-box;
     box-shadow: none !important;
   }
   
   .hatching-shadow {
-    position: relative;
-    z-index: 10;
+    display: none !important;
   }
   
   .hatching-shadow::after {
-    display: none;
+    display: none !important;
   }
 
   .doodle-overlay {
@@ -109,6 +119,7 @@
   .scribble-border {
     border: 2px solid #0047ab;
     border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
+    box-shadow: none !important;
   }
 
   .logo-text-gradient {
@@ -161,6 +172,10 @@
   border-radius: 2px;
 }
 .force-scrollbar { -ms-overflow-style: none; }
+
+* {
+  font-style: italic !important;
+}
 
 .animate-shake {
   animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;

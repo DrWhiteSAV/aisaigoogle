@@ -20,9 +20,10 @@ import { Navbar } from './components/Navbar';
 import { NeonButton } from './components/UI';
 import { cn } from './lib/utils';
 import { Coins, Plus } from 'lucide-react';
-import { UserProgress, Pet, UserProfile } from './types';
+import { UserProgress, Pet, UserProfile, Rarity } from './types';
+import { generatePetStatsAndLore, generatePetArt } from './services/aiService';
 
-import { updateEnergy, getPetRankByLevel } from './lib/gameLogic';
+import { updateEnergy, getPetRankByLevel, distributeStats, RARITY_WEIGHTS } from './lib/gameLogic';
 
 const INITIAL_PROGRESS: UserProgress = {
   id: Math.random().toString(36).substring(7).toUpperCase(),
@@ -56,17 +57,14 @@ const BackgroundDoodles = () => {
           style={{ top: d.top, left: d.left, rotate: d.rotate, scale: d.scale }}
         >
           {d.type === 0 ? (
-            /* Sparkle / Star */
             <svg width="60" height="60" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <path d="M50 10 L50 90 M10 50 L90 50 M25 25 L75 75 M75 25 L25 75" />
             </svg>
           ) : d.type === 1 ? (
-            /* Swirl / Spiral */
             <svg width="80" height="80" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <path d="M50 50 C50 20 80 20 80 50 C80 80 20 80 20 50 C20 30 40 30 40 50" />
             </svg>
           ) : (
-             /* Scribble / Hatching mark */
              <svg width="70" height="70" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
                <path d="M10 20 L30 10 M15 40 L45 25 M20 60 L60 40 M30 80 L80 50" />
              </svg>
@@ -82,10 +80,9 @@ import HTMLFlipBook from 'react-pageflip';
 const Page = React.forwardRef<HTMLDivElement, { children: React.ReactNode; side?: 'left' | 'right' }>(({ children, side }, ref) => {
   return (
     <div className={cn(
-      "bg-[#f2ede0] ledger-grid shadow-none relative overflow-hidden h-full",
+      "bg-[#f2ede0] ledger-grid shadow-none relative h-full",
       side === 'left' ? "border-r border-black/[0.03]" : "border-l border-black/[0.03]"
     )} ref={ref}>
-      {/* Dynamic Spine Highlight - simulating the physical fold */}
       <div className={cn(
         "absolute top-0 bottom-0 w-24 pointer-events-none z-20",
         side === 'left' 
@@ -93,7 +90,6 @@ const Page = React.forwardRef<HTMLDivElement, { children: React.ReactNode; side?
           : "left-0 bg-gradient-to-r from-black/[0.08] via-black/[0.02] to-transparent"
       )} />
       
-      {/* Signature Red Margin Lines */}
       <div className={cn(
         "absolute top-0 bottom-0 w-[1px] bg-red-400/[0.15] pointer-events-none z-20",
         side === 'left' ? "right-12" : "left-12"
@@ -123,6 +119,18 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
   const [summoningPet, setSummoningPet] = useState<Pet | null>(null);
   const [isSummoning, setIsSummoning] = useState(false);
   const [summoningError, setSummoningError] = useState<string | null>(null);
+  const [flipBlockers, setFlipBlockers] = useState<Set<string>>(new Set());
+  const isFlipEnabled = flipBlockers.size === 0;
+
+  const toggleFlipLock = React.useCallback((id: string, locked: boolean) => {
+    setFlipBlockers(prev => {
+      const next = new Set(prev);
+      if (locked) next.add(id);
+      else next.delete(id);
+      if (next.size === prev.size) return prev;
+      return next;
+    });
+  }, []);
 
   const [userProfile, setUserProfile] = useState<UserProfile>(() => {
     const saved = localStorage.getItem('aisai_user_profile');
@@ -142,26 +150,24 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
     localStorage.setItem('aisai_user_profile', JSON.stringify(userProfile));
   }, [userProfile]);
 
-  // Clear summoning state when leaving onboarding or make page
   useEffect(() => {
-    if (!location.pathname.startsWith('/make') && !location.pathname.startsWith('/setup') && !location.pathname.startsWith('/about')) {
+    if (!location.pathname.startsWith('/make') && !location.pathname.startsWith('/setup')) {
       setSummoningPet(null);
       setIsSummoning(false);
       setSummoningError(null);
     }
   }, [location.pathname]);
 
-  const handlePetSummonComplete = (pet: Pet) => {
+  const handlePetSummonComplete = React.useCallback((pet: Pet) => {
     handleAddNewPet(pet);
     setSummoningPet(null);
     setIsSummoning(false);
-  };
+  }, [handleAddNewPet]);
 
-  // Extract ID manually for components rendered inside FlipBook
   const activePetId = React.useMemo(() => {
-    const match = location.pathname.match(/\/(pet|inventory)\/([^/]+)/);
-    return match ? match[2] : null;
-  }, [location.pathname]);
+    const match = location.pathname.match(/\/(pet|inventory|evolve|battle)\/([^/]+)/);
+    return match ? match[2] : progress.activePetId;
+  }, [location.pathname, progress.activePetId]);
 
   useEffect(() => {
     const handleResize = () => setWindowSize({ width: window.innerWidth, height: window.innerHeight });
@@ -169,55 +175,48 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Map paths to book indices and logical spreads
   const bookPages: Record<string, number> = {
     '/start': 0,
     '/setup': 2,
-    '/about': 4,
-    '/make': 6,
-    '/main': 8,
-    '/pet': 8,
-    '/inventory': 10,
-    '/battle': 12,
-    '/evolve': 14,
-    '/quest': 16,
-    '/shop': 18,
-    '/summon': 20,
-    '/sale': 22,
-    '/profile': 24,
-    '/configs': 26,
-    '/topup': 28
+    '/main': 4,
+    '/pet': 4,
+    '/inventory': 6,
+    '/battle': 8,
+    '/evolve': 10,
+    '/quest': 12,
+    '/shop': 14,
+    '/summon': 16,
+    '/sale': 18,
+    '/profile': 20,
+    '/configs': 22,
+    '/topup': 24
   };
 
   const getPageFromPath = (path: string) => {
     if (path === '/' || path === '/start') return 0;
     if (path === '/setup') return 2;
-    if (path === '/about') return 4;
-    if (path === '/make') return 6;
-    if (path.startsWith('/inventory')) return 10;
-    if (path.startsWith('/pet/')) return 8;
-    if (path === '/main') return 8;
-    if (path.startsWith('/battle')) return 12;
-    if (path.startsWith('/evolve')) return 14;
-    if (path.startsWith('/quest')) return 16;
-    if (path === '/shop') return 18;
-    if (path === '/summon') return 20;
-    if (path === '/sale') return 22;
-    if (path === '/profile') return 24;
-    if (path === '/configs' || path === '/settings') return 26;
-    if (path === '/topup') return 28;
+    if (path.startsWith('/inventory')) return 6;
+    if (path.startsWith('/pet/')) return 4;
+    if (path === '/main') return 4;
+    if (path.startsWith('/battle')) return 8;
+    if (path.startsWith('/evolve')) return 10;
+    if (path.startsWith('/quest')) return 12;
+    if (path === '/shop') return 14;
+    if (path === '/summon') return 16;
+    if (path === '/sale') return 18;
+    if (path === '/profile') return 20;
+    if (path === '/configs' || path === '/settings') return 22;
+    if (path === '/topup') return 24;
     return 0;
   };
 
   useEffect(() => {
     const targetPage = getPageFromPath(location.pathname);
-    
     const timer = setTimeout(() => {
       try {
         if (flipBookRef.current) {
           const pageFlip = typeof flipBookRef.current.pageFlip === 'function' ? flipBookRef.current.pageFlip() : null;
-          
-          if (pageFlip && typeof pageFlip.getCurrentPageIndex === 'function' && typeof pageFlip.flip === 'function') {
+          if (pageFlip && typeof pageFlip.flip === 'function') {
             const currentPage = pageFlip.getCurrentPageIndex();
             if (currentPage !== targetPage) {
               pageFlip.flip(targetPage);
@@ -232,186 +231,242 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
   }, [location.pathname]);
 
   const isPortrait = windowSize.width < 1024;
+  const isOnboarding = location.pathname === '/' || location.pathname === '/start' || location.pathname === '/setup' || location.pathname === '/make';
 
-  const isOnboarding = location.pathname === '/' || location.pathname === '/start' || location.pathname === '/setup' || location.pathname === '/about' || location.pathname === '/make';
+  const handleStartSummon = async () => {
+    if (isSummoning) return;
+    setIsSummoning(true);
+    setSummoningError(null);
+    setSummoningPet(null);
+
+    try {
+      const forcedRarity = ((): Rarity => {
+        const r = Math.random() * 100;
+        if (r < 1) return 'divine';
+        if (r < 5) return 'legendary';
+        if (r < 10) return 'mythical';
+        if (r < 25) return 'epic';
+        if (r < 50) return 'rare';
+        return 'normal';
+      })();
+      
+      const result = await generatePetStatsAndLore(userProfile, forcedRarity);
+      if (!result) throw new Error("Не удалось получить ответ от эфира.");
+
+      const { name, abilities, lore, classification, element, attribute } = result;
+      const petId = Math.random().toString(36).substr(2, 9);
+      
+      const art = await generatePetArt({ 
+        id: petId, rarity: forcedRarity, personality: userProfile.traits[0] as any,
+        habitat: 'forest', classification, element, attribute, level: 1, ageStage: 'F - младенчество'
+      });
+
+      // Distribute stats randomly by code as requested
+      const initialStats = distributeStats(RARITY_WEIGHTS[forcedRarity].base);
+
+      const newPet: Pet = {
+        id: petId, 
+        name: name || "Безымянный", 
+        rarity: forcedRarity, 
+        element: (element as any) || 'fire', 
+        attribute: (attribute as any) || 'void',
+        personality: 'calm', 
+        habitat: 'forest', 
+        image: art || `https://picsum.photos/seed/${petId}/1080/1920`,
+        stats: initialStats,
+        classification: classification || { 
+          type: "Неизвестно",
+          class: "Неизвестно",
+          order: "Неизвестно",
+          family: "Неизвестно",
+          genus: "Неизвестно",
+          species: "Неизвестно"
+        }, 
+        abilities: abilities || ["Базовая Атака"], 
+        lore: lore || "Легенда еще не написана.", 
+        level: 1, 
+        experience: 0, 
+        materials: {}, 
+        ageStage: 'F - младенчество',
+        isRankRevealed: false, 
+        statPoints: 0,
+      };
+      setSummoningPet(newPet);
+    } catch (error: any) {
+      console.error("Summoning error:", error);
+      setSummoningError(error?.message || "Ошибка связи с эфиром. Попробуйте еще раз.");
+    } finally {
+      setIsSummoning(false);
+    }
+  };
 
   if (isPortrait) {
     const showNav = hasPets && !isOnboarding;
+    const sortedPaths = Object.keys(bookPages).sort((a, b) => b.length - a.length);
+    const matchedPath = sortedPaths.find(p => location.pathname.startsWith(p));
+
     return (
       <div className="flex flex-col min-h-screen pt-16 pb-20 bg-transparent ledger-grid overflow-y-auto w-full px-4 gap-6">
         {showNav && <Navbar rubles={progress.currency} />}
-        
-        {(() => {
-          const sortedPaths = Object.keys(bookPages).sort((a, b) => b.length - a.length);
-          const path = sortedPaths.find(p => location.pathname.startsWith(p));
-          
-          if (path === '/start') return <Page side="left"><Welcome onSetup={() => navigate('/setup/1')} /></Page>;
-          if (path?.startsWith('/setup')) {
-            const step = parseInt(location.pathname.split('/').pop() || '1') || 1;
-            return <Page side="right"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={step} /></Page>
-          }
-          
-          if (path?.startsWith('/main') || path?.startsWith('/pet') || path === '/inventory' || path === '/battle' || path === '/evolve' || path === '/quest') {
-             return (
-               <div className="space-y-6">
-                 <Page side="left"><Main progress={progress} setProgress={setProgress} manualActiveId={activePetId} /></Page>
-                 <div className="border-t-2 border-dashed border-black/5 pt-6">
-                    {path === '/inventory' ? <PetDetail progress={progress} setProgress={setProgress} manualId={activePetId} initialTab="inventory" /> :
-                     path === '/battle' ? <Battle progress={progress} setProgress={setProgress} /> :
-                     path === '/evolve' ? <Evolve progress={progress} setProgress={setProgress} /> :
-                     path === '/quest' ? <Quest progress={progress} setProgress={setProgress} /> :
-                     <PetDetail progress={progress} setProgress={setProgress} manualId={activePetId} />}
-                 </div>
-               </div>
-             );
-          }
- 
-          if (path?.startsWith('/shop') || path === '/summon' || path === '/sale') {
-            return (
-              <div className="space-y-6">
-                <Page side="left"><Shop progress={progress} setProgress={setProgress} onBuy={handleAddNewPet} mode={path === '/sale' ? 'sell' : 'buy'} /></Page>
-                {path === '/summon' && <Page side="right"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={1} isMarketSummon /></Page>}
+        {matchedPath === '/start' && (
+          <div className="space-y-6">
+            <Page side="left"><Welcome onSetup={() => navigate('/setup')} /></Page>
+            <Page side="right"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={1} side="right" toggleFlipLock={toggleFlipLock} /></Page>
+          </div>
+        )}
+        {matchedPath === '/setup' && (
+          <div className="space-y-6">
+            <Page side="left"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={2} side="left" toggleFlipLock={toggleFlipLock} onStartSummon={handleStartSummon} /></Page>
+            <Page side="right"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handlePetSummonComplete} step={3} side="right" externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} toggleFlipLock={toggleFlipLock} /></Page>
+          </div>
+        )}
+        {(matchedPath === '/main' || matchedPath === '/pet' || matchedPath === '/battle' || matchedPath === '/quest' || matchedPath === '/evolve' || matchedPath === '/inventory') && (
+           <div className="space-y-6">
+              <Page side="left"><Main progress={progress} setProgress={setProgress} manualActiveId={activePetId} /></Page>
+              <div className="border-t-2 border-dashed border-black/5 pt-6">
+                {matchedPath === '/battle' ? <Battle progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} /> :
+                 matchedPath === '/quest' ? <Quest progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} /> :
+                 matchedPath === '/evolve' ? <Evolve progress={progress} setProgress={setProgress} manualId={activePetId || undefined} toggleFlipLock={toggleFlipLock} /> :
+                 <PetDetail progress={progress} setProgress={setProgress} manualId={activePetId} initialTab={matchedPath === '/inventory' ? 'inventory' : 'stats'} toggleFlipLock={toggleFlipLock} />}
               </div>
-            );
-          }
- 
-          if (path?.startsWith('/profile') || path === '/configs' || path === '/topup') {
-            return (
-              <div className="space-y-6">
-                <Page side="left"><Profile progress={progress} setProgress={setProgress} view="main" /></Page>
-                <Page side="right">
-                   {path === '/configs' ? <Profile progress={progress} setProgress={setProgress} view="settings" /> :
-                    path === '/topup' ? <TopUp progress={progress} setProgress={setProgress} /> :
-                      <div className="text-center h-full flex flex-col items-center justify-center p-8 opacity-20">
-                        <h2 className="text-xl font-black italic text-pen-blue">Инфо</h2>
-                      </div>
-                    }
-                </Page>
-              </div>
-            );
-          }
-          
-          return <div className="p-10 text-center italic text-pen-blue animate-pulse">Инициализация модуля...</div>;
-        })()}
+           </div>
+        )}
+        {(matchedPath === '/shop' || matchedPath === '/summon' || matchedPath === '/sale') && (
+           <div className="space-y-6">
+              <Page side="left"><Shop progress={progress} setProgress={setProgress} onBuy={handleAddNewPet} mode={matchedPath === '/sale' ? 'sell' : 'buy'} /></Page>
+              {matchedPath === '/summon' && <Page side="right"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} isMarketSummon toggleFlipLock={toggleFlipLock} onStartSummon={handleStartSummon} /></Page>}
+           </div>
+        )}
+        {(matchedPath === '/profile' || matchedPath === '/configs' || matchedPath === '/topup') && (
+           <div className="space-y-6">
+              <Page side="left"><Profile progress={progress} setProgress={setProgress} /></Page>
+              <Page side="right">
+                {matchedPath === '/configs' ? <Profile progress={progress} setProgress={setProgress} view="settings" /> :
+                 matchedPath === '/topup' ? <TopUp progress={progress} setProgress={setProgress} /> :
+                 <div className="h-40 flex items-center justify-center">Личное дело</div>}
+              </Page>
+           </div>
+        )}
       </div>
     );
   }
 
   const onFlip = (e: any) => {
-    const newIndex = (e && typeof e.data === 'number') ? e.data : (typeof e === 'number' ? e : null);
-    if (newIndex === null) return;
-
-    const targetBaseIndex = Math.floor(newIndex / 2) * 2;
-    const currentBasePage = getPageFromPath(location.pathname);
-    
-    if (currentBasePage !== targetBaseIndex) {
-      const entry = Object.entries(bookPages).find(([_, idx]) => idx === targetBaseIndex);
-      if (entry) {
-        navigate(entry[0]);
+    try {
+      const newIndex = (e && typeof e.data === 'number') ? e.data : (typeof e === 'number' ? e : null);
+      if (newIndex === null) return;
+      const targetBaseIndex = Math.floor(newIndex / 2) * 2;
+      const currentBasePage = getPageFromPath(location.pathname);
+      
+      if (currentBasePage !== targetBaseIndex) {
+        const entry = Object.entries(bookPages).find(([_, idx]) => idx === targetBaseIndex);
+        if (entry) {
+          const path = entry[0];
+          // Try to preserve ID if we're moving between pet-related pages
+          if (activePetId && (path === '/main' || path === '/inventory' || path.startsWith('/pet/') || path === '/evolve' || path === '/battle')) {
+            if (path === '/inventory') navigate(`/inventory/${activePetId}`);
+            else if (path === '/main') navigate(`/pet/${activePetId}`);
+            else if (path === '/evolve') navigate(`/evolve/${activePetId}`);
+            else if (path === '/battle') navigate(`/battle/${activePetId}`);
+            else navigate(path);
+          } else {
+            navigate(path);
+          }
+        }
       }
+    } catch (err) {
+      console.error("onFlip error:", err);
     }
   };
 
-  const flipBookWidth = Math.min(750, windowSize.width / 2);
-  const flipBookHeight = windowSize.height;
-
+  const flipBookWidth = Math.floor(Math.min(720, (windowSize.width - (windowSize.width < 1280 ? 40 : 120)) / 2));
+  const flipBookHeight = Math.floor(Math.min(900, windowSize.height - 40));
   const showNav = hasPets && !isOnboarding;
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-transparent relative selection:bg-sticker-blue/30 overflow-hidden">
-        <div className="absolute inset-0 bg-black/5 -z-10" />
-        
-        {showNav && <Navbar rubles={progress.currency} />}
-        
-        <div className="w-full h-full flex items-center justify-center overflow-hidden">
-          <div className="relative w-full h-full flex items-center justify-center">
-            <HTMLFlipBook 
-              key={`flipbook-${isPortrait}-${flipBookWidth}-${flipBookHeight}`}
-              width={flipBookWidth} 
-              height={flipBookHeight}
-              size="stretch"
-              minWidth={315}
-              minHeight={100}
-              maxShadowOpacity={0.2}
-              showCover={false}
-              mobileScrollSupport={true}
-              ref={flipBookRef}
-              className="flipbook-root"
-              style={{ cursor: isOnboarding ? 'default' : 'grab' }}
-              onFlip={onFlip}
-              startPage={0}
-              drawShadow={true}
-              flippingTime={900}
-              useMouseEvents={true}
-              clickEventForward={true}
-              usePortrait={false}
-              startZIndex={0}
-              autoSize={true}
-              showPageCorners={true}
-              disableFlipByClick={true}
-            >
-          {/* BOOK 0: ONBOARDING FLOW */}
-          <Page side="left"><Welcome side="left" /></Page>
-          <Page side="right"><Welcome side="right" onSetup={() => navigate('/setup')} /></Page>
-          
-          {/* Personality (Left) + Manifesto (Right) */}
-          <Page side="left"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handlePetSummonComplete} step={1} side="left" externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} /></Page>
-          <Page side="right"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handlePetSummonComplete} step={1} side="right" externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} /></Page>
-          
-          {/* Hobbies (Left) + Soul Traits (Right) */}
-          <Page side="left"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handlePetSummonComplete} step={2} side="left" externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} /></Page>
-          <Page side="right"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handlePetSummonComplete} step={2} side="right" externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} /></Page>
-          
-          {/* Generation (Left) + Description (Right) */}
-          <Page side="left"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handlePetSummonComplete} step={3} side="left" externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} /></Page>
-          <Page side="right"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handlePetSummonComplete} step={3} side="right" externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} /></Page>
-          
-          {/* BOOK 1: BESTIARY (Spreads 4-8) */}
-          {/* Spread: Main + Detail */}
-          <Page side="left"><Main progress={progress} setProgress={setProgress} manualActiveId={activePetId} /></Page>
-          <Page side="right"><PetDetail progress={progress} setProgress={setProgress} manualId={activePetId} /></Page>
-          
-          {/* Spread: Main + Inventory */}
-          <Page side="left"><Main progress={progress} setProgress={setProgress} manualActiveId={activePetId} /></Page>
-          <Page side="right"><PetDetail progress={progress} setProgress={setProgress} manualId={activePetId} initialTab="inventory" /></Page>
-          
-          {/* Spread: Main + Battle */}
-          <Page side="left"><Main progress={progress} setProgress={setProgress} manualActiveId={activePetId} /></Page>
-          <Page side="right"><Battle progress={progress} setProgress={setProgress} /></Page>
-          
-          {/* Spread: Main + Evolve */}
-          <Page side="left"><Main progress={progress} setProgress={setProgress} manualActiveId={activePetId} /></Page>
-          <Page side="right"><Evolve progress={progress} setProgress={setProgress} manualId={activePetId || undefined} /></Page>
-          
-          {/* Spread: Main + Quest */}
-          <Page side="left"><Main progress={progress} setProgress={setProgress} manualActiveId={activePetId} /></Page>
-          <Page side="right"><Quest progress={progress} setProgress={setProgress} /></Page>
- 
-          {/* BOOK 2: SHOP (Spreads 9-11) */}
-          <Page side="left"><Shop progress={progress} setProgress={setProgress} onBuy={handleAddNewPet} mode="buy" /></Page>
-          <Page side="right"><div className="h-full flex flex-col items-center justify-center italic text-pen-blue/20">Выберите товар...</div></Page>
-          
-          <Page side="left"><Shop progress={progress} setProgress={setProgress} onBuy={handleAddNewPet} mode="buy" /></Page>
-          <Page side="right"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={1} isMarketSummon externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} /></Page>
-          
-          <Page side="left"><Shop progress={progress} setProgress={setProgress} onBuy={handleAddNewPet} mode="sell" /></Page>
-          <Page side="right"><TopUp progress={progress} setProgress={setProgress} /></Page>
- 
-          {/* BOOK 3: PROFILE (Spreads 12-14) */}
-          <Page side="left"><Profile progress={progress} setProgress={setProgress} view="main" /></Page>
-          <Page side="right"><div className="h-full flex flex-col items-center justify-center italic text-pen-blue/20">Личное дело...</div></Page>
-          
-          <Page side="left"><Profile progress={progress} setProgress={setProgress} view="main" /></Page>
-          <Page side="right"><Profile progress={progress} setProgress={setProgress} view="settings" /></Page>
- 
-          <Page side="left"><Profile progress={progress} setProgress={setProgress} view="main" /></Page>
-          <Page side="right">
-            <TopUp progress={progress} setProgress={setProgress} />
-          </Page>
-        </HTMLFlipBook>
-          </div>
+
+  return (
+    <div className="flex h-screen w-full items-center justify-center bg-transparent relative selection:bg-sticker-blue/30 overflow-hidden">
+      <div className="absolute inset-0 bg-black/5 -z-10" />
+      {showNav && <Navbar rubles={progress.currency} />}
+      <div className="w-full h-full flex items-center justify-center overflow-hidden p-4 sm:p-8">
+        <div 
+          className={cn(
+            "relative flex items-center justify-center transition-all duration-500 ease-in-out",
+            !isFlipEnabled && "pointer-events-none opacity-90"
+          )}
+          style={{ width: flipBookWidth * 2, height: flipBookHeight }}
+        >
+          <HTMLFlipBook 
+            key={`flipbook-${isPortrait}-${flipBookWidth}-${flipBookHeight}`}
+            width={flipBookWidth} 
+            height={flipBookHeight}
+            size="stretch"
+            minWidth={315}
+            minHeight={100}
+            maxShadowOpacity={0.2}
+            showCover={false}
+            mobileScrollSupport={true}
+            ref={flipBookRef}
+            className="flipbook-root"
+            style={{ cursor: isOnboarding ? 'default' : 'grab' }}
+            onFlip={onFlip}
+            startPage={0}
+            drawShadow={true}
+            flippingTime={900}
+            useMouseEvents={isFlipEnabled}
+            clickEventForward={true}
+            usePortrait={false}
+            startZIndex={0}
+            autoSize={true}
+            showPageCorners={true}
+            disableFlipByClick={true}
+          >
+            {/* BOOK 0: ONBOARDING FLOW */}
+            <Page side="left"><Welcome onSetup={() => navigate('/setup')} /></Page>
+            <Page side="right"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={1} side="right" toggleFlipLock={toggleFlipLock} /></Page>
+            
+            <Page side="left"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={2} side="left" toggleFlipLock={toggleFlipLock} onStartSummon={handleStartSummon} /></Page>
+            <Page side="right"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handlePetSummonComplete} step={3} side="right" externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} toggleFlipLock={toggleFlipLock} /></Page>
+            
+            {/* BOOK 1: BESTIARY */}
+            <Page side="left"><Main progress={progress} setProgress={setProgress} manualActiveId={activePetId} /></Page>
+            <Page side="right"><PetDetail progress={progress} setProgress={setProgress} manualId={activePetId} initialTab="stats" toggleFlipLock={toggleFlipLock} id="pet-detail-main" /></Page>
+            
+            <Page side="left"><Main progress={progress} setProgress={setProgress} manualActiveId={activePetId} /></Page>
+            <Page side="right"><PetDetail progress={progress} setProgress={setProgress} manualId={activePetId} initialTab="inventory" toggleFlipLock={toggleFlipLock} id="pet-detail-inv" /></Page>
+            
+            <Page side="left"><Battle progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} manualId={activePetId || undefined} side="left" /></Page>
+            <Page side="right"><Battle progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} manualId={activePetId || undefined} side="right" /></Page>
+            
+            <Page side="left"><Main progress={progress} setProgress={setProgress} manualActiveId={activePetId} /></Page>
+            <Page side="right"><Evolve progress={progress} setProgress={setProgress} manualId={activePetId || undefined} toggleFlipLock={toggleFlipLock} /></Page>
+            
+            <Page side="left"><Main progress={progress} setProgress={setProgress} manualActiveId={activePetId} /></Page>
+            <Page side="right"><Quest progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} /></Page>
+    
+            {/* BOOK 2: SHOP */}
+            <Page side="left"><Shop progress={progress} setProgress={setProgress} onBuy={handleAddNewPet} mode="buy" /></Page>
+            <Page side="right"><div className="h-full flex flex-col items-center justify-center text-pen-blue/20">Выберите товар...</div></Page>
+            
+            <Page side="left"><Shop progress={progress} setProgress={setProgress} onBuy={handleAddNewPet} mode="buy" /></Page>
+            <Page side="right"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={1} isMarketSummon externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} toggleFlipLock={toggleFlipLock} onStartSummon={handleStartSummon} /></Page>
+            
+            <Page side="left"><Shop progress={progress} setProgress={setProgress} onBuy={handleAddNewPet} mode="sell" /></Page>
+            <Page side="right"><TopUp progress={progress} setProgress={setProgress} /></Page>
+    
+            {/* BOOK 3: PROFILE */}
+            <Page side="left"><Profile progress={progress} setProgress={setProgress} view="main" /></Page>
+            <Page side="right"><div className="h-full flex flex-col items-center justify-center text-pen-blue/20">Личное дело...</div></Page>
+            
+            <Page side="left"><Profile progress={progress} setProgress={setProgress} view="main" /></Page>
+            <Page side="right"><Profile progress={progress} setProgress={setProgress} view="settings" /></Page>
+    
+            <Page side="left"><Profile progress={progress} setProgress={setProgress} view="main" /></Page>
+            <Page side="right"><TopUp progress={progress} setProgress={setProgress} /></Page>
+          </HTMLFlipBook>
         </div>
       </div>
-    );
+    </div>
+  );
 };
 
 export default function App() {
@@ -420,7 +475,6 @@ export default function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        // Ensure all required fields exist for backward compatibility
         const migratedPets = (parsed.pets || []).map((p: any) => {
           const stats = p.stats || {
             attack: 10, defense: 10, health: 100, maxHealth: 100, 
@@ -428,30 +482,36 @@ export default function App() {
           };
           if (stats.luck === undefined) stats.luck = 5;
           if (stats.health === undefined) stats.health = 100;
-          if (stats.maxHealth === undefined) stats.maxHealth = stats.health || 100;
+          stats.maxHealth = stats.maxHealth || stats.health || 100;
           if (stats.rage === undefined) stats.rage = 0;
           if (stats.maxRage === undefined) stats.maxRage = 100;
           
           return {
+            id: p.id || Math.random().toString(36).substring(7),
+            name: p.name || "Безымянный",
+            rarity: p.rarity || 'normal',
+            element: p.element || 'fire',
+            attribute: p.attribute || 'void',
+            personality: p.personality || 'calm',
+            habitat: p.habitat || 'forest',
+            image: p.image || `https://picsum.photos/seed/${p.id}/1080/1920`,
+            lore: p.lore || "Легенда еще не написана.",
             ...p,
             stats,
             level: p.level || 1,
             experience: p.experience || 0,
             statPoints: typeof p.statPoints === 'number' ? p.statPoints : 0,
+            abilities: Array.isArray(p.abilities) ? p.abilities : ["Базовая Атака"],
+            classification: p.classification || { 
+              type: "Неизвестно", class: "Неизвестно", order: "Неизвестно", 
+              family: "Неизвестно", genus: "Неизвестно", species: "Неизвестно" 
+            },
             ageStage: p.ageStage && p.ageStage.includes(' - ') ? p.ageStage : getPetRankByLevel(p.level || 1)
           };
         });
 
-        return {
-          ...INITIAL_PROGRESS,
-          ...parsed,
-          pets: migratedPets,
-          inventory: Array.isArray(parsed.inventory) ? parsed.inventory : INITIAL_PROGRESS.inventory,
-          currency: typeof parsed.currency === 'number' ? parsed.currency : INITIAL_PROGRESS.currency,
-        };
-      } catch (e) {
-        return INITIAL_PROGRESS;
-      }
+        return { ...INITIAL_PROGRESS, ...parsed, pets: migratedPets };
+      } catch (e) { return INITIAL_PROGRESS; }
     }
     return INITIAL_PROGRESS;
   });
@@ -463,34 +523,28 @@ export default function App() {
   useEffect(() => {
     const interval = setInterval(() => {
       setProgress(prev => updateEnergy(prev));
-    }, 1000); // Check every second for instant recharge at 00:00
+    }, 1000);
     return () => clearInterval(interval);
   }, []);
 
   const hasPets = (progress.pets || []).length > 0;
-
-  const handleAddNewPet = (pet: Pet) => {
+  const handleAddNewPet = React.useCallback((pet: Pet) => {
     setProgress(prev => {
+      if (prev.pets.some(p => p.id === pet.id)) return prev;
       return {
         ...prev,
         pets: [...prev.pets, pet],
         activePetId: prev.activePetId || pet.id,
       };
     });
-  };
+  }, []);
 
   return (
     <BrowserRouter>
       <div className="min-h-screen relative selection:bg-sticker-blue selection:text-pen-blue">
         <BackgroundDoodles />
-        <AnimatedRoutes 
-          hasPets={hasPets} 
-          progress={progress} 
-          setProgress={setProgress} 
-          handleAddNewPet={handleAddNewPet} 
-        />
+        <AnimatedRoutes hasPets={hasPets} progress={progress} setProgress={setProgress} handleAddNewPet={handleAddNewPet} />
       </div>
     </BrowserRouter>
   );
 }
-

@@ -100,14 +100,15 @@ export const NeonButton: React.FC<{
   className?: string;
   variant?: 'purple' | 'blue' | 'pink' | 'legendary';
   loading?: boolean;
-}> = ({ children, onClick, className, variant = 'purple', loading }) => {
+  disabled?: boolean;
+}> = ({ children, onClick, className, loading, disabled }) => {
   return (
     <button
       onClick={onClick}
-      disabled={loading}
+      disabled={loading || disabled}
       className={cn(
-        "scribble-border scribble-hover px-8 py-3 font-bold text-pen-blue bg-white transition-all duration-300 active:scale-95",
-        "relative overflow-hidden disabled:opacity-50",
+        "scribble-border scribble-hover px-8 py-3 font-bold text-pen-blue bg-transparent transition-all duration-300 active:scale-95",
+        "relative overflow-hidden disabled:opacity-50 cursor-pointer w-fit",
         className
       )}
     >
@@ -126,7 +127,7 @@ export const NeonButton: React.FC<{
 
 
 export const HandwrittenText: React.FC<{
-  text: string;
+  text?: string;
   speed?: number;
   className?: string;
   delay?: number;
@@ -137,14 +138,14 @@ export const HandwrittenText: React.FC<{
   useEffect(() => {
     const timer = setTimeout(() => setStarted(true), delay * 1000);
     return () => clearTimeout(timer);
-  }, [delay]);
+  }, [delay, started]); // Added started to deps although not strictly needed for the timer
 
   useEffect(() => {
     if (!started || !text) return;
     if (displayedText.length < text.length) {
       const timer = setTimeout(() => {
         setDisplayedText(text.slice(0, displayedText.length + 1));
-      }, speed); // Fixed speed logic
+      }, speed);
       return () => clearTimeout(timer);
     }
   }, [displayedText, text, speed, started]);

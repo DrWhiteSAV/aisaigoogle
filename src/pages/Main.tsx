@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { UserProgress, Pet } from '../types';
+import { Pet, Element, Attribute, UserProgress } from '../types';
 import { GlassCard, NeonButton, HandwrittenText } from '../components/UI';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { Shield, Sword, Brain, Zap, Star, Sparkles, Heart, Activity, Compass, Coins, Plus, Box, Package, ChevronRight, Zap as EnergyIcon, ShoppingBag } from 'lucide-react';
 import { getPetRankByLevel, calculateCP, getExpNeeded } from '../lib/gameLogic';
 import { ELEMENT_DATA, RARITY_LABELS } from '../constants/gameData';
-import { ElementSticker } from '../components/GameUI';
+import { ElementSticker, InfoModal, TypeChartContent } from '../components/GameUI';
+
+import { PetCard } from '../components/PetCard';
 
 export const Main: React.FC<{ 
   progress: UserProgress; 
@@ -18,15 +20,9 @@ export const Main: React.FC<{
   const { id: paramsId } = useParams();
   const activeId = manualActiveId || paramsId;
   const [timeLeft, setTimeLeft] = useState("");
+  const [modalType, setModalType] = useState<{ element?: Element, attribute?: Attribute, rank?: boolean, fullScreenImage?: string } | null>(null);
 
   const petCount = progress.pets.length;
-
-  useEffect(() => {
-    // Sync with active pet id in state if provided through URL
-    if (activeId && progress.activePetId !== activeId) {
-       // setProgress(prev => ({ ...prev, activePetId: activeId })); // Avoid side effect in render/effect if possible
-    }
-  }, [activeId]);
 
   useEffect(() => {
     const updateTimer = () => {
@@ -53,19 +49,22 @@ export const Main: React.FC<{
       {/* Header with Energy & Currency */}
       <header className="flex flex-col gap-6 border-b-2 border-black/5 pb-10">
         <div className="flex items-center gap-4">
-          <div className="h-16 w-16 bg-sticker-yellow border-2 border-black rotate-3 flex items-center justify-center p-2 cursor-pointer hover:scale-110 transition-transform" onClick={() => navigate('/main')}>
-             <img src="https://i.ibb.co/k2PN7Q8y/aisailogo.png" alt="aiSai" className="h-full w-full object-contain mix-blend-multiply" />
-          </div>
+          <img 
+            src="https://i.ibb.co/k2PN7Q8y/aisailogo.png" 
+            alt="aiSai" 
+            className="h-16 w-16 object-contain cursor-pointer hover:scale-110 transition-transform mix-blend-multiply" 
+            onClick={() => navigate('/main')}
+          />
           <div>
-            <h1 className="text-4xl font-black italic tracking-tighter text-pen-blue leading-none">aiSai</h1>
-            <div className="text-sm font-black italic text-pen-blue/30 mt-1 uppercase tracking-wider">Бестиарий: {petCount} сущностей</div>
+            <h1 className="text-4xl font-black tracking-tighter text-pen-blue leading-none">aiSai</h1>
+            <div className="text-sm font-black text-pen-blue/30 mt-1">Бестиарий: {petCount} сущностей</div>
           </div>
         </div>
         
         <div className="flex flex-wrap items-center gap-6">
           {/* Energy Section */}
           <div className="flex flex-col gap-1 flex-1 min-w-[120px]">
-             <div className="flex items-center gap-2 text-sm font-black italic text-pen-blue">
+             <div className="flex items-center gap-2 text-sm font-black text-pen-blue">
                 <EnergyIcon className="h-4 w-4 fill-pen-blue" />
                 <span>Заряд: {progress.energy}</span>
                 <span className="text-[10px] opacity-40">({timeLeft})</span>
@@ -74,7 +73,7 @@ export const Main: React.FC<{
 
           <div
             onClick={() => navigate('/topup')}
-            className="group cursor-pointer bg-sticker-blue px-4 py-2 border-2 border-black rotate-1 flex items-center gap-3 text-lg font-black italic hover:-translate-y-1 transition-all"
+            className="group cursor-pointer bg-sticker-blue px-4 py-2 border-2 border-black rotate-1 flex items-center gap-3 text-lg font-black hover:-translate-y-1 transition-all"
           >
             <Coins className="h-5 w-5" />
             <span>{progress.currency.toLocaleString()} ₽</span>
@@ -84,90 +83,104 @@ export const Main: React.FC<{
 
       <section className="space-y-8">
         <div className="flex items-center justify-between">
-           <h2 className="text-3xl font-black italic text-pen-blue">Ваши Сущности</h2>
+           <h2 className="text-3xl font-black text-pen-blue">Ваши Сущности</h2>
            <button 
              onClick={() => navigate('/shop')}
-             className="text-pen-blue/40 hover:text-pen-blue font-black italic text-sm transition-colors"
+             className="text-pen-blue/40 hover:text-pen-blue font-black text-sm transition-colors"
            >
              + Магазин
            </button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-           {progress.pets.map((pet, i) => {
-             const cp = calculateCP(pet);
-             return (
-               <motion.div
-                 key={pet.id}
-                 initial={{ opacity: 0, y: 20 }}
-                 animate={{ opacity: 1, y: 0 }}
-                 transition={{ delay: i * 0.05 }}
+           {progress.pets.map((pet, i) => (
+             <motion.div
+               key={pet.id}
+               initial={{ opacity: 0, y: 20 }}
+               animate={{ opacity: 1, y: 0 }}
+               transition={{ delay: i * 0.05 }}
+               className={cn(
+                 "transition-all duration-300",
+                 activeId === pet.id ? "scale-105 z-20" : "scale-100"
+               )}
+             >
+               <PetCard 
+                 pet={pet} 
                  onClick={() => navigate(`/pet/${pet.id}`)}
+                 onOpenRankInfo={() => setModalType({ rank: true })}
+                 onOpenImage={() => setModalType({ fullScreenImage: pet.image })}
+                 onOpenElementInfo={(el) => setModalType({ element: el })}
+                 onOpenAttributeInfo={(attr) => setModalType({ attribute: attr })}
+                 onOpenStore={() => navigate('/shop')}
+                 onOpenInventory={() => navigate(`/inventory/${pet.id}`)}
                  className={cn(
-                   "group cursor-pointer transition-all duration-300",
-                   activeId === pet.id ? "scale-105 z-20" : "scale-100"
+                   activeId === pet.id ? "border-pen-blue !rotate-0" : ""
                  )}
-               >
-                 <GlassCard 
-                   color="white" 
-                   noPadding 
-                   className={cn(
-                     "border-2 overflow-hidden rotation-1 group-hover:rotate-0 transition-all",
-                     activeId === pet.id ? "border-pen-blue !rotate-0 scale-[1.02]" : "border-black/10"
-                   )}
-                 >
-                   <div className="aspect-[9/16] relative bg-white">
-                     <img src={pet.image} alt={pet.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 grayscale-[10%]" />
-                     
-                     <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
-                        <div className="px-2 py-0.5 bg-black text-white text-[9px] font-black italic lowercase">
-                           {RARITY_LABELS[pet.rarity] || pet.rarity}
-                        </div>
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); navigate(`/inventory/${pet.id}`); }}
-                          className="h-8 w-8 bg-sticker-blue border border-black flex items-center justify-center hover:bg-sticker-yellow transition-colors"
-                        >
-                           <ShoppingBag className="h-4 w-4" />
-                        </button>
-                     </div>
-
-                     <div className="absolute top-2 right-2 h-8 w-8 bg-sticker-yellow border border-black rotate-6 flex flex-col items-center justify-center z-10">
-                        <span className="text-[10px] font-black italic leading-none">{cp}</span>
-                     </div>
-
-                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-white via-white/80 to-transparent p-4 pt-12 z-10">
-                        {/* XP Progress Bar */}
-                        <div className="w-full h-1 bg-black/5 rounded-full overflow-hidden mb-3">
-                          <motion.div 
-                            className="h-full bg-pen-blue opacity-40"
-                            initial={{ width: 0 }}
-                            animate={{ width: `${Math.min((pet.experience / getExpNeeded(pet.level)) * 100, 100)}%` }}
-                          />
-                        </div>
-                        
-                        <h3 className="text-xl font-black italic truncate leading-none mb-1">
-                          {pet.name}
-                        </h3>
-                        <div className="flex justify-between items-center">
-                          <span className="text-[10px] font-black italic text-pen-blue/40 uppercase">LVL {pet.level}</span>
-                          <ElementSticker element={pet.element} showLabel={true} className="scale-90 origin-right" />
-                        </div>
-                     </div>
-                   </div>
-                 </GlassCard>
-               </motion.div>
-             );
-           })}
+                 showDetails={activeId === pet.id}
+               />
+             </motion.div>
+           ))}
            
            {progress.pets.length === 0 && (
               <div className="col-span-full py-16 text-center border-4 border-dashed border-black/5 rounded-2xl">
                  <Package className="h-12 w-12 mx-auto text-black/10 mb-4" />
-                 <h3 className="text-lg font-black italic text-pen-blue/30">Бестиарий пуст</h3>
+                 <h3 className="text-lg font-black text-pen-blue/30">Бестиарий пуст</h3>
                  <NeonButton onClick={() => navigate('/shop')} className="mt-4">В магазин</NeonButton>
               </div>
            )}
         </div>
       </section>
+
+      <InfoModal 
+        isOpen={!!modalType} 
+        onClose={() => setModalType(null)}
+        title={modalType?.rank ? "Ранг Сущности" : modalType?.element ? "Узы Элемента" : "Суть Атрибута"}
+        showClose={true}
+        plain={!!modalType?.fullScreenImage}
+      >
+        {modalType?.fullScreenImage ? (
+           <motion.img 
+             initial={{ scale: 0.9, opacity: 0 }}
+             animate={{ scale: 1, opacity: 1 }}
+             src={modalType.fullScreenImage} 
+             alt="Pet zoom" 
+             className="max-w-[95%] max-h-[95%] object-contain shadow-2xl rounded-sm"
+             referrerPolicy="no-referrer"
+           />
+        ) : modalType?.rank ? (
+          <div className="space-y-4">
+             <p className="text-sm font-black text-pen-blue/70 leading-relaxed border-b border-black/5 pb-4">
+               Ранг Питомца определяется текущим уровнем созревания:
+             </p>
+             <div className="grid grid-cols-1 gap-2">
+                {[
+                  { range: "1-10", code: "F", label: "младенчество" },
+                  { range: "11-20", code: "E", label: "детство" },
+                  { range: "21-30", code: "D", label: "отрочество" },
+                  { range: "31-40", code: "C", label: "молодость" },
+                  { range: "41-50", code: "B", label: "взросление" },
+                  { range: "51-60", code: "A", label: "зрелость" },
+                  { range: "61-70", code: "S", label: "мудрость" },
+                  { range: "71-80", code: "EX", label: "единство" },
+                  { range: "81-90", code: "UX", label: "пробуждение" },
+                  { range: "91-100", code: "Z", label: "абсолютность" }
+                ].map((r, i) => (
+                  <div key={i} className={cn(
+                    "flex items-center justify-between p-2 border-2",
+                    progress.pets.some(p => p.level >= parseInt(r.range.split('-')[0]) && p.level <= parseInt(r.range.split('-')[1]))
+                      ? "bg-sticker-yellow border-black rotate-1"
+                      : "border-black/5 opacity-40"
+                  )}>
+                    <span className="text-[10px] font-black">{r.range}</span>
+                    <span className="text-xs font-black text-pen-blue">{r.code} - {r.label}</span>
+                  </div>
+                ))}
+             </div>
+          </div>
+        ) : (
+          <TypeChartContent element={modalType?.element} attribute={modalType?.attribute} />
+        )}
+      </InfoModal>
     </div>
   );
 };
@@ -188,7 +201,7 @@ const StatItem = ({ icon: Icon, label, value, max, showAdd, onAdd }: any) => (
             <Plus className="h-3 w-3" />
           </button>
         )}
-        <span className="text-lg font-black italic text-pen-blue">{value}</span>
+        <span className="text-lg font-black text-pen-blue">{value}</span>
       </div>
     </div>
     <div className="h-1.5 w-full bg-black/5 rounded-full overflow-hidden">

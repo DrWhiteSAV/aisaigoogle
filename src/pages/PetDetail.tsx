@@ -8,24 +8,37 @@ import { Shield, Sword, Brain, Zap, Sparkles, Heart, Activity, Compass, Package,
 import { getPetRankByLevel, calculateCP, getExpNeeded } from '../lib/gameLogic';
 import { ElementSticker, AttributeSticker, InfoModal, TypeChartContent } from '../components/GameUI';
 import { RARITY_LABELS } from '../constants/gameData';
+import { PetCard } from '../components/PetCard';
 
 export const PetDetail: React.FC<{ 
   progress: UserProgress; 
   setProgress: React.Dispatch<React.SetStateAction<UserProgress>>;
   manualId?: string | null;
   initialTab?: 'stats' | 'inventory';
-}> = ({ progress, setProgress, manualId, initialTab = 'stats' }) => {
+  toggleFlipLock?: (id: string, locked: boolean) => void;
+  id?: string;
+}> = ({ progress, setProgress, manualId, initialTab = 'stats', toggleFlipLock, id: manualPageId }) => {
   const navigate = useNavigate();
+  const componentId = React.useId();
+  const lockId = `pet-detail-${manualPageId || componentId}`;
+  
   const { id: paramsId } = useParams<{ id: string }>();
   const id = manualId || paramsId;
   const [activeTab, setActiveTab] = useState<'stats' | 'inventory'>(initialTab);
-  const [modalType, setModalType] = useState<{ element?: Element, attribute?: Attribute, rank?: boolean } | null>(null);
+  const [modalType, setModalType] = useState<{ element?: Element, attribute?: Attribute, rank?: boolean, stats?: boolean, fullScreenImage?: string } | null>(null);
 
+  // Sync tab state if initialTab prop changes (important for flipbook)
   React.useEffect(() => {
     setActiveTab(initialTab);
-  }, [initialTab, id]);
+  }, [initialTab]);
 
   const pet = (progress.pets || []).find(p => p.id === id);
+
+  React.useEffect(() => {
+    if (toggleFlipLock) {
+      toggleFlipLock(lockId, !!modalType);
+    }
+  }, [modalType, toggleFlipLock, lockId]);
 
   if (!pet) {
     return (
@@ -34,8 +47,8 @@ export const PetDetail: React.FC<{
             <Sparkles className="h-10 w-10 text-black/10" />
         </div>
         <div>
-          <h2 className="text-3xl font-black italic text-pen-blue">Сущность не выбрана</h2>
-          <p className="text-pen-blue/40 font-black italic mt-2">Нажмите на карточку в Бестиарии слева</p>
+          <h2 className="text-3xl font-black text-pen-blue">Сущность не выбрана</h2>
+          <p className="text-pen-blue/40 font-black mt-2">Нажмите на карточку в Бестиарии слева</p>
         </div>
       </div>
     );
@@ -44,6 +57,20 @@ export const PetDetail: React.FC<{
   const currentRank = getPetRankByLevel(pet.level);
   const expNeeded = getExpNeeded(pet.level);
   const petCP = calculateCP(pet);
+
+  const handleBack = () => {
+    if (initialTab === 'inventory' || activeTab === 'inventory') {
+      navigate(`/pet/${id}`);
+    } else {
+      navigate('/main');
+    }
+  };
+
+  const handleTitleClick = () => {
+    if (initialTab === 'inventory' || activeTab === 'inventory') {
+      navigate(`/pet/${id}`);
+    }
+  };
 
   const allocatePoint = (stat: keyof typeof pet.stats) => {
     if (pet.statPoints <= 0) return;
@@ -55,7 +82,8 @@ export const PetDetail: React.FC<{
         statPoints: p.statPoints - 1,
         stats: {
           ...p.stats,
-          [stat]: (p.stats[stat] || 0) + 1
+          [stat]: (p.stats[stat] || 0) + 1,
+          maxHealth: stat === 'health' ? (p.stats.maxHealth || 100) + 1 : (p.stats.maxHealth || 100)
         }
       } : p)
     }));
@@ -64,100 +92,101 @@ export const PetDetail: React.FC<{
   return (
     <div className="space-y-8 pb-10">
       <header className="flex items-center justify-between border-b-2 border-black/5 pb-4">
-        <div className="text-[10px] font-black uppercase tracking-widest text-pen-blue/30 italic">Протокол: {pet.id}</div>
-        <div className="px-3 py-1 bg-black text-white text-[10px] font-black italic uppercase rotate-2">
-          {RARITY_LABELS[pet.rarity] || pet.rarity}
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={handleBack}
+            className="p-2 hover:bg-black/5 rounded-full transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5 text-pen-blue" />
+          </button>
+          <div 
+            className="text-2xl font-black text-pen-blue hover:opacity-70 cursor-pointer"
+            onClick={handleTitleClick}
+          >
+            {pet.name}
+          </div>
         </div>
       </header>
 
       <div className="space-y-8 flex flex-col items-center">
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-[320px]">
-          <GlassCard color="white" noPadding className="border-2 border-black/10 overflow-hidden relative bg-white rotate-1">
-            <div className="aspect-[9/16] w-full relative bg-transparent">
-              <img src={pet.image} alt={pet.name} className="w-full h-full object-cover block grayscale-[15%] hover:grayscale-0 transition-all duration-700" />
-              
-              <div className="absolute top-4 right-4 h-12 w-12 bg-sticker-yellow border-2 border-black flex flex-col items-center justify-center rotate-6 z-20">
-                  <span className="text-[8px] font-black text-black/40 italic leading-none">CP</span>
-                  <span className="text-lg font-black italic leading-none">{petCP}</span>
-              </div>
-
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-white via-white/95 to-transparent p-6 pt-16 z-10">
-                 <h2 className="text-3xl font-black italic leading-tight tracking-tighter mb-2">
-                    {pet.name}
-                 </h2>
-                 <div className="flex flex-wrap gap-2 items-center">
-                    <button 
-                      onClick={() => setModalType({ rank: true })}
-                      className="text-[10px] font-black italic text-pen-blue/40 mr-2 hover:text-pen-blue transition-colors"
-                    >
-                      LVL {pet.level} • {currentRank}
-                    </button>
-                    <ElementSticker element={pet.element} onClick={() => setModalType({ element: pet.element })} />
-                    <AttributeSticker attribute={pet.attribute} onClick={() => setModalType({ attribute: pet.attribute })} />
-                 </div>
-                 
-                 {/* XP Progress Bar */}
-                 <div className="mt-4 w-full h-1.5 bg-black/5 rounded-full overflow-hidden">
-                    <motion.div 
-                      className="h-full bg-pen-blue opacity-40"
-                      initial={{ width: 0 }}
-                      animate={{ width: `${Math.min((pet.experience / getExpNeeded(pet.level)) * 100, 100)}%` }}
-                    />
-                    <div className="flex justify-between mt-1">
-                       <span className="text-[8px] font-black italic text-pen-blue/20 uppercase tracking-tighter">Опыт: {pet.experience}</span>
-                       <span className="text-[8px] font-black italic text-pen-blue/20 uppercase tracking-tighter">Цель: {expNeeded}</span>
-                    </div>
-                 </div>
-              </div>
-            </div>
-          </GlassCard>
-        </motion.div>
-
-        <div className="space-y-6 w-full">
-          <div className="flex gap-4 border-b-2 border-black/5 justify-center">
-              <button 
-                onClick={() => {
-                   setActiveTab('stats');
-                   navigate(`/pet/${pet.id}`);
-                }}
-                className={cn(
-                  "px-4 py-2 font-black italic text-base transition-all relative",
-                  activeTab === 'stats' ? "text-pen-blue" : "text-pen-blue/30 hover:text-pen-blue/60"
-                )}
-              >
-                Параметры
-                {activeTab === 'stats' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-1 bg-pen-blue" />}
-              </button>
-              <button 
-                onClick={() => {
-                   setActiveTab('inventory');
-                   navigate(`/inventory/${pet.id}`);
-                }}
-                className={cn(
-                  "px-4 py-2 font-black italic text-base transition-all relative",
-                  activeTab === 'inventory' ? "text-pen-blue" : "text-pen-blue/30 hover:text-pen-blue/60"
-                )}
-              >
-                Инвентарь ({progress.inventory?.length || 0})
-                {activeTab === 'inventory' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-1 bg-pen-blue" />}
-              </button>
+        {/* Only show card if it's NOT the book view (manualId is null in normal routes) */}
+        {!manualId && pet && (
+          <PetCard 
+            pet={pet} 
+            className="w-full max-w-[320px]"
+            onOpenRankInfo={() => setModalType({ rank: true })}
+            onOpenImage={() => setModalType({ fullScreenImage: pet.image })}
+            onOpenElementInfo={(el) => setModalType({ element: el })}
+            onOpenAttributeInfo={(attr) => setModalType({ attribute: attr })}
+            onOpenStore={() => navigate('/shop')}
+            onOpenInventory={() => navigate(`/inventory/${pet.id}`)}
+            hideDetailsText
+          />
+        )}
+        
+        <div className="space-y-6 w-full text-center">
+          {/* Section title (Pet Name removed as requested to avoid duplication) */}
+          <div className="flex justify-center gap-8 mb-2">
+            <button 
+              onClick={() => navigate(`/pet/${id}`)}
+              className={cn(
+                "pb-1 border-b-2 font-black transition-all text-base px-2",
+                activeTab === 'stats' ? "border-pen-blue text-pen-blue scale-110" : "border-transparent text-pen-blue/20 hover:text-pen-blue/40"
+              )}
+            >
+              Параметры
+            </button>
+            <button 
+              onClick={() => navigate(`/inventory/${id}`)}
+              className={cn(
+                "pb-1 border-b-2 font-black transition-all text-base px-2",
+                activeTab === 'inventory' ? "border-pen-blue text-pen-blue scale-110" : "border-transparent text-pen-blue/20 hover:text-pen-blue/40"
+              )}
+            >
+              Инвентарь
+            </button>
           </div>
 
           <AnimatePresence mode="wait">
               {activeTab === 'stats' ? (
-                <motion.div key="stats" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
+                <motion.div 
+                   key="stats" 
+                   initial={{ opacity: 0, rotateY: -30, x: -50, filter: 'blur(10px)' }} 
+                   animate={{ opacity: 1, rotateY: 0, x: 0, filter: 'blur(0px)' }} 
+                   exit={{ opacity: 0, rotateY: 30, x: 50, filter: 'blur(10px)' }}
+                   transition={{ type: "spring", damping: 25, stiffness: 120 }}
+                   className="space-y-6"
+                >
                    <div className="border-2 border-pen-blue/10 p-6 rounded-sm bg-white/30">
                       <div className="flex items-center justify-between mb-6 border-b border-pen-blue/10 pb-4">
                          <div className="flex items-center gap-2 text-pen-blue/60">
-                            <Activity className="h-4 w-4" />
-                            <span className="text-xs font-black italic uppercase">Аналитика Потенциала</span>
+                            <Compass className="h-4 w-4" />
+                            <span className="text-sm font-black italic">Биологическая Сводка</span>
                          </div>
-                         {pet.statPoints > 0 && (
-                            <div className="bg-pen-red text-white px-2 py-0.5 text-[10px] font-black italic rotate-2">
-                               Очки: {pet.statPoints}
-                            </div>
-                         )}
                       </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                         <ClassificationItem label="Тип" value={pet.classification?.type} />
+                         <ClassificationItem label="Класс" value={pet.classification?.class} />
+                         <ClassificationItem label="Отряд" value={pet.classification?.order} />
+                         <ClassificationItem label="Семейство" value={pet.classification?.family} />
+                         <ClassificationItem label="Род" value={pet.classification?.genus} />
+                         <ClassificationItem label="Вид" value={pet.classification?.species} />
+                      </div>
+                   </div>
+
+                   {pet.statPoints > 0 && (
+                      <div className="border-2 border-pen-red/10 p-6 rounded-sm bg-pen-red/5">
+                        <div className="flex items-center justify-between mb-4">
+                           <span className="text-sm font-black text-pen-red">Свободные очки: {pet.statPoints}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                           <StatItem icon={Heart} label="Здоровье" value={pet.stats.health} max={999} showAdd={true} onAdd={() => allocatePoint('health')} />
+                           <StatItem icon={Sword} label="Атака" value={pet.stats.attack} max={999} showAdd={true} onAdd={() => allocatePoint('attack')} />
+                        </div>
+                      </div>
+                   )}
+
+                   <div className="border-2 border-pen-blue/10 p-6 rounded-sm bg-white/30">
                       <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                         <StatItem icon={Heart} label="Здоровье" value={pet.stats.health} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('health')} />
                         <StatItem icon={Sword} label="Атака" value={pet.stats.attack} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('attack')} />
@@ -169,62 +198,92 @@ export const PetDetail: React.FC<{
                    </div>
 
                    <GlassCard color="pink" className="border-2 border-black/5 space-y-4">
-                      <h3 className="text-[12px] font-black italic text-pen-blue/60 uppercase tracking-widest">Навыки Души</h3>
+                      <h3 className="text-sm font-black text-pen-blue/60 tracking-tight">Навыки Души</h3>
                       <div className="flex flex-wrap gap-2">
                          {pet.abilities.map((a, i) => (
                             <span key={i} className="px-3 py-1.5 bg-white border-2 border-black text-xs font-black italic -rotate-1">
-                              {a}
+                               {a}
                             </span>
                          ))}
                       </div>
                    </GlassCard>
 
-                   <div className="flex gap-4">
+                   <div className="grid grid-cols-2 gap-4">
                       <NeonButton onClick={() => {
                          setProgress(p => ({ ...p, activePetId: pet.id }));
-                         navigate('/battle');
-                      }} className="flex-1 py-4 text-xl">
-                         <Sword className="h-5 w-5 mr-2" />
+                         navigate(`/battle/${pet.id}`);
+                      }} className="py-3 text-base px-4 bg-sticker-yellow flex-1">
+                         <Sword className="h-4 w-4 mr-2" />
                          <span>В Бой</span>
                       </NeonButton>
-                      <NeonButton onClick={() => navigate(`/evolve/${pet.id}`)} className="flex-1 py-4 text-xl bg-sticker-blue text-pen-blue">
+                      <NeonButton onClick={() => {
+                         setProgress(p => ({ ...p, activePetId: pet.id }));
+                         navigate(`/quest/${pet.id}`);
+                      }} className="py-3 text-sm px-4 bg-sticker-blue flex-1">
+                         <Compass className="h-4 w-4 mr-2" />
+                         <span>Квест</span>
+                      </NeonButton>
+                      <NeonButton onClick={() => navigate(`/inventory/${pet.id}`)} className="py-3 text-sm px-4 bg-sticker-pink flex-1">
+                         <Package className="h-4 w-4 mr-2" />
+                         <span>Инвентарь</span>
+                      </NeonButton>
+                      <NeonButton onClick={() => navigate(`/evolve/${pet.id}`)} className="py-3 text-sm px-4 bg-white border-2 border-black flex-1">
+                         <Sparkles className="h-4 w-4 mr-2 text-pen-blue" />
                          <span>Развитие</span>
                       </NeonButton>
                    </div>
+
+                   <GlassCard color="blue" rotation={-1} className="border-2 border-black/5 p-6 mt-6">
+                      <div className="text-lg leading-relaxed text-pen-blue/80">
+                         <HandwrittenText text={pet.lore} delay={0.1} speed={30} />
+                      </div>
+                   </GlassCard>
                 </motion.div>
-             ) : (
-                <motion.div key="inventory" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="grid grid-cols-2 gap-4">
+              ) : (
+                <motion.div 
+                   key="inventory" 
+                   initial={{ opacity: 0, rotateY: 30, x: 50, filter: 'blur(10px)' }} 
+                   animate={{ opacity: 1, rotateY: 0, x: 0, filter: 'blur(0px)' }} 
+                   exit={{ opacity: 0, rotateY: -30, x: -50, filter: 'blur(10px)' }}
+                   transition={{ type: "spring", damping: 25, stiffness: 120 }}
+                   className="grid grid-cols-2 gap-4"
+                >
                    {(progress.inventory || []).length > 0 ? (
                       progress.inventory.map((item, i) => (
                         <GlassCard key={i} color="white" className="p-3 border-2 border-black/10 text-center transition-shadow">
-                           <div className="text-xs font-black italic">{item.name}</div>
+                           <div className="text-xs font-black">{item.name}</div>
                         </GlassCard>
                       ))
                    ) : (
                       <div className="col-span-full py-12 text-center border-2 border-dashed border-black/5 rounded-xl">
-                         <div className="text-pen-blue/20 font-black italic uppercase tracking-tighter">Сумка пуста</div>
+                         <div className="text-pen-blue/20 font-black tracking-tighter">Сумка пуста</div>
                       </div>
                    )}
                 </motion.div>
-             )}
+              )}
           </AnimatePresence>
-
-          <GlassCard color="blue" rotation={-1} className="border-2 border-black/5 p-6">
-             <div className="text-lg leading-relaxed italic text-pen-blue/80">
-                <HandwrittenText text={pet.lore} delay={0.2} speed={30} />
-             </div>
-          </GlassCard>
         </div>
       </div>
 
       <InfoModal 
         isOpen={!!modalType} 
         onClose={() => setModalType(null)}
-        title={modalType?.rank ? "Ранг Сущности" : modalType?.element ? "Узы Элемента" : "Суть Атрибута"}
+        title={modalType?.rank ? "Ранг Сущности" : modalType?.stats ? "Аналитика Потенциала" : modalType?.element ? "Узы Элемента" : "Суть Атрибута"}
+        showClose={true}
+        plain={!!modalType?.fullScreenImage}
       >
-        {modalType?.rank ? (
+        {modalType?.fullScreenImage ? (
+           <motion.img 
+             initial={{ scale: 0.9, opacity: 0 }}
+             animate={{ scale: 1, opacity: 1 }}
+             src={modalType.fullScreenImage} 
+             alt="Pet zoom" 
+             className="max-w-[95%] max-h-[95%] object-contain shadow-2xl rounded-sm"
+             referrerPolicy="no-referrer"
+           />
+        ) : modalType?.rank ? (
           <div className="space-y-4">
-             <p className="text-sm font-black italic text-pen-blue/70 leading-relaxed border-b border-black/5 pb-4">
+             <p className="text-sm font-black text-pen-blue/70 leading-relaxed border-b border-black/5 pb-4">
                Ранг Питомца определяется текущим уровнем физического и духовного созревания:
              </p>
              <div className="grid grid-cols-1 gap-2">
@@ -246,11 +305,45 @@ export const PetDetail: React.FC<{
                       ? "bg-sticker-yellow border-black rotate-1"
                       : "border-black/5 opacity-40"
                   )}>
-                    <span className="text-[10px] font-black italic">{r.range}</span>
-                    <span className="text-xs font-black italic uppercase text-pen-blue">{r.code} - {r.label}</span>
+                    <span className="text-[10px] font-black">{r.range}</span>
+                    <span className="text-xs font-black text-pen-blue">{r.code} - {r.label}</span>
                   </div>
                 ))}
              </div>
+          </div>
+        ) : modalType?.stats ? (
+          <div className="space-y-4">
+             <p className="text-sm font-black text-pen-blue/70 leading-relaxed border-b border-black/5 pb-4">
+                Начальные характеристики и потенциал роста зависят от редкости питомца:
+             </p>
+             <div className="grid grid-cols-1 gap-2">
+                {[
+                  { label: "Обычный", base: 20, growth: 5 },
+                  { label: "Продвинутый", base: 50, growth: 10 },
+                  { label: "Редкий", base: 100, growth: 15 },
+                  { label: "Идеальный", base: 200, growth: 20 },
+                  { label: "Эпический", base: 300, growth: 25 },
+                  { label: "Легендарный", base: 400, growth: 30 },
+                  { label: "Мифический", base: 500, growth: 35 },
+                  { label: "Вечный", base: 600, growth: 40 },
+                  { label: "Божественный", base: 800, growth: 45 },
+                  { label: "Трансцендентный", base: 1000, growth: 50 }
+                ].map((r, i) => (
+                  <div key={i} className={cn(
+                    "flex items-center justify-between p-2 border-2 transition-all",
+                    RARITY_LABELS[pet.rarity] === r.label
+                      ? "bg-sticker-pink border-black rotate-1"
+                      : "border-black/5 opacity-40"
+                  )}>
+                    <span className="text-[10px] font-black">{r.label}</span>
+                    <span className="text-xs font-black text-pen-blue">{r.base} / +{r.growth} lvl</span>
+                  </div>
+                ))}
+             </div>
+             <p className="text-[10px] font-black italic text-pen-blue/40 mt-4 leading-relaxed">
+               * Очки за уровень начисляются для ручного распределения. 
+               1 Здоровье = 1 Макс. Здоровье.
+             </p>
           </div>
         ) : (
           <TypeChartContent element={modalType?.element} attribute={modalType?.attribute} />
@@ -265,7 +358,7 @@ const StatItem = ({ icon: Icon, label, value, max, showAdd, onAdd }: any) => (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
         <Icon className="h-3.5 w-3.5 text-pen-blue/30" />
-        <span className="text-[12px] font-black italic text-pen-blue/50">{label}</span>
+        <span className="text-[12px] font-black text-pen-blue/50">{label}</span>
       </div>
       <div className="flex items-center gap-2">
         {showAdd && (
@@ -276,15 +369,24 @@ const StatItem = ({ icon: Icon, label, value, max, showAdd, onAdd }: any) => (
             <Plus className="h-3 w-3" />
           </button>
         )}
-        <span className="text-xl font-black italic text-pen-blue">{value || 0}</span>
+        <span className="text-sm font-black text-pen-blue">
+          {value || 0} / <span className="opacity-30">{max}</span>
+        </span>
       </div>
     </div>
-    <div className="h-1.5 w-full bg-black/5 rounded-full overflow-hidden">
+    <div className="h-1 bg-black/5 rounded-full overflow-hidden">
       <motion.div 
         initial={{ width: 0 }}
         animate={{ width: `${Math.min(((value || 0) / max) * 100, 100)}%` }}
         className="h-full bg-pen-blue opacity-30"
       />
     </div>
+  </div>
+);
+
+const ClassificationItem = ({ label, value }: { label: string, value?: string }) => (
+  <div className="space-y-0.5">
+    <div className="text-[10px] font-black text-pen-blue/30">{label}</div>
+    <div className="text-sm font-black text-pen-blue truncate">{value || '---'}</div>
   </div>
 );
