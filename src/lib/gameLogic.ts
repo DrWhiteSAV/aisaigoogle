@@ -81,7 +81,7 @@ export function getElementAdvantageMultiplier(attacker: Element, defender: Eleme
   const targetIndex = ELEMENT_CYCLE.indexOf(defender);
   // Water(0) -> Fire(1) -> Air(2) -> Earth(3) -> Water(0)
   // Attacker is stronger if they are the element that comes BEFORE the target in the cycle
-  if ((attackIndex + 1) % ELEMENT_CYCLE.length === targetIndex) return 1.5;
+  if ((attackIndex + 1) % ELEMENT_CYCLE.length === targetIndex) return 1.2;
   return 1;
 }
 
@@ -91,7 +91,7 @@ export function getAttributeDefenseMultiplier(attacker: Attribute, defender: Att
   // Light(0) -> Dark(1) -> Void(2) -> Time(3) -> Light(0)
   // Stronger beats weaker. Defender is stronger if they are the element BEFORE attacker in cycle
   // (e.g. Light(0) beats Dark(1))
-  if ((targetIndex + 1) % ATTRIBUTE_CYCLE.length === attackIndex) return 1.5;
+  if ((targetIndex + 1) % ATTRIBUTE_CYCLE.length === attackIndex) return 1.2;
   return 1;
 }
 

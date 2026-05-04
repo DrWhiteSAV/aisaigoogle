@@ -129,7 +129,7 @@ export const TypeChartContent: React.FC<{ element?: Element; attribute?: Attribu
             {data.description}
           </p>
           <p className="text-[12px] font-bold text-pen-blue/50 italic leading-snug">
-            Цикл стихий: Вода → Огонь → Воздух → Земля → Вода. Питомец с превосходящей стихией наносит на 50% больше урона (Атака и Магия x1.5).
+            Цикл стихий: Вода → Огонь → Воздух → Земля → Вода. Питомец с превосходящей стихией наносит на 20% больше урона (Атака и Магия x1.2).
           </p>
         </div>
         
@@ -153,7 +153,7 @@ export const TypeChartContent: React.FC<{ element?: Element; attribute?: Attribu
 
         <div className="space-y-3 pt-4 border-t border-black/5">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black text-pen-blue/40 tracking-widest uppercase">Атака x1.5 над:</span>
+            <span className="text-[10px] font-black text-pen-blue/40 tracking-widest uppercase">Атака x1.2 над:</span>
             <ElementSticker element={data.strongAgainst} />
           </div>
           <div className="flex items-center justify-between">
@@ -176,7 +176,7 @@ export const TypeChartContent: React.FC<{ element?: Element; attribute?: Attribu
             {data.description}
           </p>
           <p className="text-[12px] font-bold text-pen-blue/50 italic leading-snug">
-            Цикл атрибутов: Свет → Тьма → Пустота → Время → Свет. Питомец с превосходящим атрибутом получает на 50% больше Защиты (Защита x1.5).
+            Цикл атрибутов: Свет → Тьма → Пустота → Время → Свет. Питомец с превосходящим атрибутом получает на 20% больше Защиты (Защита x1.2).
           </p>
         </div>
 
@@ -200,7 +200,7 @@ export const TypeChartContent: React.FC<{ element?: Element; attribute?: Attribu
         
         <div className="space-y-3 pt-4 border-t border-black/5">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black text-pen-blue/40 tracking-widest uppercase">Защита x1.5 от:</span>
+            <span className="text-[10px] font-black text-pen-blue/40 tracking-widest uppercase">Защита x1.2 от:</span>
             <AttributeSticker attribute={data.opponent} />
           </div>
         </div>

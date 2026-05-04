@@ -34,6 +34,7 @@ interface BattleState {
   winner: 'player' | 'enemy' | null;
   rewards: { rubles: number; xp: number } | null;
   defenseBoost: { player: number; enemy: number };
+  speedGauge: { player: number; enemy: number };
   isEnemyHit: boolean;
   isPlayerHit: boolean;
   isPlayerAttacking: boolean;
@@ -181,6 +182,7 @@ const BattleProvider: React.FC<{
       battleLog: ['Битва началась!'],
       hp: { player: 100, enemy: 100 },
       rage: { player: 0, enemy: 0 },
+      speedGauge: { player: 100, enemy: 100 },
       turn: 'waiting',
       winner: null,
       rewards: null,
@@ -278,15 +280,65 @@ const BattleProvider: React.FC<{
     }
   }, []);
 
-  const calculateRageGain = useCallback((damage: number) => {
+  const calculateRageGain = useCallback((attackVal: number) => {
     if (!playerPet || !state.enemy) return 0;
     const playerMaxHp = playerPet.stats?.health || 100;
     const enemyMaxHp = state.enemy.stats?.health || 100;
     const playerDef = playerPet.stats?.defense || 10;
     const enemyDef = state.enemy.stats?.defense || 10;
     
+    // Based on Attack value as requested, divided by health/def sum
     const sum = playerMaxHp + enemyMaxHp + playerDef + enemyDef;
-    return (damage / sum) * 100;
+    return (attackVal / sum) * 200;
+  }, [playerPet, state.enemy]);
+
+  const updateSpeedAndDecideTurn = useCallback((prev: Omit<BattleState, 'handleAction' | 'playerPet'>) => {
+    if (!playerPet || !prev.enemy) return prev;
+    
+    const pSpeed = Math.max(1, playerPet.stats?.speed || 10);
+    const eSpeed = Math.max(1, prev.enemy.stats?.speed || 10);
+    const sumSpeed = pSpeed + eSpeed;
+    
+    const pGainPercent = (pSpeed / sumSpeed) * 2 * 100;
+    const eGainPercent = (eSpeed / sumSpeed) * 2 * 100;
+    
+    let nextPlayerGauge = prev.speedGauge.player + pGainPercent;
+    let nextEnemyGauge = prev.speedGauge.enemy + eGainPercent;
+    let nextTurn: 'player' | 'enemy' | 'waiting' = 'waiting';
+
+    if (nextPlayerGauge >= 100 && nextEnemyGauge >= 100) {
+      if (nextPlayerGauge >= nextEnemyGauge) {
+        nextTurn = 'player';
+      } else {
+        nextTurn = 'enemy';
+      }
+    } else if (nextPlayerGauge >= 100) {
+      nextTurn = 'player';
+    } else if (nextEnemyGauge >= 100) {
+      nextTurn = 'enemy';
+    } else {
+      // Loop until someone hits 100
+      return updateSpeedAndDecideTurn({ 
+        ...prev, 
+        speedGauge: { player: nextPlayerGauge, enemy: nextEnemyGauge } 
+      });
+    }
+
+    return {
+      ...prev,
+      speedGauge: { player: nextPlayerGauge, enemy: nextEnemyGauge },
+      turn: nextTurn
+    };
+  }, [playerPet]);
+
+  const getSpeedGainFormatted = useCallback(() => {
+    if (!playerPet || !state.enemy) return '';
+    const pSpeed = Math.max(1, playerPet.stats?.speed || 10);
+    const eSpeed = Math.max(1, state.enemy.stats?.speed || 10);
+    const sumSpeed = pSpeed + eSpeed;
+    const pGain = Math.floor((pSpeed / sumSpeed) * 2 * 100);
+    const eGain = Math.floor((eSpeed / sumSpeed) * 2 * 100);
+    return ` | Скорость: +${pGain}% / +${eGain}%`;
   }, [playerPet, state.enemy]);
 
   const handleEndBattle = useCallback((playerWon: boolean, currentEnemy: Pet) => {
@@ -336,16 +388,18 @@ const BattleProvider: React.FC<{
         const defenseBoostVal = 1.0 + (Math.random() * 0.2); // 100-120%
         const newHp = { ...currentHp, enemy: currentHp.enemy + finalRegen };
         
+        const speedSuffix = getSpeedGainFormatted();
         syncState((prev: any) => ({
           hp: newHp,
+          speedGauge: { ...prev.speedGauge, enemy: prev.speedGauge.enemy - 100 },
           defenseBoost: { ...prev.defenseBoost, enemy: defenseBoostVal },
           battleLog: [
-            `🛡️ [Враг] ${currentEnemy.name} регенерирует: +${finalRegen} HP. Защита усилена до ${Math.floor(defenseBoostVal * 100)}%!`,
+            `🛡️ [Враг] ${currentEnemy.name} регенерирует: +${finalRegen} HP. Защита усилена до ${Math.floor(defenseBoostVal * 100)}%!${speedSuffix}`,
             ...prev.battleLog
           ],
         }));
 
-        setTimeout(() => syncState({ turn: 'player' }), 100);
+        setTimeout(() => syncState((prev: any) => updateSpeedAndDecideTurn(prev)), 100);
         return;
     }
 
@@ -357,22 +411,30 @@ const BattleProvider: React.FC<{
 
     const currentPlayerHp = Math.max(0, currentHp.player - total);
     
-    let newRage = { ...currentRage };
+    const gain = calculateRageGain(attack + magic);
+    let nextEnemyRage = currentRage.enemy;
+    let logSuffix = '';
+    
     if (useUlt) {
-      newRage.enemy -= 100; // Carry over remainder
+      nextEnemyRage -= 100;
+      logSuffix = ' | Ярость: -100%';
     } else {
-      newRage.enemy += calculateRageGain(total);
+      nextEnemyRage = Math.min(100, currentRage.enemy + gain);
+      logSuffix = ` | Ярость: +${Math.floor(gain)}%`;
     }
+    
+    const speedSuffix = getSpeedGainFormatted();
     
     syncState((prev: any) => ({
       hp: { ...currentHp, player: currentPlayerHp },
-      rage: newRage,
+      rage: { ...currentRage, enemy: nextEnemyRage },
+      speedGauge: { ...prev.speedGauge, enemy: prev.speedGauge.enemy - 100 }, // Subtract for current turn
       defenseBoost: { ...prev.defenseBoost, player: 1.0 }, // Reset player boost after being hit
-      battleLog: [log, ...prev.battleLog],
+      battleLog: [log + logSuffix + speedSuffix, ...prev.battleLog],
     }));
     
     if (currentPlayerHp > 0 && !state.winner) {
-        syncState({ turn: 'player' });
+        setTimeout(() => syncState((prev: any) => updateSpeedAndDecideTurn(prev)), 100);
     } else if (currentPlayerHp <= 0 && !state.winner) {
         console.log('[Battle] Enemy victory detected');
         handleEndBattle(false, currentEnemy);
@@ -393,15 +455,17 @@ const BattleProvider: React.FC<{
       const defenseBoostVal = 1.0 + (Math.random() * 0.2); // 100-120%
       const newHp = { ...state.hp, player: state.hp.player + finalRegen };
       
+      const speedSuffix = getSpeedGainFormatted();
       syncState((prev: any) => ({
         hp: newHp,
+        speedGauge: { ...prev.speedGauge, player: prev.speedGauge.player - 100 },
         defenseBoost: { ...prev.defenseBoost, player: defenseBoostVal },
         battleLog: [
-          `🛡️ ${playerPet.name}: +${finalRegen} HP (Реген). Защита на полную: ${Math.floor(defenseBoostVal * 100)}%!`,
+          `🛡️ ${playerPet.name}: +${finalRegen} HP (Реген). Защита на полную: ${Math.floor(defenseBoostVal * 100)}%!${speedSuffix}`,
           ...prev.battleLog
         ],
       }));
-      syncState({ turn: 'enemy' });
+      syncState((prev: any) => updateSpeedAndDecideTurn(prev));
       return;
     }
 
@@ -418,22 +482,29 @@ const BattleProvider: React.FC<{
     const currentEnemyHp = Math.max(0, state.hp.enemy - total);
     
     let newRage = { ...state.rage };
+    let logSuffix = '';
+    const gain = calculateRageGain(attack + magic);
     if (type === 'ult') {
-      newRage.player -= 100; // Carry over remainder
+      newRage.player -= 100;
+      logSuffix = ' | Ярость: -100%';
     } else if (type === 'attack') {
-      newRage.player += calculateRageGain(total);
+      newRage.player = Math.min(100, newRage.player + gain);
+      logSuffix = ` | Ярость: +${Math.floor(gain)}%`;
     }
     
+    const speedSuffix = getSpeedGainFormatted();
+
     syncState((prev: any) => ({
       hp: { ...prev.hp, enemy: currentEnemyHp },
       rage: newRage,
+      speedGauge: { ...prev.speedGauge, player: prev.speedGauge.player - 100 }, // Subtract for current turn
       defenseBoost: { ...prev.defenseBoost, enemy: 1.0 }, // Reset enemy boost after being hit
-      battleLog: [log, ...prev.battleLog],
+      battleLog: [log + logSuffix + speedSuffix, ...prev.battleLog],
     }));
 
     const playerWon = currentEnemyHp <= 0;
     if (currentEnemyHp > 0 && !state.winner) {
-        syncState({ turn: 'enemy' }); 
+        syncState((prev: any) => updateSpeedAndDecideTurn(prev)); 
     } else if (playerWon && !state.winner) {
         console.log('[Battle] Player victory detected');
         handleEndBattle(true, state.enemy!);
@@ -496,12 +567,20 @@ const BattleProvider: React.FC<{
       };
 
       const initialHp = playerPet.stats?.health || 100;
-      const initialTurn = (playerPet.stats?.speed || 0) >= (mockEnemy.stats?.speed || 0) ? 'player' : 'enemy';
+      const playerSpeed = playerPet.stats?.speed || 0;
+      const enemySpeed = mockEnemy.stats?.speed || 0;
+      
+      const initialTurn = playerSpeed >= enemySpeed ? 'player' : 'enemy';
+      const initialGauges = {
+         player: initialTurn === 'player' ? 0 : 100,
+         enemy: initialTurn === 'enemy' ? 0 : 100
+      };
       
       const newState = {
         enemy: mockEnemy,
         hp: { player: initialHp, enemy: mockEnemy.stats.health },
         turn: initialTurn,
+        speedGauge: initialGauges,
         battleLog: [`${playerPet.name} против ${mockEnemy.name}!`],
       };
 
@@ -518,7 +597,7 @@ const BattleProvider: React.FC<{
   return <BattleContext.Provider value={value}>{children}</BattleContext.Provider>;
 };
 
-const BattleCard = React.memo(({ pet, currentHp, maxHp, isPlayer, rage, opponent }: { pet: Pet, currentHp: number, maxHp: number, isPlayer: boolean, rage: { player: number, enemy: number }, opponent: Pet }) => {
+const BattleCard = React.memo(({ pet, currentHp, maxHp, isPlayer, rage, speedGauge, opponent }: { pet: Pet, currentHp: number, maxHp: number, isPlayer: boolean, rage: { player: number, enemy: number }, speedGauge: { player: number, enemy: number }, opponent: Pet }) => {
     const cp = calculateCP(pet);
 
     // Calculate effective visible stats (base + advantage multipliers)
@@ -526,12 +605,12 @@ const BattleCard = React.memo(({ pet, currentHp, maxHp, isPlayer, rage, opponent
     const baseDefense = pet.stats?.defense || 5;
     const baseMagic = pet.stats?.magic || 5;
     
-    // Attack advantage: stronger element deals 1.5x
+    // Attack advantage: stronger element deals 1.2x
     const elementMult = getElementAdvantageMultiplier(pet.element, opponent.element);
     const effectiveAttack = Math.floor(baseAttack * elementMult);
     const effectiveMagic = Math.floor(baseMagic * elementMult);
     
-    // Defense advantage: stronger attribute gets 1.5x defense
+    // Defense advantage: stronger attribute gets 1.2x defense
     const attributeMult = getAttributeDefenseMultiplier(opponent.attribute, pet.attribute);
     const effectiveDefense = Math.floor(baseDefense * attributeMult);
 
@@ -631,14 +710,33 @@ const BattleCard = React.memo(({ pet, currentHp, maxHp, isPlayer, rage, opponent
           </div>
         </div>
 
-        <div className="h-3 bg-black/10 w-full overflow-hidden border-t-2 border-black/5 relative">
+        {/* Rage bar */}
+        <div className="h-4 bg-black/10 w-full overflow-hidden border-t-2 border-black/5 relative">
            <motion.div 
              className="h-full bg-pen-red" 
              animate={{ width: `${Math.min(100, isPlayer ? rage.player : rage.enemy)}%` }} 
              transition={{ duration: 0.3 }}
            />
-           <div className="absolute inset-0 flex items-center justify-center text-[8px] font-black text-white mix-blend-difference">
-              {Math.floor(isPlayer ? rage.player : rage.enemy)}%
+           <div className={cn(
+             "absolute inset-0 flex items-center justify-center text-[8px] font-black pointer-events-none",
+             (isPlayer ? rage.player : rage.enemy) > 50 ? "text-white" : "text-pen-red"
+           )}>
+              Ярость: {Math.floor(isPlayer ? rage.player : rage.enemy)}%
+           </div>
+        </div>
+
+        {/* Speed bar */}
+        <div className="h-3 bg-black/5 w-full overflow-hidden relative border-t border-black/5">
+           <motion.div 
+             className="h-full bg-green-500" 
+             animate={{ width: `${Math.min(100, isPlayer ? speedGauge.player : speedGauge.enemy)}%` }} 
+             transition={{ duration: 0.3 }}
+           />
+           <div className={cn(
+             "absolute inset-0 flex items-center justify-center text-[8px] font-black pointer-events-none",
+             (isPlayer ? speedGauge.player : speedGauge.enemy) > 50 ? "text-white" : "text-pen-blue"
+           )}>
+              Скорость: {Math.floor(isPlayer ? speedGauge.player : speedGauge.enemy)}%
            </div>
         </div>
       </motion.div>
@@ -657,7 +755,7 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
     );
   }
 
-  const { playerPet, enemy, hp, rage, turn, winner, rewards, isEnemyHit, isPlayerHit, isPlayerAttacking, isEnemyAttacking, activeActionEffect, showUlt, isPlayerRegen, isEnemyRegen, handleAction, battleLog } = context;
+  const { playerPet, enemy, hp, rage, speedGauge, turn, winner, rewards, isEnemyHit, isPlayerHit, isPlayerAttacking, isEnemyAttacking, activeActionEffect, showUlt, isPlayerRegen, isEnemyRegen, handleAction, battleLog } = context;
 
   if (side === 'left') {
     return (
@@ -666,7 +764,7 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
           {showUlt && <UltAnimation element={playerPet.element} />}
         </AnimatePresence>
         
-        <div className="flex-1 relative mb-2 min-h-0">
+        <div className="flex-1 relative mb-2 min-h-[550px]">
           <AnimatePresence>
             {activeActionEffect && (
               <motion.div 
@@ -684,12 +782,12 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
             )}
           </AnimatePresence>
 
-          <div className="absolute top-2 left-[5%] w-[44.5%] flex justify-start z-30">
-             <BattleCard pet={playerPet} currentHp={hp.player} maxHp={playerPet.stats?.health || 100} isPlayer={true} rage={rage} opponent={enemy} />
+          <div className="absolute top-20 left-[5%] w-[44.5%] flex justify-start z-30">
+             <BattleCard pet={playerPet} currentHp={hp.player} maxHp={playerPet.stats?.health || 100} isPlayer={true} rage={rage} speedGauge={speedGauge} opponent={enemy} />
           </div>
 
-          <div className="absolute bottom-2 right-[5%] w-[44.5%] flex justify-end z-10">
-             <BattleCard pet={enemy} currentHp={hp.enemy} maxHp={enemy.stats?.health || 100} isPlayer={false} rage={rage} opponent={playerPet} />
+          <div className="absolute bottom-20 right-[5%] w-[44.5%] flex justify-end z-10">
+             <BattleCard pet={enemy} currentHp={hp.enemy} maxHp={enemy.stats?.health || 100} isPlayer={false} rage={rage} speedGauge={speedGauge} opponent={playerPet} />
           </div>
 
           <div className="absolute top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-[60] flex flex-col gap-3 scale-[0.8]">
@@ -770,17 +868,17 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
           </div>
         </div>
 
-        <div className="flex flex-col bg-[#fdfaf3]/40 border border-pen-blue/20 p-2 overflow-hidden relative rounded-xl min-h-[140px]">
+        <div className="flex flex-col bg-[#fdfaf3]/40 border border-pen-blue/20 p-2 overflow-hidden relative rounded-xl h-[200px] mb-4">
            <div className="text-[9px] font-black text-pen-blue/30 mb-1 tracking-[0.2em] italic border-b border-pen-blue/5 pb-0.5">Журнал боя:</div>
-           <div className="flex flex-col gap-1 flex-1 pt-1 overflow-x-visible">
+           <div className="flex flex-col gap-1 flex-1 pt-1 overflow-y-auto">
               {battleLog.map((log, i) => (
                 <motion.div 
                    key={`${i}-${log.length}`}
                    initial={{ opacity: 0, x: -10 }}
                    animate={{ opacity: 1, x: 0 }}
-                   className={cn("text-[12px] font-black italic py-2 leading-[1.4]", i === 0 ? "text-pen-blue" : "text-pen-blue/20")}
+                   className="text-[12px] font-black italic py-1 leading-[1.2] text-pen-blue"
                 >
-                  <Typewriter text={log} delay={20} />
+                  {i === 0 ? <Typewriter text={log} delay={20} className="text-pen-blue" /> : log}
                 </motion.div>
               ))}
            </div>
