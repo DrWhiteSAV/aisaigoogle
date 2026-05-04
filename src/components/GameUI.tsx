@@ -124,11 +124,16 @@ export const TypeChartContent: React.FC<{ element?: Element; attribute?: Attribu
     
     return (
       <div className="space-y-6">
-        <p className="text-sm font-black text-pen-blue/70 leading-relaxed">
-          {data.description}
-        </p>
+        <div className="space-y-2">
+          <p className="text-sm font-black text-pen-blue/70 leading-tight">
+            {data.description}
+          </p>
+          <p className="text-[12px] font-bold text-pen-blue/50 italic leading-snug">
+            Цикл стихий: Вода → Огонь → Воздух → Земля → Вода. Питомец с превосходящей стихией наносит на 50% больше урона (Атака и Магия x1.5).
+          </p>
+        </div>
         
-        <div className="flex flex-col items-center gap-4 py-6">
+        <div className="flex flex-col items-center gap-4 py-4">
            <div className="flex items-center gap-4">
               <ElementSticker element={sequence[0]} className={cn(element === sequence[0] && "ring-2 ring-pen-blue ring-offset-2")} />
               <span className="text-xl text-pen-blue/30">→</span>
@@ -148,11 +153,11 @@ export const TypeChartContent: React.FC<{ element?: Element; attribute?: Attribu
 
         <div className="space-y-3 pt-4 border-t border-black/5">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black text-pen-blue/40 tracking-widest">Атака x2 над:</span>
+            <span className="text-[10px] font-black text-pen-blue/40 tracking-widest uppercase">Атака x1.5 над:</span>
             <ElementSticker element={data.strongAgainst} />
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black text-pen-blue/40 tracking-widest">Уязвим к:</span>
+            <span className="text-[10px] font-black text-pen-blue/40 tracking-widest uppercase">Уязвим к:</span>
             <ElementSticker element={data.weakTo} />
           </div>
         </div>
@@ -166,11 +171,16 @@ export const TypeChartContent: React.FC<{ element?: Element; attribute?: Attribu
     
     return (
       <div className="space-y-6">
-        <p className="text-sm font-black text-pen-blue/70 leading-relaxed">
-          {data.description}
-        </p>
+        <div className="space-y-2">
+          <p className="text-sm font-black text-pen-blue/70 leading-tight">
+            {data.description}
+          </p>
+          <p className="text-[12px] font-bold text-pen-blue/50 italic leading-snug">
+            Цикл атрибутов: Свет → Тьма → Пустота → Время → Свет. Питомец с превосходящим атрибутом получает на 50% больше Защиты (Защита x1.5).
+          </p>
+        </div>
 
-        <div className="flex flex-col items-center gap-4 py-6">
+        <div className="flex flex-col items-center gap-4 py-4">
            <div className="flex items-center gap-4">
               <AttributeSticker attribute={sequence[0]} className={cn(attribute === sequence[0] && "ring-2 ring-pen-blue ring-offset-2")} />
               <span className="text-xl text-pen-blue/30">→</span>
@@ -190,7 +200,7 @@ export const TypeChartContent: React.FC<{ element?: Element; attribute?: Attribu
         
         <div className="space-y-3 pt-4 border-t border-black/5">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black text-pen-blue/40 tracking-widest">Защита x2 от:</span>
+            <span className="text-[10px] font-black text-pen-blue/40 tracking-widest uppercase">Защита x1.5 от:</span>
             <AttributeSticker attribute={data.opponent} />
           </div>
         </div>

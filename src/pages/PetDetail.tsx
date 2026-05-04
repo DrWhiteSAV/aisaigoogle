@@ -143,7 +143,7 @@ export const PetDetail: React.FC<{
                    <div className="grid grid-cols-2 gap-4">
                       <NeonButton onClick={() => {
                          setProgress(p => ({ ...p, activePetId: pet.id }));
-                         navigate(`/battle/${pet.id}`);
+                         navigate(`/battle/${pet.id}/${Math.random().toString(36).substring(7)}`);
                       }} className="py-3 text-base px-4 bg-sticker-yellow flex-1">
                          <Sword className="h-4 w-4 mr-2" />
                          <span>В Бой</span>

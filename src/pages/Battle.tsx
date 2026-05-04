@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, createContext, useContext } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { Pet, UserProgress } from '../types';
 import { NeonButton } from '../components/UI';
 import { motion, AnimatePresence } from 'motion/react';
@@ -33,6 +33,7 @@ interface BattleState {
   turn: 'player' | 'enemy' | 'waiting';
   winner: 'player' | 'enemy' | null;
   rewards: { rubles: number; xp: number } | null;
+  defenseBoost: { player: number; enemy: number };
   isEnemyHit: boolean;
   isPlayerHit: boolean;
   isPlayerAttacking: boolean;
@@ -117,14 +118,26 @@ export const Battle: React.FC<{
   toggleFlipLock?: (id: string, locked: boolean) => void;
   manualId?: string;
   side?: 'left' | 'right';
-}> = ({ progress, setProgress, toggleFlipLock, manualId, side = 'left' }) => {
-  const navigate = useNavigate();
+  battleId?: string;
+}> = ({ progress, setProgress, toggleFlipLock, manualId, side = 'left', battleId: propBattleId }) => {
   const location = useLocation();
-  const petIdFromUrl = manualId || progress.activePetId;
+  const pathParts = location.pathname.split('/');
+  // /battle/:id/:battleId
+  const urlPetId = pathParts[2];
+  const urlBattleId = pathParts[3];
+  
+  const battleId = propBattleId || urlBattleId;
+  const petIdFromUrl = manualId || urlPetId || progress.activePetId;
   const playerPet = useMemo(() => (progress.pets || []).find(p => p.id === petIdFromUrl), [progress.pets, petIdFromUrl]);
 
   return (
-    <BattleProvider progress={progress} setProgress={setProgress} playerPet={playerPet || null} toggleFlipLock={toggleFlipLock}>
+    <BattleProvider 
+      progress={progress} 
+      setProgress={setProgress} 
+      playerPet={playerPet || null} 
+      toggleFlipLock={toggleFlipLock}
+      battleId={battleId}
+    >
       <BattleContent side={side} />
     </BattleProvider>
   );
@@ -133,13 +146,19 @@ export const Battle: React.FC<{
 let globalBattleState: any = null;
 let listeners: Array<() => void> = [];
 
+export const resetBattleState = () => {
+  globalBattleState = null;
+  listeners.forEach(l => l());
+};
+
 const BattleProvider: React.FC<{ 
   children: React.ReactNode; 
   progress: UserProgress; 
   setProgress: React.Dispatch<React.SetStateAction<UserProgress>>;
   playerPet: Pet | null;
   toggleFlipLock?: (id: string, locked: boolean) => void;
-}> = ({ children, progress, setProgress, playerPet, toggleFlipLock }) => {
+  battleId?: string;
+}> = ({ children, progress, setProgress, playerPet, toggleFlipLock, battleId }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const componentId = React.useId();
@@ -148,12 +167,13 @@ const BattleProvider: React.FC<{
   // Reset global state on unmount to handle page flipping as completion
   useEffect(() => {
     return () => {
-      globalBattleState = null;
+      resetBattleState();
     };
   }, []);
 
   const [state, setState] = useState<Omit<BattleState, 'handleAction' | 'playerPet'>>(() => {
-    if (globalBattleState && globalBattleState.petId === playerPet?.id) {
+    // Check both petId AND battleId to ensure we are looking at the same fight
+    if (globalBattleState && globalBattleState.battleId === battleId) {
        return globalBattleState.state;
     }
     return {
@@ -164,6 +184,7 @@ const BattleProvider: React.FC<{
       turn: 'waiting',
       winner: null,
       rewards: null,
+      defenseBoost: { player: 1, enemy: 1 },
       isEnemyHit: false,
       isPlayerHit: false,
       isPlayerAttacking: false,
@@ -179,23 +200,23 @@ const BattleProvider: React.FC<{
     setState(prev => {
       const updates = typeof newStateOrFn === 'function' ? newStateOrFn(prev) : newStateOrFn;
       const next = { ...prev, ...updates };
-      globalBattleState = { petId: playerPet?.id, state: next };
+      globalBattleState = { petId: playerPet?.id, battleId, state: next };
       return next;
     });
-  }, [playerPet?.id]);
+  }, [playerPet?.id, battleId]);
 
   useEffect(() => {
-    if (globalBattleState && globalBattleState.petId === playerPet?.id && globalBattleState.state === state) {
+    if (globalBattleState && globalBattleState.battleId === battleId && globalBattleState.state === state) {
       const timer = setTimeout(() => {
         listeners.forEach(l => l());
       }, 0);
       return () => clearTimeout(timer);
     }
-  }, [state, playerPet?.id]);
+  }, [state, battleId]);
 
   useEffect(() => {
     const listener = () => {
-      if (globalBattleState && globalBattleState.petId === playerPet?.id && globalBattleState.state !== state) {
+      if (globalBattleState && globalBattleState.battleId === battleId && globalBattleState.state !== state) {
         setState(globalBattleState.state);
       }
     };
@@ -203,7 +224,7 @@ const BattleProvider: React.FC<{
     return () => {
       listeners = listeners.filter(l => l !== listener);
     };
-  }, [playerPet?.id, state]);
+  }, [playerPet?.id, state, battleId]);
 
   // Remove the aggressive flip lock that breaks the book navigation
   /*
@@ -214,27 +235,59 @@ const BattleProvider: React.FC<{
   }, [state.winner, toggleFlipLock, lockId]);
   */
 
-  const calculateDamageDetailed = useCallback((attacker: Pet, defender: Pet, isUlt: boolean = false) => {
-    if (!attacker?.stats || !defender?.stats) return { total: 0, base: 0, defense: 0, magicBonus: 0 };
+  const calculateDamageDetailed = useCallback((attacker: Pet, defender: Pet, isUlt: boolean = false, defBoost: number = 1.0) => {
+    if (!attacker?.stats || !defender?.stats) return { total: 0, attack: 0, defense: 0, magic: 0 };
+    
     const elemMult = getElementAdvantageMultiplier(attacker.element, defender.element);
     const attrMult = getAttributeDefenseMultiplier(attacker.attribute, defender.attribute);
+
+    // Defense: base random from 50% to 100% of stat, multiplied by defBoost
+    const defenseStat = defender.stats.defense || 5;
+    const defenseVar = (0.5 + (Math.random() * 0.5)) * defBoost;
+    const finalDefense = Math.floor(defenseStat * defenseVar * attrMult);
+
+    const attackStat = attacker.stats.attack || 10;
+    const magicStat = attacker.stats.magic || 10;
     
-    const attackPower = attacker.stats.attack || 10;
-    const magicPower = attacker.stats.magic || 10;
-    
-    const baseDmg = attackPower * 1.5;
-    const magicBonus = isUlt ? (magicPower * 2.5) : 0;
-    const defenseValue = (defender.stats.defense || 5) * 0.5 * attrMult;
-    
-    let total = Math.max(5, Math.floor(((baseDmg + magicBonus) * elemMult) - defenseValue));
-    
-    return {
-      total,
-      base: Math.floor(baseDmg),
-      defense: Math.floor(defenseValue),
-      magicBonus: Math.floor(magicBonus)
-    };
+    if (isUlt) {
+      // Ult = (Attack + Magic) * ElementBonus
+      const finalAttack = Math.floor(attackStat * elemMult);
+      const finalMagic = Math.floor(magicStat * elemMult);
+      
+      const total = Math.max(10, (finalAttack + finalMagic) - finalDefense);
+      
+      return {
+        total,
+        attack: finalAttack,
+        defense: finalDefense,
+        magic: finalMagic
+      };
+    } else {
+      // Normal Attack: random from 80% to 100% of stat
+      const attackVar = 0.8 + (Math.random() * 0.2);
+      const finalAttack = Math.floor(attackStat * attackVar * elemMult);
+      
+      const total = Math.max(5, finalAttack - finalDefense);
+      
+      return {
+        total,
+        attack: finalAttack,
+        defense: finalDefense,
+        magic: 0
+      };
+    }
   }, []);
+
+  const calculateRageGain = useCallback((damage: number) => {
+    if (!playerPet || !state.enemy) return 0;
+    const playerMaxHp = playerPet.stats?.health || 100;
+    const enemyMaxHp = state.enemy.stats?.health || 100;
+    const playerDef = playerPet.stats?.defense || 10;
+    const enemyDef = state.enemy.stats?.defense || 10;
+    
+    const sum = playerMaxHp + enemyMaxHp + playerDef + enemyDef;
+    return (damage / sum) * 100;
+  }, [playerPet, state.enemy]);
 
   const handleEndBattle = useCallback((playerWon: boolean, currentEnemy: Pet) => {
     if (!currentEnemy || !playerPet) return;
@@ -277,34 +330,44 @@ const BattleProvider: React.FC<{
     const actionType = shouldRegen ? 'regen' : (useUlt ? 'ult' : 'attack');
     
     if (shouldRegen) {
-        const regen = currentEnemy.stats.regeneration || 20;
-        const actualRegen = Math.min(regen, (currentEnemy.stats.health || 100) - currentHp.enemy);
-        const newHp = { ...currentHp, enemy: currentHp.enemy + actualRegen };
+        const regenStat = currentEnemy.stats.regeneration || 20;
+        const actualRegen = Math.floor(regenStat * (0.8 + Math.random() * 0.2));
+        const finalRegen = Math.min(actualRegen, (currentEnemy.stats.health || 100) - currentHp.enemy);
+        const defenseBoostVal = 1.0 + (Math.random() * 0.2); // 100-120%
+        const newHp = { ...currentHp, enemy: currentHp.enemy + finalRegen };
         
         syncState((prev: any) => ({
           hp: newHp,
-          battleLog: [`[Враг] ${currentEnemy.name} использует регенерацию: +${actualRegen} HP`, ...prev.battleLog],
+          defenseBoost: { ...prev.defenseBoost, enemy: defenseBoostVal },
+          battleLog: [
+            `🛡️ [Враг] ${currentEnemy.name} регенерирует: +${finalRegen} HP. Защита усилена до ${Math.floor(defenseBoostVal * 100)}%!`,
+            ...prev.battleLog
+          ],
         }));
 
         setTimeout(() => syncState({ turn: 'player' }), 100);
         return;
     }
 
-    const { total, defense, magicBonus } = calculateDamageDetailed(currentEnemy, playerPet, useUlt);
+    const { total, attack, defense, magic } = calculateDamageDetailed(currentEnemy, playerPet, useUlt, state.defenseBoost.player);
     const abilityText = currentEnemy.abilities?.length > 0 ? ` (${currentEnemy.abilities[0]})` : "";
     const log = useUlt 
-      ? `[Враг] ${currentEnemy.name}: Магический взрыв! Нанесено ${total} HP (Магия: +${magicBonus}, Броня: -${defense})${abilityText}`
-      : `[Враг] ${currentEnemy.name} ударил на ${total} HP (Броня поглотила ${defense})${abilityText}`;
+      ? `[Враг] ${currentEnemy.name} (УЛЬТА): Нанесено ${total} Ур (Атк+Маг: ${attack + magic}, Защ: ${defense})${abilityText}`
+      : `[Враг] ${currentEnemy.name}: Удар на ${total} Ур (Атк: ${attack}, Защ: ${defense})${abilityText}`;
 
     const currentPlayerHp = Math.max(0, currentHp.player - total);
-    const newRage = {
-      enemy: useUlt ? 0 : Math.min(100, currentRage.enemy + 15),
-      player: Math.min(100, currentRage.player + 18)
-    };
+    
+    let newRage = { ...currentRage };
+    if (useUlt) {
+      newRage.enemy -= 100; // Carry over remainder
+    } else {
+      newRage.enemy += calculateRageGain(total);
+    }
     
     syncState((prev: any) => ({
       hp: { ...currentHp, player: currentPlayerHp },
       rage: newRage,
+      defenseBoost: { ...prev.defenseBoost, player: 1.0 }, // Reset player boost after being hit
       battleLog: [log, ...prev.battleLog],
     }));
     
@@ -324,36 +387,47 @@ const BattleProvider: React.FC<{
     syncState({ turn: 'waiting' });
 
     if (type === 'regen') {
-      const regen = playerPet.stats.regeneration || 20;
-      const actualRegen = Math.min(regen, (playerPet.stats.health || 100) - state.hp.player);
-      const newHp = { ...state.hp, player: state.hp.player + actualRegen };
+      const regenStat = playerPet.stats.regeneration || 20;
+      const actualRegen = Math.floor(regenStat * (0.8 + Math.random() * 0.2));
+      const finalRegen = Math.min(actualRegen, (playerPet.stats.health || 100) - state.hp.player);
+      const defenseBoostVal = 1.0 + (Math.random() * 0.2); // 100-120%
+      const newHp = { ...state.hp, player: state.hp.player + finalRegen };
+      
       syncState((prev: any) => ({
         hp: newHp,
-        battleLog: [`${playerPet.name} использует исцеление: +${actualRegen} HP`, ...prev.battleLog],
+        defenseBoost: { ...prev.defenseBoost, player: defenseBoostVal },
+        battleLog: [
+          `🛡️ ${playerPet.name}: +${finalRegen} HP (Реген). Защита на полную: ${Math.floor(defenseBoostVal * 100)}%!`,
+          ...prev.battleLog
+        ],
       }));
       syncState({ turn: 'enemy' });
       return;
     }
 
-    const { total, defense, magicBonus } = calculateDamageDetailed(playerPet, state.enemy, type === 'ult');
+    const { total, attack, defense, magic } = calculateDamageDetailed(playerPet, state.enemy, type === 'ult', state.defenseBoost.enemy);
     const abilityText = playerPet.abilities?.length > 0 ? ` (${playerPet.abilities[0]})` : "";
     
     let log = '';
     if (type === 'attack') {
-      log = `${playerPet.name} нанес ${total} HP (Защита врага: -${defense})${abilityText}`;
+      log = `${playerPet.name} ударил на ${total} Ур (Атк: ${attack}, Защ: ${defense})${abilityText}`;
     } else if (type === 'ult') {
-      log = `Ульта ${playerPet.name}: Нанесено ${total} HP (Магия: +${magicBonus}, Деф: -${defense})${abilityText}`;
+      log = `⚡️ УЛЬТА ${playerPet.name}: ${total} Ур (Атк+Маг: ${attack + magic}, Защ врага: ${defense})${abilityText}`;
     }
 
     const currentEnemyHp = Math.max(0, state.hp.enemy - total);
-    const newRage = {
-      player: type === 'ult' ? 0 : Math.min(100, state.rage.player + 15),
-      enemy: Math.min(100, state.rage.enemy + 18)
-    };
+    
+    let newRage = { ...state.rage };
+    if (type === 'ult') {
+      newRage.player -= 100; // Carry over remainder
+    } else if (type === 'attack') {
+      newRage.player += calculateRageGain(total);
+    }
     
     syncState((prev: any) => ({
       hp: { ...prev.hp, enemy: currentEnemyHp },
       rage: newRage,
+      defenseBoost: { ...prev.defenseBoost, enemy: 1.0 }, // Reset enemy boost after being hit
       battleLog: [log, ...prev.battleLog],
     }));
 
@@ -384,7 +458,7 @@ const BattleProvider: React.FC<{
     if (!state.enemy && playerPet && location.pathname.startsWith('/battle')) {
       if (initStarted.current) return;
       
-      if (globalBattleState && globalBattleState.petId === playerPet.id && globalBattleState.state.enemy) {
+      if (globalBattleState && globalBattleState.battleId === battleId && globalBattleState.state.enemy) {
         setState(globalBattleState.state);
         return;
       }
@@ -444,8 +518,22 @@ const BattleProvider: React.FC<{
   return <BattleContext.Provider value={value}>{children}</BattleContext.Provider>;
 };
 
-const BattleCard = React.memo(({ pet, currentHp, maxHp, isPlayer, rage }: { pet: Pet, currentHp: number, maxHp: number, isPlayer: boolean, rage: { player: number, enemy: number } }) => {
+const BattleCard = React.memo(({ pet, currentHp, maxHp, isPlayer, rage, opponent }: { pet: Pet, currentHp: number, maxHp: number, isPlayer: boolean, rage: { player: number, enemy: number }, opponent: Pet }) => {
     const cp = calculateCP(pet);
+
+    // Calculate effective visible stats (base + advantage multipliers)
+    const baseAttack = pet.stats?.attack || 10;
+    const baseDefense = pet.stats?.defense || 5;
+    const baseMagic = pet.stats?.magic || 5;
+    
+    // Attack advantage: stronger element deals 1.5x
+    const elementMult = getElementAdvantageMultiplier(pet.element, opponent.element);
+    const effectiveAttack = Math.floor(baseAttack * elementMult);
+    const effectiveMagic = Math.floor(baseMagic * elementMult);
+    
+    // Defense advantage: stronger attribute gets 1.5x defense
+    const attributeMult = getAttributeDefenseMultiplier(opponent.attribute, pet.attribute);
+    const effectiveDefense = Math.floor(baseDefense * attributeMult);
 
     return (
       <motion.div 
@@ -479,8 +567,8 @@ const BattleCard = React.memo(({ pet, currentHp, maxHp, isPlayer, rage }: { pet:
             "bg-white border-2 border-pen-blue px-2 py-0.5 rounded flex items-center gap-1 shadow-none",
             isPlayer ? "-rotate-1" : "rotate-1 flex-row-reverse"
           )}>
-            <Flame className="w-3 h-3 text-pen-blue" strokeWidth={3} />
-            <span className="text-[10px] font-black text-pen-blue leading-none">{pet.stats?.magic}</span>
+            <Flame className={cn("w-3 h-3", effectiveMagic > baseMagic ? "text-pen-red" : "text-pen-blue")} strokeWidth={3} />
+            <span className={cn("text-[10px] font-black leading-none", effectiveMagic > baseMagic ? "text-pen-red" : "text-pen-blue")}>{effectiveMagic}</span>
           </div>
           <div className={cn(
             "bg-white border-2 border-pen-blue px-2 py-0.5 rounded flex items-center gap-1 shadow-none",
@@ -493,15 +581,15 @@ const BattleCard = React.memo(({ pet, currentHp, maxHp, isPlayer, rage }: { pet:
             "bg-white border-2 border-pen-blue px-2 py-0.5 rounded flex items-center gap-1 shadow-none",
             isPlayer ? "-rotate-2" : "rotate-2 flex-row-reverse"
           )}>
-            <Shield className="w-3 h-3 text-pen-blue" strokeWidth={3} />
-            <span className="text-[10px] font-black text-pen-blue leading-none">{pet.stats?.defense}</span>
+            <Shield className={cn("w-3 h-3", effectiveDefense > baseDefense ? "text-pen-red" : "text-pen-blue")} strokeWidth={3} />
+            <span className={cn("text-[10px] font-black leading-none", effectiveDefense > baseDefense ? "text-pen-red" : "text-pen-blue")}>{effectiveDefense}</span>
           </div>
           <div className={cn(
             "bg-white border-2 border-pen-blue px-2 py-0.5 rounded flex items-center gap-1 shadow-none",
             isPlayer ? "rotate-1" : "-rotate-1 flex-row-reverse"
           )}>
-            <Sword className="w-3 h-3 text-pen-blue" strokeWidth={3} />
-            <span className="text-[10px] font-black text-pen-blue leading-none">{pet.stats?.attack}</span>
+            <Sword className={cn("w-3 h-3", effectiveAttack > baseAttack ? "text-pen-red" : "text-pen-blue")} strokeWidth={3} />
+            <span className={cn("text-[10px] font-black leading-none", effectiveAttack > baseAttack ? "text-pen-red" : "text-pen-blue")}>{effectiveAttack}</span>
           </div>
           <div className={cn(
             "bg-white border-2 border-pen-red px-2 py-0.5 rounded flex items-center gap-1 shadow-none",
@@ -597,11 +685,11 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
           </AnimatePresence>
 
           <div className="absolute top-2 left-[5%] w-[44.5%] flex justify-start z-30">
-             <BattleCard pet={playerPet} currentHp={hp.player} maxHp={playerPet.stats?.health || 100} isPlayer={true} rage={rage} />
+             <BattleCard pet={playerPet} currentHp={hp.player} maxHp={playerPet.stats?.health || 100} isPlayer={true} rage={rage} opponent={enemy} />
           </div>
 
           <div className="absolute bottom-2 right-[5%] w-[44.5%] flex justify-end z-10">
-             <BattleCard pet={enemy} currentHp={hp.enemy} maxHp={enemy.stats?.health || 100} isPlayer={false} rage={rage} />
+             <BattleCard pet={enemy} currentHp={hp.enemy} maxHp={enemy.stats?.health || 100} isPlayer={false} rage={rage} opponent={playerPet} />
           </div>
 
           <div className="absolute top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-[60] flex flex-col gap-3 scale-[0.8]">
@@ -682,9 +770,9 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
           </div>
         </div>
 
-        <div className="flex flex-col bg-[#fdfaf3]/40 border border-pen-blue/20 p-2 overflow-hidden relative rounded-xl min-h-[140px] max-h-[140px]">
+        <div className="flex flex-col bg-[#fdfaf3]/40 border border-pen-blue/20 p-2 overflow-hidden relative rounded-xl min-h-[140px]">
            <div className="text-[9px] font-black text-pen-blue/30 mb-1 tracking-[0.2em] italic border-b border-pen-blue/5 pb-0.5">Журнал боя:</div>
-           <div className="flex flex-col gap-1 overflow-y-auto scrollbar-hide flex-1 pt-1 overflow-x-visible">
+           <div className="flex flex-col gap-1 flex-1 pt-1 overflow-x-visible">
               {battleLog.map((log, i) => (
                 <motion.div 
                    key={`${i}-${log.length}`}
@@ -759,7 +847,7 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
 
             <NeonButton 
               onClick={() => {
-                 globalBattleState = null;
+                 resetBattleState();
                  navigate(`/pet/${playerPet.id}`);
               }}
               className="w-full py-5 bg-sticker-yellow text-[28px] font-black text-pen-blue italic tracking-widest"

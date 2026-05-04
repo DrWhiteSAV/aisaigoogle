@@ -80,19 +80,18 @@ export function getElementAdvantageMultiplier(attacker: Element, defender: Eleme
   const attackIndex = ELEMENT_CYCLE.indexOf(attacker);
   const targetIndex = ELEMENT_CYCLE.indexOf(defender);
   // Water(0) -> Fire(1) -> Air(2) -> Earth(3) -> Water(0)
-  if ((attackIndex + 1) % ELEMENT_CYCLE.length === targetIndex) return 2;
+  // Attacker is stronger if they are the element that comes BEFORE the target in the cycle
+  if ((attackIndex + 1) % ELEMENT_CYCLE.length === targetIndex) return 1.5;
   return 1;
 }
 
 export function getAttributeDefenseMultiplier(attacker: Attribute, defender: Attribute): number {
   const attackIndex = ATTRIBUTE_CYCLE.indexOf(attacker);
   const targetIndex = ATTRIBUTE_CYCLE.indexOf(defender);
-  // Light -> Dark -> Void -> Time -> Light (Stronger beats weaker)
-  // User: "Питомцы с более сильным атрибутом имеют защиту в 2 раза выше"
-  // Stronger beats weaker. So if defender is the stronger one in the cycle relative to attacker.
-  // Cycle: Light beats Dark beats Void beats Time beats Light
-  if ((targetIndex + 1) % ATTRIBUTE_CYCLE.length === attackIndex) return 1; // Defender is weaker
-  if ((attackIndex + 1) % ATTRIBUTE_CYCLE.length === targetIndex) return 2; // Defender is stronger
+  // Light(0) -> Dark(1) -> Void(2) -> Time(3) -> Light(0)
+  // Stronger beats weaker. Defender is stronger if they are the element BEFORE attacker in cycle
+  // (e.g. Light(0) beats Dark(1))
+  if ((targetIndex + 1) % ATTRIBUTE_CYCLE.length === attackIndex) return 1.5;
   return 1;
 }
 
@@ -137,23 +136,8 @@ export function checkLevelUp(pet: Pet): Pet {
     currentPet.experience -= expNeeded;
     currentPet.level += 1;
     
-    // Add stats automatically instead of just statPoints if preferred, 
-    // but the user mentions "распределите свободные очки характеристик" in Setup.tsx text.
-    // However, the prompt says "код распределяя случайно статы и суммируя в игровом процессе".
-    // I'll add to statPoints so user can distribute, OR distribute automatically.
-    // Let's do automatic distribution as well to show immediate CP growth.
     const growth = RARITY_WEIGHTS[currentPet.rarity].growth;
-    const gStats = distributeStats(growth);
-    
-    currentPet.statPoints = (currentPet.statPoints || 0) + growth; // Use correct growth points from weights
-    
-    currentPet.stats.attack += gStats.attack;
-    currentPet.stats.defense += gStats.defense;
-    currentPet.stats.health += gStats.health;
-    currentPet.stats.maxHealth += gStats.health;
-    currentPet.stats.speed += gStats.speed;
-    currentPet.stats.regeneration += gStats.regeneration;
-    currentPet.stats.magic += gStats.magic;
+    currentPet.statPoints = (currentPet.statPoints || 0) + growth;
     
     // Update age stage if needed
     currentPet.ageStage = getPetRankByLevel(currentPet.level);
