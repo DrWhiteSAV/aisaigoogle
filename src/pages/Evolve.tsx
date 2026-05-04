@@ -64,12 +64,16 @@ export const Evolve: React.FC<{
       let updatedAbilities = [...pet.abilities];
       let updatedLore = pet.lore;
       let updatedImage = pet.image;
+      let updatedSkills = [...(pet.skills || [])];
 
       // Major Rank Up every 10 levels
       if (nextLevel % 10 === 1 || (nextLevel === 11 || nextLevel === 21 || nextLevel === 31 || nextLevel === 41 || nextLevel === 51 || nextLevel === 61 || nextLevel === 71 || nextLevel === 81 || nextLevel === 91)) {
         const evolutionData = await generateEvolutionUpdate(pet, nextStage);
         updatedAbilities = evolutionData.abilities;
         updatedLore = evolutionData.lore;
+        if (evolutionData.newSkills && evolutionData.newSkills.length > 0) {
+          updatedSkills = [...updatedSkills, ...evolutionData.newSkills];
+        }
         updatedImage = await generatePetArt({ ...pet, level: nextLevel, ageStage: nextStage });
       }
 
@@ -79,6 +83,7 @@ export const Evolve: React.FC<{
         experience: pet.experience - expNeeded,
         ageStage: nextStage,
         abilities: updatedAbilities,
+        skills: updatedSkills,
         lore: updatedLore,
         image: updatedImage,
         statPoints: pet.statPoints + growthPerLevel,

@@ -30,37 +30,31 @@ export const ELEMENT_CYCLE: Element[] = ['water', 'fire', 'air', 'earth']; // Wa
 export const ATTRIBUTE_CYCLE: Attribute[] = ['light', 'dark', 'void', 'time']; // Light -> Dark -> Void -> Time -> Light
 
 export function getExpNeeded(level: number): number {
-  return Math.floor(100 * Math.pow(1.1, level));
+  const n = level;
+  return Math.floor(100 * Math.pow(1.1, n));
 }
 
-export const AGE_STAGE_RECORDS: Record<number, { code: string; label: string }> = {
-  10: { code: 'F', label: 'младенчество' },
-  20: { code: 'E', label: 'детство' },
-  30: { code: 'D', label: 'отрочество' },
-  40: { code: 'C', label: 'молодость' },
-  50: { code: 'B', label: 'взросление' },
-  60: { code: 'A', label: 'зрелость' },
-  70: { code: 'S', label: 'мудрость' },
-  80: { code: 'EX', label: 'единство' },
-  90: { code: 'UX', label: 'пробуждение' },
-  100: { code: 'Z', label: 'абсолютность' }
-};
-
-export function getQuestRewardExp(level: number, success: boolean): number {
+export function getBattleRewards(level: number, success: boolean, cpRatio: number): { xp: number, rubles: number } {
   const n = level;
-  // (30±25)*0,95^n for success, (5±3)*0,95^n for failure
-  const mid = success ? 30 : 5;
-  const scatter = success ? 25 : 3;
-  const baseRewardPercent = (mid + (Math.random() * scatter * 2 - scatter));
+  const expNeeded = getExpNeeded(n);
+  
+  // XP formula: (30±25)*0,95^n*100% for success, (5±3)*0,95^n*100% for failure
+  const midXP = success ? 30 : 5;
+  const scatterXP = success ? 25 : 3;
+  const baseRewardPercent = (midXP + (Math.random() * scatterXP * 2 - scatterXP));
   const modifier = Math.pow(0.95, n);
   
-  const finalPercent = (baseRewardPercent * modifier) / 100;
+  const xpAwarded = Math.round(expNeeded * (baseRewardPercent * modifier / 100) * cpRatio);
   
-  // Percentage of XP needed for current level
-  const expNeeded = getExpNeeded(n);
-  const rewardXP = Math.round(expNeeded * finalPercent);
+  // Rubles: (20±10) * cpRatio * 1.05^n (scaling slightly with level but much lower than before)
+  const baseRubles = success ? 50 : 10;
+  const scatterRubles = success ? 20 : 5;
+  const rubReward = (baseRubles + (Math.random() * scatterRubles * 2 - scatterRubles)) * cpRatio * Math.pow(1.05, n);
   
-  return Math.max(1, rewardXP);
+  return {
+    xp: Math.max(1, xpAwarded),
+    rubles: Math.max(1, Math.round(rubReward))
+  };
 }
 
 export function getPetRankByLevel(level: number): AgeStage {
@@ -147,12 +141,30 @@ export function checkLevelUp(pet: Pet): Pet {
   return currentPet;
 }
 
+export function getPassiveBonus(pet: Pet, statKey: keyof PetStats): number {
+  if (!pet || !pet.skills || !pet.stats) return 0;
+  const baseValue = pet.stats[statKey] || 0;
+  return pet.skills
+    .filter(s => s && s.type === 'passive' && s.targetStat === statKey)
+    .reduce((sum, s) => {
+      const bonus = baseValue * ((s.value || 0) / 100);
+      // Ensure at least +1 if the value is non-zero
+      return sum + (bonus > 0 ? Math.max(1, Math.round(bonus)) : 0);
+    }, 0);
+}
+
+export function getEffectiveStat(pet: Pet, statKey: keyof PetStats): number {
+  if (!pet || !pet.stats) return 0;
+  return (pet.stats[statKey] || 0) + getPassiveBonus(pet, statKey);
+}
+
 export function calculateCP(pet: Pet): number {
   if (!pet || !pet.stats) return 0;
-  const { attack, defense, health, speed, regeneration, magic } = pet.stats;
-  // CP is the sum of main stats + 10 points per ability
-  const abilitiesBonus = pet.abilities.length * 10; 
-  return attack + defense + health + speed + regeneration + magic + abilitiesBonus;
+  
+  const stats: (keyof PetStats)[] = ['attack', 'defense', 'health', 'speed', 'regeneration', 'magic'];
+  const totalEffectiveStats = stats.reduce((sum, key) => sum + getEffectiveStat(pet, key), 0);
+  
+  return totalEffectiveStats;
 }
 
 export function getSummonerRank(pets: Pet[]): { name: string, limit: number } {

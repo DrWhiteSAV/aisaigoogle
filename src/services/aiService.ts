@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { Pet, PetStats, Rarity, Element, Attribute, Personality, Habitat, Classification, UserProfile, InventoryItem } from "../types";
+import { Pet, PetStats, Rarity, Element, Attribute, Personality, Habitat, Classification, UserProfile, InventoryItem, Skill } from "../types";
 import { RARITY_WEIGHTS } from "../lib/gameLogic";
 
 // Safe way to access environment variables in Vite/React
@@ -78,7 +78,7 @@ export const generatePetArt = async (pet: Partial<Pet>) => {
 export const generateEvolutionUpdate = async (
   pet: Pet,
   newRank: string
-): Promise<{ abilities: string[]; lore: string }> => {
+): Promise<{ abilities: string[]; lore: string; newSkills: Skill[] }> => {
   const prompt = `Питомец ${pet.name} эволюционировал до ранга ${newRank}!
     Текущая информация:
     - Биологическая классификация: ${pet.classification.genus} ${pet.classification.species} (${pet.classification.family})
@@ -88,10 +88,33 @@ export const generateEvolutionUpdate = async (
     - Текущая легенда: ${pet.lore}
     
     Сгенерируй:
-    1. Новую уникальную способность, которая добавляется к текущему списку. Она должна строго соответствовать биологическому виду (${pet.classification.species}), элементу (${pet.element}) и атрибуту (${pet.attribute}).
-    2. Обновленную легенду, описывающую качественное биологическое изменение существа на новом этапе развития.
+    1. Новую уникальную способность, которая добавляется к текущему списку.
+    2. Обновленную легенду.
+    3. ДВА новых навыка: 
+       - Один ПАССИВНЫЙ (passive) - влияет на любой из статов (health, attack, defense, speed, magic, regeneration).
+       - Один АКТИВНЫЙ (случайно active_buff ИЛИ active_debuff).
     
-    Верни JSON объект на русском языке.`;
+    Descripción навыка должнo быть ПОДРОБНЫМ (минимум 2-3 предложения), объясняющим как именно питомец использует свою биологию, магию или физиологию для достижения этого эффекта.
+    
+    Верни JSON объект на русском языке:
+    {
+      "newAbility": "...", // Оставь пустым или удали, используем skills
+      "updatedLore": "...",
+      "newSkills": [
+        { 
+          "name": "Название навыка", 
+          "description": "ПОДРОБНОЕ ОПИСАНИЕ (2+ предложения): Как именно питомец делает это с точки зрения биологии.", 
+          "type": "passive", 
+          "targetStat": "health|attack|defense|speed|magic|regeneration" 
+        },
+        { 
+          "name": "Название активного навыка", 
+          "description": "ПОДРОБНОЕ ОПИСАНИЕ (2+ предложения): Как именно питомец использует стихию или крик для влияния на бой.", 
+          "type": "active_buff|active_debuff", 
+          "targetStat": "health|attack|defense|speed|magic|regeneration" 
+        }
+      ]
+    }`;
 
   try {
     const ai = getAI();
@@ -109,7 +132,6 @@ export const generateEvolutionUpdate = async (
     if (!text) throw new Error("Empty response from AI");
     let data;
     try {
-      // Remove possible markdown code blocks if the model returned them
       const cleanedText = text.replace(/```json\n?|\n?```/g, '').trim();
       data = JSON.parse(cleanedText);
     } catch (e) {
@@ -117,13 +139,25 @@ export const generateEvolutionUpdate = async (
       throw new Error("Invalid format from AI");
     }
     
+    const newSkills: Skill[] = (data.newSkills || []).map((s: any) => ({
+      id: Math.random().toString(36).substr(2, 9),
+      name: s.name || "Пробужденная Сила",
+      description: s.description || "Новый уровень мастерства.",
+      type: s.type || 'passive',
+      targetStat: s.targetStat || 'attack',
+      value: s.type === 'active_debuff' 
+        ? Math.floor(Math.random() * 41) + 10 // 10-50%
+        : Math.floor(Math.random() * 10) + 1  // 1-10%
+    }));
+
     return {
-      abilities: [...pet.abilities, data.newAbility || "Пробуждение"],
-      lore: data.updatedLore || pet.lore
+      abilities: [], 
+      lore: data.updatedLore || pet.lore,
+      newSkills
     };
   } catch (error) {
     console.error("Evolution generation failed:", error);
-    return { abilities: [...pet.abilities, "Мощный Всплеск"], lore: pet.lore };
+    return { abilities: [], lore: pet.lore, newSkills: [] };
   }
 };
 
@@ -134,6 +168,7 @@ export const generatePetStatsAndLore = async (
   name: string; 
   stats: PetStats; 
   abilities: string[]; 
+  skills: Skill[];
   lore: string;
   classification: Classification;
   element: Element;
@@ -180,7 +215,26 @@ export const generatePetStatsAndLore = async (
         "regeneration": 0.1,
         "magic": 0.1
       },
-      "abilities": ["название способности"],
+      "skills": [
+        { 
+          "name": "...", 
+          "description": "Подробное описание (2+ предложения): Как именно питомец использует свою биологию или магию для достижения этого пассивного эффекта.", 
+          "type": "passive", 
+          "targetStat": "health|attack|defense|speed|magic|regeneration" 
+        },
+        { 
+          "name": "...", 
+          "description": "Подробное описание (2+ предложения): Как именно питомец концентрирует энергию или использует свое тело для получения бонуса во время атаки.", 
+          "type": "active_buff", 
+          "targetStat": "attack" 
+        },
+        { 
+          "name": "...", 
+          "description": "Подробное описание (2+ предложения): Как именно питомец воздействует на противника (крик, запах, свечение) для его ослабления.", 
+          "type": "active_debuff", 
+          "targetStat": "health|attack|defense|speed|magic|regeneration" 
+        }
+      ],
       "lore": "легенда появления (акцент на рождении и связи с пользователем)"
     }
 
@@ -223,6 +277,17 @@ export const generatePetStatsAndLore = async (
         species: "Неизвестно"
     };
 
+    const skills: Skill[] = (parsed.skills || []).map((s: any) => ({
+      id: Math.random().toString(36).substr(2, 9),
+      name: s.name || "Мистический Дар",
+      description: s.description || "Древняя сила пробуждается и течет по жилам существа, раскрывая его истинный боевой потенциал.",
+      type: s.type || 'passive',
+      targetStat: s.targetStat || 'attack',
+      value: s.type === 'active_debuff' 
+        ? Math.floor(Math.random() * 41) + 10 // 10-50%
+        : Math.floor(Math.random() * 10) + 1  // 1-10%
+    }));
+
     return {
       name,
       element,
@@ -240,7 +305,8 @@ export const generatePetStatsAndLore = async (
         maxRage: 100,
         rage: 0
       },
-      abilities: Array.isArray(parsed.abilities) ? parsed.abilities : ["Базовая Атака"],
+      skills,
+      abilities: [],
       lore: parsed.lore || "Легенда еще не написана."
     };
   } catch (error) {

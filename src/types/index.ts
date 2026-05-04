@@ -52,6 +52,17 @@ export interface PetStats {
   maxRage: number;
 }
 
+export type SkillType = 'passive' | 'active_buff' | 'active_debuff';
+
+export interface Skill {
+  id: string;
+  name: string;
+  description: string;
+  type: SkillType;
+  targetStat: keyof PetStats;
+  value: number; // Percentage
+}
+
 export interface UserProfile {
   name: string;
   gender: 'male' | 'female';
@@ -82,6 +93,7 @@ export interface Pet {
   image: string; // Base64 or URL
   stats: PetStats;
   classification: Classification;
+  skills: Skill[];
   abilities: string[];
   lore: string;
   level: number;

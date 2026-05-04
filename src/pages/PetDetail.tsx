@@ -5,10 +5,23 @@ import { GlassCard, NeonButton, HandwrittenText } from '../components/UI';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { Shield, Sword, Brain, Zap, Sparkles, Heart, Activity, Compass, Package, Plus, ArrowLeft } from 'lucide-react';
-import { getPetRankByLevel, calculateCP, getExpNeeded } from '../lib/gameLogic';
+import { getPetRankByLevel, calculateCP, getExpNeeded, getPassiveBonus, getEffectiveStat } from '../lib/gameLogic';
 import { ElementSticker, AttributeSticker, InfoModal, TypeChartContent } from '../components/GameUI';
 import { RARITY_LABELS } from '../constants/gameData';
 import { PetCard } from '../components/PetCard';
+import { Skill, PetStats } from '../types';
+
+const SkillItem: React.FC<{ skill: Skill; onClick: () => void }> = ({ skill, onClick }) => (
+  <button 
+    onClick={onClick}
+    className={cn(
+      "px-3 py-1.5 bg-white border-2 border-black text-xs font-black italic -rotate-1 transition-transform hover:scale-105 hover:bg-sticker-yellow",
+      skill.type === 'passive' ? "border-green-600 border-dashed" : "border-pen-blue"
+    )}
+  >
+    {skill.name}
+  </button>
+);
 
 export const PetDetail: React.FC<{ 
   progress: UserProgress; 
@@ -25,7 +38,7 @@ export const PetDetail: React.FC<{
   const { id: paramsId } = useParams<{ id: string }>();
   const id = manualId || paramsId;
   const [activeTab, setActiveTab] = useState<'stats' | 'inventory'>(initialTab);
-  const [modalType, setModalType] = useState<{ element?: Element, attribute?: Attribute, rank?: boolean, stats?: boolean, fullScreenImage?: string } | null>(null);
+  const [modalType, setModalType] = useState<{ element?: Element, attribute?: Attribute, rank?: boolean, stats?: boolean, fullScreenImage?: string, selectedSkill?: Skill } | null>(null);
 
   // Sync tab state if initialTab prop changes (important for flipbook)
   React.useEffect(() => {
@@ -179,12 +192,18 @@ export const PetDetail: React.FC<{
                       </div>
                       
                       <div className="grid grid-cols-1 gap-1 px-1">
-                        <StatItem icon={Heart} label="Здоровье" value={pet.stats.health} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('health')} />
-                        <StatItem icon={Sword} label="Атака" value={pet.stats.attack} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('attack')} />
-                        <StatItem icon={Shield} label="Защита" value={pet.stats.defense} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('defense')} />
-                        <StatItem icon={Zap} label="Скорость" value={pet.stats.speed} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('speed')} />
-                        <StatItem icon={Brain} label="Магия" value={pet.stats.magic} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('magic')} />
-                        <StatItem icon={Activity} label="Регенерация" value={pet.stats.regeneration} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('regeneration')} />
+                        {(['health', 'attack', 'defense', 'speed', 'magic', 'regeneration'] as (keyof PetStats)[]).map(key => (
+                          <StatItem 
+                            key={key}
+                            icon={key === 'health' ? Heart : key === 'attack' ? Sword : key === 'defense' ? Shield : key === 'speed' ? Zap : key === 'magic' ? Brain : Activity} 
+                            label={key === 'health' ? 'Здоровье' : key === 'attack' ? 'Атака' : key === 'defense' ? 'Защита' : key === 'speed' ? 'Скорость' : key === 'magic' ? 'Магия' : 'Регенерация'} 
+                            value={pet.stats[key]} 
+                            passiveBonus={getPassiveBonus(pet, key)}
+                            max={999} 
+                            showAdd={pet.statPoints > 0} 
+                            onAdd={() => allocatePoint(key)} 
+                          />
+                        ))}
                       </div>
                    </div>
 
@@ -206,12 +225,10 @@ export const PetDetail: React.FC<{
                    </div>
 
                    <GlassCard color="pink" className="border-2 border-black/5 space-y-4">
-                      <h3 className="text-sm font-black text-pen-blue/60 tracking-tight">Навыки души</h3>
+                      <h3 className="text-sm font-black text-pen-blue/60 tracking-tight">Навыки сущности</h3>
                       <div className="flex flex-wrap gap-2">
-                         {pet.abilities.map((a, i) => (
-                            <span key={i} className="px-3 py-1.5 bg-white border-2 border-black text-xs font-black italic -rotate-1">
-                               {a}
-                            </span>
+                         {(pet.skills || []).map((skill, i) => (
+                           <SkillItem key={skill.id || i} skill={skill} onClick={() => setModalType({ selectedSkill: skill })} />
                          ))}
                       </div>
                    </GlassCard>
@@ -251,7 +268,14 @@ export const PetDetail: React.FC<{
       <InfoModal 
         isOpen={!!modalType} 
         onClose={() => setModalType(null)}
-        title={modalType?.rank ? "Ранг Сущности" : modalType?.stats ? "Аналитика Потенциала" : modalType?.element ? "Узы Элемента" : "Суть Атрибута"}
+        title={
+          modalType?.rank ? "Ранг Сущности" : 
+          modalType?.stats ? "Аналитика Потенциала" : 
+          modalType?.element ? "Узы Элемента" : 
+          modalType?.attribute ? "Суть Атрибута" : 
+          modalType?.selectedSkill ? modalType.selectedSkill.name :
+          "Инфо"
+        }
         showClose={true}
         plain={!!modalType?.fullScreenImage}
       >
@@ -264,6 +288,35 @@ export const PetDetail: React.FC<{
              className="max-w-[95%] max-h-[95%] object-contain shadow-2xl rounded-sm"
              referrerPolicy="no-referrer"
            />
+        ) : modalType?.selectedSkill ? (
+          <div className="space-y-6">
+            <div className="bg-pen-blue/5 p-4 border-l-4 border-pen-blue">
+              <div className="text-[10px] font-black uppercase text-pen-blue/40 tracking-[0.2em] mb-1">
+                {modalType.selectedSkill.type === 'passive' ? "Пассивный навык" : 
+                 modalType.selectedSkill.type === 'active_buff' ? "Боевой бафф" : "Боевой дебафф"}
+              </div>
+              <p className="text-sm font-bold text-pen-blue mb-4">{modalType.selectedSkill.description}</p>
+              
+              <div className="grid grid-cols-2 gap-4 border-t border-pen-blue/10 pt-4">
+                <div>
+                   <div className="text-[10px] font-black uppercase text-pen-blue/30">Влияние</div>
+                   <div className="text-base font-black text-pen-blue">
+                     {modalType.selectedSkill.value}% {modalType.selectedSkill.type === 'passive' ? 'к стату' : 'эффект'}
+                   </div>
+                </div>
+                <div>
+                   <div className="text-[10px] font-black uppercase text-pen-blue/30">Цель</div>
+                   <div className="text-base font-black text-pen-blue capitalize">
+                     {modalType.selectedSkill.targetStat === 'health' ? 'Здоровье' : 
+                      modalType.selectedSkill.targetStat === 'attack' ? 'Атака' : 
+                      modalType.selectedSkill.targetStat === 'defense' ? 'Защита' : 
+                      modalType.selectedSkill.targetStat === 'speed' ? 'Скорость' : 
+                      modalType.selectedSkill.targetStat === 'magic' ? 'Магия' : 'Регенерация'}
+                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
         ) : modalType?.rank ? (
           <div className="space-y-4">
              <p className="text-sm font-black text-pen-blue/70 leading-relaxed border-b border-black/5 pb-4">
@@ -336,7 +389,7 @@ export const PetDetail: React.FC<{
   );
 };
 
-const StatItem = ({ icon: Icon, label, value, max, showAdd, onAdd }: any) => (
+const StatItem = ({ icon: Icon, label, value, passiveBonus, max, showAdd, onAdd }: any) => (
   <div className="flex items-center gap-2 py-1 border-b border-pen-blue/5">
     <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
       <Icon className="h-3.5 w-3.5 text-pen-blue/40" />
@@ -345,13 +398,15 @@ const StatItem = ({ icon: Icon, label, value, max, showAdd, onAdd }: any) => (
     <div className="flex-1 h-1.5 bg-black/5 rounded-full overflow-hidden mx-1">
       <motion.div 
         initial={{ width: 0 }}
-        animate={{ width: `${Math.min(((value || 0) / max) * 100, 100)}%` }}
+        animate={{ width: `${Math.min((((value || 0) + (passiveBonus || 0)) / max) * 100, 100)}%` }}
         className="h-full bg-pen-blue opacity-40"
       />
     </div>
-    <div className="flex items-center gap-2 min-w-[70px] justify-end">
-      <span className="text-[12px] font-black tabular-nums" style={{ color: '#0047ac' }}>
-        {value || 0} <span className="text-pen-blue/20 text-[10px]">/ {max}</span>
+    <div className="flex items-center gap-2 min-w-[100px] justify-end">
+      <span className="text-[11px] font-black tabular-nums" style={{ color: '#0047ac' }}>
+        {value || 0} 
+        {passiveBonus > 0 && <span className="text-green-600 ml-0.5"> (+{passiveBonus})</span>}
+        <span className="text-pen-blue/20 text-[9px] ml-1">/ {max}</span>
       </span>
       {showAdd && (
           <button 

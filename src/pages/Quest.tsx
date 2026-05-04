@@ -5,7 +5,7 @@ import { GlassCard, NeonButton, HandwrittenText } from '../components/UI';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, Compass, ArrowLeft, Trophy, Coins, Box } from 'lucide-react';
 import { generateQuest, generateBonusItem } from '../services/aiService';
-import { getQuestRewardExp, getNextLevelReward, checkLevelUp } from '../lib/gameLogic';
+import { checkLevelUp, getBattleRewards } from '../lib/gameLogic';
 import { HandDrawnTimer } from '../components/HandDrawnTimer';
 
 export const Quest: React.FC<{ 
@@ -65,8 +65,7 @@ export const Quest: React.FC<{
     if (!pet) return;
     // Determine success/failure for reward calculation
     const isSuccess = Math.random() > 0.3; // 70% success rate for quests
-    const calculatedXP = getQuestRewardExp(pet.level, isSuccess);
-    const calculatedRubles = Math.floor(calculatedXP * 0.5); // Rubles derived from XP effort
+    const { xp: calculatedXP, rubles: calculatedRubles } = getBattleRewards(pet.level, isSuccess, 1);
 
     // TZ Rewards Distribution:
     // 1. Nothing 50%
@@ -195,8 +194,7 @@ export const Quest: React.FC<{
               {quest?.options?.map((opt: any, i: number) => {
                 if (!opt) return null;
                 const isSuccess = i % 2 === 0; // Simple pattern for UI preview
-                const previewXP = getNextLevelReward(pet?.level || 1, isSuccess);
-                const previewRubles = Math.floor(previewXP * 0.5);
+                const { xp: previewXP, rubles: previewRubles } = getBattleRewards(pet?.level || 1, isSuccess, 1);
                 
                 return (
                   <button 

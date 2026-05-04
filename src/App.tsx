@@ -248,7 +248,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
       const result = await generatePetStatsAndLore(userProfile, forcedRarity);
       if (!result) throw new Error("Не удалось получить ответ от эфира.");
 
-      const { name, abilities, lore, classification, element, attribute } = result;
+      const { name, abilities, skills, lore, classification, element, attribute } = result;
       const petId = Math.random().toString(36).substr(2, 9);
       
       const art = await generatePetArt({ 
@@ -277,6 +277,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
           genus: "Неизвестно",
           species: "Неизвестно"
         }, 
+        skills: skills || [],
         abilities: abilities || ["Базовая Атака"], 
         lore: lore || "Легенда еще не написана.", 
         level: 1, 
@@ -512,10 +513,36 @@ export default function App() {
             lore: p.lore || "Легенда еще не написана.",
             ...p,
             stats,
+            skills: p.skills || [
+              { 
+                id: 'p1', 
+                name: 'Титаническая Стойкость', 
+                description: 'Питомец напрягает свои мощные грудные мышцы, создавая живой щит. Это позволяет ему игнорировать часть урона и быть более устойчивым в затяжных боях.', 
+                type: 'passive', 
+                targetStat: 'defense', 
+                value: 10 
+              },
+              { 
+                id: 'a1', 
+                name: 'Яростный Резонанс', 
+                description: 'Питомец входит в состояние боевого транса, вибрируя всем телом. Каждое движение становится быстрее и мощнее, вкладывая накопленную энергию в следующий удар.', 
+                type: 'active_buff', 
+                targetStat: 'attack', 
+                value: 11 
+              },
+              { 
+                id: 'd1', 
+                name: 'Парализующий Крик', 
+                description: 'Резкий высокочастотный звук бьет по барабанным перепонкам врага. Соперник теряет концентрацию и его мышцы немеют, что значительно снижает его наступательный потенциал.', 
+                type: 'active_debuff', 
+                targetStat: 'attack', 
+                value: 25 
+              }
+            ],
+            abilities: [], // Clear old abilities as requested
             level: p.level || 1,
             experience: p.experience || 0,
             statPoints: typeof p.statPoints === 'number' ? p.statPoints : 0,
-            abilities: Array.isArray(p.abilities) ? p.abilities : ["Базовая Атака"],
             classification: p.classification || { 
               type: "Неизвестно", class: "Неизвестно", order: "Неизвестно", 
               family: "Неизвестно", genus: "Неизвестно", species: "Неизвестно" 
