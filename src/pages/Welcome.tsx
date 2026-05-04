@@ -41,7 +41,7 @@ export const Welcome: React.FC<{ onSetup?: () => void; side?: 'left' | 'right' }
       <div className="pt-4 flex flex-col items-center gap-4">
         <NeonButton 
           onClick={onSetup}
-          className="bg-sticker-yellow font-black px-12 py-4 border-2 border-black rotate-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:rotate-1 transition-all"
+          className="bg-sticker-yellow font-black px-12 py-4 border-2 border-black rotate-2 hover:rotate-1 transition-all"
         >
           Начать
         </NeonButton>

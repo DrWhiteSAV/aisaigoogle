@@ -144,7 +144,7 @@ export const Evolve: React.FC<{
                            <img src={pet.image} className="h-full w-full object-cover group-hover:scale-110 transition-all duration-700" />
                         </div>
                         {evolving && (
-                          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/40 backdrop-blur-[2px] z-20 rounded-full">
+                          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/40 z-20 rounded-full text-center p-4">
                              <TrendingUp className="h-10 w-10 text-pen-blue animate-bounce" />
                              <span className="text-[12px] font-black text-pen-blue">Сенситизация...</span>
                           </div>

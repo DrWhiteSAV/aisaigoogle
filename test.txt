@@ -1,0 +1,1 @@
+        {!context?.playerPet ? "Выберите питомца" : "Инициализа�  const BattleCard = ({ pet, currentHp, maxHp, isPlayer, isHit, isAttacking, isRegen, isTop }: { pet: Pet, currentHp: number, maxHp: number, isPlayer: boolean, isHit?: boolean, isAttacking?: boolean, isRegen?: boolean, isTop?: boolean }) => {

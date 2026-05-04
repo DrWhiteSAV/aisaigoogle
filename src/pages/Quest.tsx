@@ -154,7 +154,7 @@ export const Quest: React.FC<{
             className="w-full flex flex-col items-center justify-center flex-1 space-y-12"
           >
             <div className="relative">
-              <div className="absolute inset-0 bg-sticker-yellow/20 blur-3xl rounded-full animate-pulse" />
+              <div className="absolute inset-0 bg-sticker-yellow/10 rounded-full animate-pulse" />
               <Compass className="h-32 w-32 text-pen-blue animate-spin-slow relative z-10" strokeWidth={1} />
             </div>
             

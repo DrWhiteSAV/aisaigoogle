@@ -545,6 +545,13 @@ export default function App() {
     <BrowserRouter>
       <div className="min-h-screen relative selection:bg-sticker-blue selection:text-pen-blue">
         <BackgroundDoodles />
+        <svg width="0" height="0" className="absolute invisible">
+          <defs>
+            <pattern id="sketch-hatch-pattern" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
+              <line x1="0" y1="0" x2="0" y2="8" stroke="rgba(0, 71, 171, 0.1)" strokeWidth="1" />
+            </pattern>
+          </defs>
+        </svg>
         <AnimatedRoutes hasPets={hasPets} progress={progress} setProgress={setProgress} handleAddNewPet={handleAddNewPet} />
       </div>
     </BrowserRouter>

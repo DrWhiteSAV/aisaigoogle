@@ -20,7 +20,7 @@ export const Main: React.FC<{
   const { id: paramsId } = useParams();
   const activeId = manualActiveId || paramsId;
   const [timeLeft, setTimeLeft] = useState("");
-  const [modalType, setModalType] = useState<{ element?: Element, attribute?: Attribute, rank?: boolean, fullScreenImage?: string } | null>(null);
+  const [modalType, setModalType] = useState<{ element?: Element, attribute?: Attribute, rank?: boolean, rarity?: boolean, fullScreenImage?: string } | null>(null);
 
   const petCount = progress.pets.length;
 
@@ -108,6 +108,7 @@ export const Main: React.FC<{
                  pet={pet} 
                  onClick={() => navigate(`/pet/${pet.id}`)}
                  onOpenRankInfo={() => setModalType({ rank: true })}
+                 onOpenRarityInfo={() => setModalType({ rarity: true })}
                  onOpenImage={() => setModalType({ fullScreenImage: pet.image })}
                  onOpenElementInfo={(el) => setModalType({ element: el })}
                  onOpenAttributeInfo={(attr) => setModalType({ attribute: attr })}
@@ -134,7 +135,7 @@ export const Main: React.FC<{
       <InfoModal 
         isOpen={!!modalType} 
         onClose={() => setModalType(null)}
-        title={modalType?.rank ? "Ранг Сущности" : modalType?.element ? "Узы Элемента" : "Суть Атрибута"}
+        title={modalType?.rank ? "Ранг Сущности" : modalType?.rarity ? "Аналитика Потенциала" : modalType?.element ? "Узы Элемента" : "Суть Атрибута"}
         showClose={true}
         plain={!!modalType?.fullScreenImage}
       >
@@ -173,6 +174,36 @@ export const Main: React.FC<{
                   )}>
                     <span className="text-[10px] font-black">{r.range}</span>
                     <span className="text-xs font-black text-pen-blue">{r.code} - {r.label}</span>
+                  </div>
+                ))}
+             </div>
+          </div>
+        ) : modalType?.rarity ? (
+          <div className="space-y-4">
+             <p className="text-sm font-black text-pen-blue/70 leading-relaxed border-b border-black/5 pb-4">
+                Начальные характеристики и потенциал роста зависят от редкости питомца:
+             </p>
+             <div className="grid grid-cols-1 gap-2">
+                {[
+                  { label: "Обычный", base: 20, growth: 5 },
+                  { label: "Продвинутый", base: 50, growth: 10 },
+                  { label: "Редкий", base: 100, growth: 15 },
+                  { label: "Идеальный", base: 200, growth: 20 },
+                  { label: "Эпический", base: 300, growth: 25 },
+                  { label: "Легендарный", base: 400, growth: 30 },
+                  { label: "Мифический", base: 500, growth: 35 },
+                  { label: "Вечный", base: 600, growth: 40 },
+                  { label: "Божественный", base: 800, growth: 45 },
+                  { label: "Трансцендентный", base: 1000, growth: 50 }
+                ].map((r, i) => (
+                  <div key={i} className={cn(
+                    "flex items-center justify-between p-2 border-2 transition-all",
+                    progress.pets.some(p => RARITY_LABELS[p.rarity] === r.label)
+                      ? "bg-sticker-pink border-black rotate-1"
+                      : "border-black/5 opacity-40"
+                  )}>
+                    <span className="text-[10px] font-black">{r.label}</span>
+                    <span className="text-xs font-black text-pen-blue">{r.base} / +{r.growth} lvl</span>
                   </div>
                 ))}
              </div>

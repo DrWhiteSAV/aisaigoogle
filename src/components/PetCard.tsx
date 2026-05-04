@@ -12,6 +12,7 @@ interface PetCardProps {
   pet: Pet;
   onClick?: () => void;
   onOpenRankInfo?: (e: React.MouseEvent) => void;
+  onOpenRarityInfo?: (e: React.MouseEvent) => void;
   onOpenImage?: (e: React.MouseEvent) => void;
   onOpenElementInfo?: (element: Element, e: React.MouseEvent) => void;
   onOpenAttributeInfo?: (attribute: Attribute, e: React.MouseEvent) => void;
@@ -26,6 +27,7 @@ export const PetCard: React.FC<PetCardProps> = ({
   pet, 
   onClick, 
   onOpenRankInfo,
+  onOpenRarityInfo,
   onOpenImage,
   onOpenElementInfo,
   onOpenAttributeInfo,
@@ -58,10 +60,19 @@ export const PetCard: React.FC<PetCardProps> = ({
 
       {/* Rarity Tag - No shadow, rarity color border */}
       <div 
-        className="absolute -top-2 -left-3 z-[60] border-2 px-2 py-0.5 -rotate-3 pointer-events-none"
+        className="absolute -top-2 -left-3 z-[60] border-2 px-2 py-0.5 -rotate-3 cursor-pointer hover:scale-105 transition-transform"
         style={{ backgroundColor: rarityStyle.bgColor, color: rarityStyle.color, borderColor: rarityStyle.color }}
+        onClick={(e) => { e.stopPropagation(); onOpenRarityInfo?.(e); }}
       >
         <span className="text-[8px] font-black uppercase">{RARITY_LABELS[pet.rarity]}</span>
+      </div>
+
+      {/* Large Rank Letter - Positioned below the rarity tag on the left edge */}
+      <div 
+        className="absolute top-8 -left-4 z-[70] cursor-pointer hover:scale-110 transition-transform"
+        onClick={(e) => { e.stopPropagation(); onOpenRankInfo?.(e); }}
+      >
+        <span className="text-5xl font-black italic select-none leading-none tracking-tighter" style={{ color: '#0047ab', WebkitTextStroke: '0px transparent' }}>{rankLetter}</span>
       </div>
 
       <div 
@@ -89,11 +100,11 @@ export const PetCard: React.FC<PetCardProps> = ({
               className="absolute inset-x-0 bottom-0 h-[40%] bg-gradient-to-t from-stone-50 via-stone-50/80 to-transparent pointer-events-none" 
             />
 
-            {/* Vignette Effect (Color insets) */}
+            {/* Vignette Effect (Color insets) - Removed blur to keep it crisp */}
             <div 
               className="absolute inset-0 pointer-events-none z-10"
               style={{ 
-                boxShadow: `inset 0 0 48px 8px ${rarityStyle.color}66`
+                border: `inset 4px ${rarityStyle.color}22`
               }}
             />
           </div>
@@ -122,7 +133,7 @@ export const PetCard: React.FC<PetCardProps> = ({
                 <div className="flex justify-between items-end gap-2 mb-1">
                   <h3 
                     className={cn(
-                      "font-black text-pen-blue leading-none truncate drop-shadow-sm",
+                      "font-black text-pen-blue leading-none truncate",
                       pet.name.length > 20 ? "text-[10px]" : 
                       pet.name.length > 15 ? "text-xs" : 
                       "text-sm"
@@ -130,10 +141,13 @@ export const PetCard: React.FC<PetCardProps> = ({
                   >
                     {pet.name}
                   </h3>
-                  <span className="text-[18px] font-black text-pen-blue whitespace-nowrap leading-none drop-shadow-sm">LVL {pet.level}</span>
+                  <span className="text-[18px] font-black text-pen-blue whitespace-nowrap leading-none">LVL {pet.level}</span>
                 </div>
                 
-                <div className="flex items-center justify-between text-[14px] font-black text-pen-blue italic leading-tight">
+                <div 
+                  className="flex items-center justify-between text-[14px] font-black text-pen-blue italic leading-tight cursor-pointer hover:opacity-60 transition-opacity"
+                  onClick={(e) => { e.stopPropagation(); onOpenRankInfo?.(e); }}
+                >
                   <span className="opacity-80">{pet.ageStage.split(' - ')[1] || pet.ageStage}</span>
                   <span className="opacity-80">{pet.experience}/{expNeeded} XP</span>
                 </div>
@@ -166,7 +180,7 @@ export const PetCard: React.FC<PetCardProps> = ({
         {/* Top Right Zoom Button */}
         <button 
           onClick={(e) => { e.stopPropagation(); onOpenImage?.(e); }}
-          className="absolute top-[-14px] right-12 z-50 p-1.5 bg-sticker-yellow border-2 rounded-full text-pen-blue hover:bg-white hover:scale-120 transition-all rotate-[-3deg] active:scale-95 shadow-sm"
+          className="absolute top-[-14px] right-12 z-50 p-1.5 bg-sticker-yellow border-2 rounded-full text-pen-blue hover:bg-white hover:scale-120 transition-all rotate-[-3deg] active:scale-95"
           style={{ borderColor: rarityStyle.color }}
           title="Просмотр"
         >

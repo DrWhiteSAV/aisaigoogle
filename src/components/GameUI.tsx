@@ -19,13 +19,13 @@ export const ElementSticker: React.FC<{
     <button 
       onClick={onClick}
       className={cn(
-        "flex items-center gap-1.5 transition-all bg-stone-50/40 backdrop-blur-md rounded-lg px-2 py-0.5 border border-white/20 shadow-sm",
+        "flex items-center gap-1.5 transition-all bg-stone-50/40 rounded-lg px-2 py-0.5 border border-white/20",
         className
       )}
       style={{ color: data.color }}
     >
       <Icon className="h-6 w-6" />
-      {showLabel && <span className="text-[20px] font-black drop-shadow-sm">{data.label}</span>}
+      {showLabel && <span className="text-[20px] font-black">{data.label}</span>}
     </button>
   );
 };
@@ -43,13 +43,13 @@ export const AttributeSticker: React.FC<{
     <button 
       onClick={onClick}
       className={cn(
-        "flex items-center gap-1.5 transition-all bg-stone-50/40 backdrop-blur-md rounded-lg px-2 py-0.5 border border-white/20 shadow-sm",
+        "flex items-center gap-1.5 transition-all bg-stone-50/40 rounded-lg px-2 py-0.5 border border-white/20",
         className
       )}
       style={{ color: data.color }}
     >
       <Icon className="h-6 w-6" />
-      {showLabel && <span className="text-[20px] font-black drop-shadow-sm">{data.label}</span>}
+      {showLabel && <span className="text-[20px] font-black">{data.label}</span>}
     </button>
   );
 };
@@ -106,7 +106,7 @@ export const InfoModal: React.FC<{
             </button>
           )}
           {!plain && <h3 className="text-2xl font-black text-pen-blue mb-4 tracking-tight">{title}</h3>}
-          <div className={plain ? "flex items-center justify-center overflow-hidden rounded-lg shadow-2xl max-h-[85vh] aspect-[9/16]" : "space-y-4"}>
+          <div className={plain ? "flex items-center justify-center overflow-hidden rounded-lg max-h-[85vh] aspect-[9/16]" : "space-y-4"}>
             {children}
           </div>
         </motion.div>

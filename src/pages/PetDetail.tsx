@@ -115,6 +115,7 @@ export const PetDetail: React.FC<{
             pet={pet} 
             className="w-full max-w-[320px]"
             onOpenRankInfo={() => setModalType({ rank: true })}
+            onOpenRarityInfo={() => setModalType({ stats: true })}
             onOpenImage={() => setModalType({ fullScreenImage: pet.image })}
             onOpenElementInfo={(el) => setModalType({ element: el })}
             onOpenAttributeInfo={(attr) => setModalType({ attribute: attr })}
@@ -126,88 +127,19 @@ export const PetDetail: React.FC<{
         
         <div className="space-y-6 w-full text-center">
           {/* Section title (Pet Name removed as requested to avoid duplication) */}
-          <div className="flex justify-center gap-8 mb-2">
-            <button 
-              onClick={() => navigate(`/pet/${id}`)}
-              className={cn(
-                "pb-1 border-b-2 font-black transition-all text-base px-2",
-                activeTab === 'stats' ? "border-pen-blue text-pen-blue scale-110" : "border-transparent text-pen-blue/20 hover:text-pen-blue/40"
-              )}
-            >
-              Параметры
-            </button>
-            <button 
-              onClick={() => navigate(`/inventory/${id}`)}
-              className={cn(
-                "pb-1 border-b-2 font-black transition-all text-base px-2",
-                activeTab === 'inventory' ? "border-pen-blue text-pen-blue scale-110" : "border-transparent text-pen-blue/20 hover:text-pen-blue/40"
-              )}
-            >
-              Инвентарь
-            </button>
-          </div>
+          {/* Tabs removed as requested - navigation handled by action buttons */}
+
 
           <AnimatePresence mode="wait">
               {activeTab === 'stats' ? (
                 <motion.div 
                    key="stats" 
-                   initial={{ opacity: 0, rotateY: -30, x: -50, filter: 'blur(10px)' }} 
-                   animate={{ opacity: 1, rotateY: 0, x: 0, filter: 'blur(0px)' }} 
-                   exit={{ opacity: 0, rotateY: 30, x: 50, filter: 'blur(10px)' }}
+                   initial={{ opacity: 0, rotateY: -30, x: -50 }} 
+                   animate={{ opacity: 1, rotateY: 0, x: 0 }} 
+                   exit={{ opacity: 0, rotateY: 30, x: 50 }}
                    transition={{ type: "spring", damping: 25, stiffness: 120 }}
                    className="space-y-6"
                 >
-                   <div className="border-4 border-pen-blue p-4 sm:px-6 rounded-sm bg-white/50 ledger-grid shadow-[8px_8px_0px_0px_rgba(28,49,152,0.1)]">
-                      <div className="flex items-center justify-between mb-2 border-b-2 border-pen-blue pb-1">
-                         <div className="flex items-center gap-2 text-pen-blue">
-                            <Sword className="h-4 w-4" />
-                            <span className="text-base font-black italic tracking-tighter">Характеристики</span>
-                         </div>
-                         {pet.statPoints > 0 && (
-                            <div className="bg-pen-red text-white px-2 py-0.5 rounded-full text-[10px] font-black animate-pulse">
-                               +{pet.statPoints} очков
-                            </div>
-                         )}
-                      </div>
-                      
-                      <div className="grid grid-cols-1 gap-1 px-1">
-                        <StatItem icon={Heart} label="Здоровье" value={pet.stats.health} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('health')} />
-                        <StatItem icon={Sword} label="Атака" value={pet.stats.attack} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('attack')} />
-                        <StatItem icon={Shield} label="Защита" value={pet.stats.defense} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('defense')} />
-                        <StatItem icon={Zap} label="Скорость" value={pet.stats.speed} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('speed')} />
-                        <StatItem icon={Brain} label="Магия" value={pet.stats.magic} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('magic')} />
-                        <StatItem icon={Activity} label="Регенерация" value={pet.stats.regeneration} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('regeneration')} />
-                      </div>
-                   </div>
-
-                   <div className="border-2 border-pen-blue/10 p-6 rounded-sm bg-white/30">
-                      <div className="flex items-center justify-between mb-6 border-b border-pen-blue/10 pb-4">
-                         <div className="flex items-center gap-2 text-pen-blue/60">
-                            <Compass className="h-4 w-4" />
-                            <span className="text-sm font-black italic">Биологическая сводка</span>
-                         </div>
-                      </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                         <ClassificationItem label="Тип" value={pet.classification?.type} />
-                         <ClassificationItem label="Класс" value={pet.classification?.class} />
-                         <ClassificationItem label="Отряд" value={pet.classification?.order} />
-                         <ClassificationItem label="Семейство" value={pet.classification?.family} />
-                         <ClassificationItem label="Род" value={pet.classification?.genus} />
-                         <ClassificationItem label="Вид" value={pet.classification?.species} />
-                      </div>
-                   </div>
-
-                   <GlassCard color="pink" className="border-2 border-black/5 space-y-4">
-                      <h3 className="text-sm font-black text-pen-blue/60 tracking-tight">Навыки души</h3>
-                      <div className="flex flex-wrap gap-2">
-                         {pet.abilities.map((a, i) => (
-                            <span key={i} className="px-3 py-1.5 bg-white border-2 border-black text-xs font-black italic -rotate-1">
-                               {a}
-                            </span>
-                         ))}
-                      </div>
-                   </GlassCard>
-
                    <div className="grid grid-cols-2 gap-4">
                       <NeonButton onClick={() => {
                          setProgress(p => ({ ...p, activePetId: pet.id }));
@@ -233,6 +165,57 @@ export const PetDetail: React.FC<{
                       </NeonButton>
                    </div>
 
+                   <div className="border-2 border-pen-blue p-4 sm:px-6 rounded-sm bg-white/50 ledger-grid">
+                      <div className="flex items-center justify-between mb-2 border-b-2 border-pen-blue pb-1">
+                         <div className="flex items-center gap-2 text-pen-blue">
+                            <Sword className="h-4 w-4" />
+                            <span className="text-base font-black italic tracking-tighter">Характеристики</span>
+                         </div>
+                         {pet.statPoints > 0 && (
+                            <div className="bg-pen-red text-white px-2 py-0.5 rounded-full text-[10px] font-black animate-pulse">
+                               +{pet.statPoints} очков
+                            </div>
+                         )}
+                      </div>
+                      
+                      <div className="grid grid-cols-1 gap-1 px-1">
+                        <StatItem icon={Heart} label="Здоровье" value={pet.stats.health} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('health')} />
+                        <StatItem icon={Sword} label="Атака" value={pet.stats.attack} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('attack')} />
+                        <StatItem icon={Shield} label="Защита" value={pet.stats.defense} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('defense')} />
+                        <StatItem icon={Zap} label="Скорость" value={pet.stats.speed} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('speed')} />
+                        <StatItem icon={Brain} label="Магия" value={pet.stats.magic} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('magic')} />
+                        <StatItem icon={Activity} label="Регенерация" value={pet.stats.regeneration} max={999} showAdd={pet.statPoints > 0} onAdd={() => allocatePoint('regeneration')} />
+                      </div>
+                   </div>
+
+                   <div className="bg-sticker-yellow border-2 border-pen-blue p-6 rounded-sm rotate-1 mt-4">
+                      <div className="flex items-center justify-between mb-6 border-b border-pen-blue/20 pb-4">
+                         <div className="flex items-center gap-2 text-pen-blue">
+                            <Compass className="h-4 w-4" />
+                            <span className="text-sm font-black italic">Биологическая сводка</span>
+                         </div>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                         <ClassificationItem label="Тип" value={pet.classification?.type} />
+                         <ClassificationItem label="Класс" value={pet.classification?.class} />
+                         <ClassificationItem label="Отряд" value={pet.classification?.order} />
+                         <ClassificationItem label="Семейство" value={pet.classification?.family} />
+                         <ClassificationItem label="Род" value={pet.classification?.genus} />
+                         <ClassificationItem label="Вид" value={pet.classification?.species} />
+                      </div>
+                   </div>
+
+                   <GlassCard color="pink" className="border-2 border-black/5 space-y-4">
+                      <h3 className="text-sm font-black text-pen-blue/60 tracking-tight">Навыки души</h3>
+                      <div className="flex flex-wrap gap-2">
+                         {pet.abilities.map((a, i) => (
+                            <span key={i} className="px-3 py-1.5 bg-white border-2 border-black text-xs font-black italic -rotate-1">
+                               {a}
+                            </span>
+                         ))}
+                      </div>
+                   </GlassCard>
+
                    <GlassCard key={`lore-${pet.id}-${Date.now()}`} color="blue" rotation={-1} className="border-2 border-black/5 p-4 mt-4">
                       <div className="text-base leading-relaxed text-pen-blue/80">
                          <HandwrittenText text={pet.lore} delay={0.2} speed={25} />
@@ -242,9 +225,9 @@ export const PetDetail: React.FC<{
               ) : (
                 <motion.div 
                    key="inventory" 
-                   initial={{ opacity: 0, rotateY: 30, x: 50, filter: 'blur(10px)' }} 
-                   animate={{ opacity: 1, rotateY: 0, x: 0, filter: 'blur(0px)' }} 
-                   exit={{ opacity: 0, rotateY: -30, x: -50, filter: 'blur(10px)' }}
+                   initial={{ opacity: 0, rotateY: 30, x: 50 }} 
+                   animate={{ opacity: 1, rotateY: 0, x: 0 }} 
+                   exit={{ opacity: 0, rotateY: -30, x: -50 }}
                    transition={{ type: "spring", damping: 25, stiffness: 120 }}
                    className="grid grid-cols-2 gap-4"
                 >
@@ -367,21 +350,19 @@ const StatItem = ({ icon: Icon, label, value, max, showAdd, onAdd }: any) => (
       />
     </div>
     <div className="flex items-center gap-2 min-w-[70px] justify-end">
-      <span className="text-sm font-black text-pen-blue tabular-nums">
+      <span className="text-[12px] font-black tabular-nums" style={{ color: '#0047ac' }}>
         {value || 0} <span className="text-pen-blue/20 text-[10px]">/ {max}</span>
       </span>
       {showAdd && (
-        <motion.button 
-          whileHover={{ scale: 1.2 }}
-          whileTap={{ scale: 0.8 }}
-          onClick={(e) => {
-            e.stopPropagation();
-            onAdd();
-          }}
-          className="h-5 w-5 bg-white border-2 border-pen-blue flex items-center justify-center shadow-[1px_1px_0px_0px_rgba(28,49,152,1)] hover:bg-sticker-yellow transition-colors relative z-[100] cursor-pointer"
-        >
-          <Plus className="h-3 w-3 text-pen-blue" strokeWidth={4} />
-        </motion.button>
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              onAdd();
+            }}
+            className="h-5 w-5 bg-white border-2 border-pen-blue flex items-center justify-center hover:bg-sticker-yellow transition-colors relative z-[100] cursor-pointer"
+          >
+            <Plus className="h-3 w-3 text-pen-blue" strokeWidth={4} />
+          </button>
       )}
     </div>
   </div>
@@ -389,7 +370,7 @@ const StatItem = ({ icon: Icon, label, value, max, showAdd, onAdd }: any) => (
 
 const ClassificationItem = ({ label, value }: { label: string, value?: string }) => (
   <div className="space-y-0.5">
-    <div className="text-[10px] font-black text-pen-blue/30">{label}</div>
-    <div className="text-sm font-black text-pen-blue truncate">{value || '---'}</div>
+    <div className="font-black" style={{ color: '#0047ab', fontSize: '12px' }}>{label}</div>
+    <div className="text-[12px] font-black text-pen-blue truncate">{value || '---'}</div>
   </div>
 );

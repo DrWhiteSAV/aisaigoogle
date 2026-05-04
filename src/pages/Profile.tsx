@@ -69,13 +69,13 @@ export const Profile: React.FC<{
         {/* Reset Confirmation Overlay */}
         <AnimatePresence>
            {showResetConfirm && (
-              <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+              <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/40">
                  <motion.div 
                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
                    animate={{ opacity: 1, scale: 1, y: 0 }}
                    exit={{ opacity: 0, scale: 0.9, y: 20 }}
                    transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                   className="relative max-w-sm w-full bg-[#f2ede0] ledger-grid border-4 border-pen-red p-8 text-center space-y-6 rotate-1 shadow-2xl"
+                   className="relative max-w-sm w-full bg-[#f2ede0] ledger-grid border-4 border-pen-red p-8 text-center space-y-6 rotate-1"
                  >
                     <div className="h-16 w-16 bg-transparent border-2 border-pen-red rounded-full flex items-center justify-center mx-auto">
                        <Trash2 className="h-8 w-8 text-pen-red" />
@@ -84,12 +84,12 @@ export const Profile: React.FC<{
                     <p className="text-xs font-black text-pen-blue/70 leading-relaxed">Все ваши достижения и существа будут стерты навсегда.</p>
                     
                     <div className="flex flex-col items-center gap-2 pt-4">
-                       <NeonButton onClick={handleReset} className="bg-pen-red text-white py-4 font-black text-lg border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] px-10">
+                       <NeonButton onClick={handleReset} className="bg-pen-red text-white py-4 font-black text-lg border-2 border-black px-10">
                           Да, стереть
                        </NeonButton>
                        <button 
                          onClick={() => setShowResetConfirm(false)}
-                         className="font-black text-xs text-pen-blue/60 border-2 border-pen-blue/20 px-8 py-3 bg-white/20 hover:bg-white/40 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,0.05)]"
+                         className="font-black text-xs text-pen-blue/60 border-2 border-pen-blue/20 px-8 py-3 bg-white/20 hover:bg-white/40 transition-colors"
                        >
                           Отмена
                        </button>

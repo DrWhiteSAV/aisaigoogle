@@ -44,7 +44,7 @@ const EditModal: React.FC<EditModalProps> = ({
     <AnimatePresence>
       {editingField && (
         <div 
-          className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/40"
           onMouseDown={(e) => {
             e.stopPropagation();
             e.nativeEvent.stopImmediatePropagation();
@@ -58,7 +58,7 @@ const EditModal: React.FC<EditModalProps> = ({
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             onMouseDown={(e) => e.stopPropagation()}
             className={cn(
-              "w-full bg-[#f2ede0] ledger-grid border-2 border-pen-blue p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] rotate-1 pointer-events-auto relative",
+              "w-full bg-[#f2ede0] ledger-grid border-2 border-pen-blue p-8 rotate-1 pointer-events-auto relative",
               isTagField ? "max-w-2xl h-[80vh] flex flex-col" : "max-w-md"
             )}
           >
@@ -130,7 +130,7 @@ const EditModal: React.FC<EditModalProps> = ({
                   <span className="text-sm font-black text-pen-blue/40">Выбрано: {currentList.length}/{limit}</span>
                   <button 
                     onClick={onClose}
-                    className="px-8 py-3 bg-pen-blue text-white font-black hover:brightness-110 shadow-[3px_3px_0px_0px_rgba(0,0,0,0.1)] border-2 border-pen-blue"
+                    className="px-8 py-3 bg-pen-blue text-white font-black hover:brightness-110 border-2 border-pen-blue"
                   >
                     Готово
                   </button>
@@ -160,13 +160,13 @@ const EditModal: React.FC<EditModalProps> = ({
                 <div className="flex gap-4">
                   <button 
                     onClick={saveEditModal}
-                    className="flex-1 py-4 bg-pen-blue text-white font-black border-2 border-pen-blue hover:brightness-110 shadow-[3px_3px_0px_0px_rgba(0,0,0,0.1)]"
+                    className="flex-1 py-4 bg-pen-blue text-white font-black border-2 border-pen-blue hover:brightness-110"
                   >
                     Принять
                   </button>
                   <button 
                     onClick={onClose}
-                    className="flex-1 py-4 bg-white/40 border-2 border-pen-blue text-pen-blue font-black hover:bg-black/5 shadow-[3px_3px_0px_0px_rgba(0,0,0,0.1)]"
+                    className="flex-1 py-4 bg-white/40 border-2 border-pen-blue text-pen-blue font-black hover:bg-black/5"
                   >
                     Отмена
                   </button>
@@ -398,7 +398,7 @@ export const Setup: React.FC<{
                 setShowRetry(false);
                 if (onStartSummon) onStartSummon();
               }}
-              className="px-6 py-3 bg-pen-red text-white text-xs font-black rotate-1 shadow-lg border-2 border-black"
+              className="px-6 py-3 bg-pen-red text-white text-xs font-black rotate-1 border-2 border-black"
             >
               Повторить генерацию
             </button>
@@ -528,7 +528,7 @@ export const Setup: React.FC<{
                 onClick={handleNext} 
                 disabled={!isStep1Valid}
                 className={cn(
-                  "py-5 text-lg font-black transition-all shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] border-2 border-black px-10",
+                  "py-5 text-lg font-black transition-all border-2 border-black px-10",
                   !isStep1Valid ? "opacity-20 grayscale cursor-not-allowed text-black/10" : "bg-sticker-yellow"
                 )}
               >
