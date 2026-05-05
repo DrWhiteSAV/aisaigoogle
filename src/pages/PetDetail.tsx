@@ -190,15 +190,21 @@ export const PetDetail: React.FC<{
                          <span>Инвентарь</span>
                       </NeonButton>
                       
-                      {isEvolutionReady && (
-                        <NeonButton 
-                          onClick={() => navigate(`/evolve/${pet.id}`)} 
-                          className="py-3 text-sm px-4 flex-1 transition-all duration-500 bg-pen-red text-white border-none animate-pulse scale-105 shadow-[0_0_20px_rgba(196,30,58,0.5)]"
-                        >
-                           <Sparkles className="h-4 w-4 mr-2 text-white" />
-                           <span>Эволюция</span>
-                        </NeonButton>
-                      )}
+                      <NeonButton 
+                        onClick={() => {
+                          if (isEvolutionReady) navigate(`/evolve/${pet.id}`);
+                        }} 
+                        disabled={!isEvolutionReady}
+                        className={cn(
+                          "py-3 text-sm px-4 flex-1 transition-all duration-500 border-none",
+                          isEvolutionReady 
+                            ? "bg-pen-red text-white animate-pulse scale-105 shadow-[0_0_20px_rgba(196,30,58,0.5)]" 
+                            : "bg-transparent border-2 border-pen-blue text-pen-blue opacity-40 cursor-default shadow-none scale-100"
+                        )}
+                      >
+                         <Sparkles className={cn("h-4 w-4 mr-2", isEvolutionReady ? "text-white" : "text-pen-blue")} />
+                         <span>Эволюция</span>
+                      </NeonButton>
                    </div>
 
                    <div className="border-2 border-pen-blue p-4 sm:px-6 rounded-sm bg-white/50 ledger-grid">

@@ -13,6 +13,7 @@ import { Quest } from './pages/Quest';
 import { Battle } from './pages/Battle';
 import { Market as Shop } from './pages/Market';
 import { Evolve } from './pages/Evolve';
+import { Gallery } from './pages/Gallery';
 import { PetDetail } from './pages/PetDetail';
 import { Profile } from './pages/Profile';
 import { TopUp } from './pages/TopUp';
@@ -183,6 +184,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
     '/inventory': 6,
     '/battle': 8,
     '/evolve': 10,
+    '/gallery': 12,
     '/quest': 12,
     '/shop': 14,
     '/summon': 16,
@@ -196,7 +198,13 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
     if (path === '/' || path === '/start') return 0;
     if (path === '/setup') return 2;
     if (path.startsWith('/pet/') || path === '/main') return 4;
-    // Everything else (inventory, battle, shop, etc) is on Page 6 (the dynamic section)
+    
+    if (path.startsWith('/gallery')) {
+      const match = path.match(/\/gallery\/(\d+)/);
+      const pageNum = match ? parseInt(match[1]) : 1;
+      return 6 + (pageNum - 1) * 2;
+    }
+    
     return 6;
   };
 
@@ -358,21 +366,18 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
       const currentPath = location.pathname;
       const currentBasePage = getPageFromPath(currentPath);
       
-      // BLOCK FORWARD FROM ACTION PAGE (Absolute end of book)
-      if (currentBasePage === 6 && newIndex > 7) {
-        if (flipBookRef.current) {
-          (flipBookRef.current as any).pageFlip().flip(6);
-        }
-        return;
-      }
-
       if (currentBasePage !== targetBaseIndex) {
         if (targetBaseIndex === 0) navigate('/start');
         else if (targetBaseIndex === 2) navigate('/setup');
         else if (targetBaseIndex === 4) navigate(`/pet/${activePetId}`);
-        else if (targetBaseIndex === 6) {
-           // Default action when flipping forward from Hub
-           navigate(`/inventory/${activePetId}`);
+        else if (targetBaseIndex >= 6) {
+           if (currentPath.startsWith('/gallery')) {
+              const galleryPage = (targetBaseIndex - 6) / 2 + 1;
+              navigate(`/gallery/${galleryPage}`);
+           } else if (targetBaseIndex === 6) {
+              // Default action when flipping forward from Hub
+              navigate(`/inventory/${activePetId}`);
+           }
         }
       }
     } catch (err) {
@@ -388,7 +393,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
   const pathParts = currentPath.split('/');
   const currentBattleId = currentPath.includes('/battle') ? pathParts[pathParts.length - 1] : undefined;
 
-  // Dynamic Content for the action page (Indices 6-7)
+  // Dynamic Content for the action page (Indices 6+)
   const BestiaryActionPage = ({ side }: { side: 'left' | 'right' }) => {
     const path = location.pathname;
 
@@ -401,6 +406,9 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
     }
     if (path.includes('/evolve')) {
       return <Evolve progress={progress} setProgress={setProgress} manualId={activePetId || undefined} toggleFlipLock={toggleFlipLock} side={side} />;
+    }
+    if (path.includes('/gallery')) {
+      return <Gallery progress={progress} side={side} />;
     }
     if (path.includes('/quest')) {
       return <Quest progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} />;
@@ -474,9 +482,11 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
             <Page side="left"><Main progress={progress} setProgress={setProgress} manualActiveId={activePetId} /></Page>
             <Page side="right"><PetDetail progress={progress} setProgress={setProgress} manualId={activePetId} initialTab="stats" toggleFlipLock={toggleFlipLock} id="pet-detail-main" /></Page>
             
-            {/* Page 6-7: ACTION PAGE (INVENTORY / BATTLE / SHOP / ETC) */}
-            <Page side="left"><BestiaryActionPage side="left" /></Page>
-            <Page side="right"><BestiaryActionPage side="right" /></Page>
+            {/* Dynamic Spreads for Action Pages: only as many as needed for gallery, min 1 */}
+            {Array.from({ length: Math.max(1, Math.ceil((progress.pets?.length || 0) / 4)) }).flatMap((_, i) => [
+              <Page key={`dynamic-spread-${i}-l`} side="left"><BestiaryActionPage side="left" /></Page>,
+              <Page key={`dynamic-spread-${i}-r`} side="right"><BestiaryActionPage side="right" /></Page>
+            ])}
           </HTMLFlipBook>
         </div>
       </div>

@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { GitBranch, Zap, Sparkles, AlertCircle, TrendingUp, FlaskConical, Plus, Info, ArrowLeft } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getPetRankByLevel, getExpNeeded, RARITY_WEIGHTS } from '../lib/gameLogic';
+import { RARITY_STYLES, RARITY_LABELS } from '../constants/gameData';
+import { Rarity } from '../types';
 import { generateEvolutionUpdate, generatePetArt } from '../services/aiService';
 
 const MAX_LEVEL = 100;
@@ -118,12 +120,33 @@ export const Evolve: React.FC<{
   };
 
   const renderGallery = () => (
-    <div className="space-y-6">
-       <div className="flex items-center justify-between px-2">
-          <span className="text-[10px] font-black text-pen-blue/30 uppercase tracking-widest">Ваши Сущности</span>
+    <div className="space-y-6 h-full flex flex-col">
+       <header className="flex items-center justify-between border-b-2 border-black/5 pb-4 shrink-0">
+        <div className="flex items-center gap-3">
+          <NeonButton 
+            onClick={() => navigate('/pet/' + pet.id)}
+            className="text-[16px] px-4 py-1"
+          >
+            <ArrowLeft className="h-5 w-5" />
+            Назад
+          </NeonButton>
+          <div 
+             className="text-[16px] font-black text-pen-blue cursor-pointer hover:opacity-70 truncate max-w-[150px] sm:max-w-none"
+             onClick={() => navigate('/pet/' + pet.id)}
+          >
+            {pet.name}
+          </div>
+        </div>
+        <div className="text-[12px] font-black text-pen-blue/20 tracking-tighter">
+           {isMajorEvolution ? "Великая эволюция" : "Развитие"}
+        </div>
+      </header>
+
+       <div className="flex items-center justify-between px-2 pt-2">
+          <span className="text-[10px] font-black text-pen-blue/30 tracking-widest">Ваши сущности</span>
        </div>
        
-       <div className="grid grid-cols-2 gap-3 overflow-y-auto pr-2 custom-scrollbar max-h-[85vh]">
+       <div className="grid grid-cols-2 gap-4 overflow-y-auto pr-2 custom-scrollbar flex-1">
           {progress.pets.map((p) => {
             const pRankCode = getPetRankByLevel(p.level).split(' ')[0];
             const pCurrentRankCode = p.ageStage.split(' ')[0];
@@ -131,29 +154,72 @@ export const Evolve: React.FC<{
             const pExpectedSkills = (pRankIndex * 2) + 2;
             const pIsReady = pRankCode !== pCurrentRankCode || (p.level >= 11 && (p.skills || []).length < pExpectedSkills);
             
+            const pCostPerLevel = Math.floor(p.level * 500 * Math.pow(1.05, p.level - 1));
+            const pExpNeeded = getExpNeeded(p.level);
+            const pCanLevelUp = p.experience >= pExpNeeded && p.level < MAX_LEVEL;
+            const pIsMajor = pRankCode !== pCurrentRankCode || (p.level >= 11 && (p.skills || []).length < pExpectedSkills);
+            const isSelected = p.id === id;
+            const pRarityType = p.rarity.toLowerCase() as Rarity;
+            const pRarityStyle = RARITY_STYLES[pRarityType] || RARITY_STYLES.normal;
+
             return (
               <div 
                 key={p.id}
                 onClick={() => navigate(`/evolve/${p.id}`)}
                 className={cn(
-                  "group relative aspect-[9/16] bg-white border-2 transition-all duration-300 cursor-pointer overflow-visible shadow-none",
-                  p.id === id ? "border-pen-blue" : "border-black/5 hover:border-pen-blue/20 scale-[0.98] hover:scale-100"
+                  "group relative aspect-[9/16] bg-white border-2 transition-all duration-300 cursor-pointer overflow-visible mb-8",
+                  isSelected ? "scale-100" : "border-black/5 hover:scale-100 scale-[0.98]"
                 )}
+                style={isSelected ? { borderColor: pRarityStyle.color } : {}}
               >
                  <div className="absolute inset-0 overflow-hidden">
                     <img src={p.image} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-white via-white/20 to-transparent opacity-80" />
                  </div>
 
-                 {pIsReady && (
-                   <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-white border-2 border-pen-red rounded-full p-1.5 shadow-md scale-110">
-                      <Sparkles className="h-4 w-4 text-pen-red animate-pulse" />
-                   </div>
-                 )}
+                 {/* Potential & Level */}
+                 <div className="absolute top-2 left-2 z-10 space-y-2">
+                    <div 
+                      className="px-2 py-0.5 text-[12px] font-black border-2 bg-white shadow-sm"
+                      style={{ 
+                        borderColor: pRarityStyle.color,
+                        color: pRarityStyle.color
+                      }}
+                    >
+                      {RARITY_LABELS[pRarityType]}
+                    </div>
+                    <div className="text-[16px] font-black text-pen-blue bg-transparent px-0 drop-shadow-sm">
+                       Ур. {p.level}
+                    </div>
+                 </div>
                  
-                 <div className="absolute bottom-2 left-2 right-2 z-10 pointer-events-none">
-                    <div className="text-[10px] font-black text-white truncate drop-shadow-md">{p.name}</div>
-                    <div className="text-[8px] font-black text-white/70 uppercase drop-shadow-md">{p.ageStage}</div>
+                 <div className="absolute bottom-4 left-4 right-4 z-10 flex flex-col gap-2">
+                    <div className="pointer-events-none">
+                      <div className="text-[16px] font-black text-pen-blue truncate drop-shadow-sm">{p.name}</div>
+                      <div className="text-[16px] font-black text-pen-blue/80 tracking-tight drop-shadow-sm">{p.ageStage}</div>
+                    </div>
+
+                    {isSelected && (
+                      <div className="pt-2 flex justify-center">
+                         {pIsMajor ? (
+                           <NeonButton 
+                             onClick={(e) => { e.stopPropagation(); handleLevelUp(); }}
+                             disabled={evolving}
+                             className="px-6 py-2 bg-pen-red text-white text-[16px] font-black scale-105 shadow-[0_5px_15px_rgba(196,30,58,0.4)] animate-pulse"
+                           >
+                             Возвыситься
+                           </NeonButton>
+                         ) : (
+                           <NeonButton 
+                             onClick={(e) => { e.stopPropagation(); handleLevelUp(); }}
+                             disabled={evolving || !pCanLevelUp || progress.currency < pCostPerLevel}
+                             className="px-6 py-2 bg-pen-blue text-white text-[16px] font-black shadow-[0_5px_15px_rgba(0,71,171,0.2)]"
+                           >
+                             Повысить уровень
+                           </NeonButton>
+                         )}
+                      </div>
+                    )}
                  </div>
               </div>
             );
@@ -163,135 +229,23 @@ export const Evolve: React.FC<{
   );
 
   const renderEvolution = () => (
-    <div className="space-y-6 h-full flex flex-col">
-       <header className="flex items-center justify-between border-b-2 border-black/5 pb-4 shrink-0">
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={() => navigate('/pet/' + pet.id)}
-            className="p-1 hover:bg-black/5 rounded-full transition-colors flex items-center gap-1 font-black text-pen-blue text-[12px]"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Назад
-          </button>
-          <div className="text-xl font-black text-pen-blue truncate max-w-[150px] sm:max-w-none">
-            {pet.name}
-          </div>
-        </div>
-        <div className="text-[12px] font-black text-pen-blue/20 uppercase tracking-tighter">
-           {isMajorEvolution ? "Великая Эволюция" : "Развитие"}
-        </div>
-      </header>
-
-      <div className="flex-1 flex items-center justify-center py-4">
-        <div className="w-[70%] max-w-[320px] aspect-[9/16] relative group">
-           {/* Main Card */}
-           <div className={cn(
-             "absolute inset-0 bg-white border-4 transition-all duration-700 overflow-hidden flex flex-col",
-             evolving ? "border-pen-red scale-95 grayscale" : "border-black/5 hover:border-pen-blue/20"
-           )}>
-              {/* Image background */}
-              <img src={pet.image} className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/40" />
-
-              {/* Top Floating Content */}
-              <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-start z-20">
-                 <div className="bg-white/95 backdrop-blur-sm px-3 py-1 border-2 border-black -mt-2 -ml-2 rotate-[-2deg] shadow-[4px_4px_0_rgba(0,0,0,0.1)]">
-                    <div className="text-lg font-black text-pen-blue tracking-tighter leading-none">{pet.ageStage}</div>
-                    <div className="text-[7px] font-black text-pen-blue/40 uppercase tracking-widest">Текущий Ранг</div>
-                 </div>
-
-                 {isMajorEvolution && (
-                   <div className="bg-pen-red text-white px-3 py-1 text-[8px] font-black uppercase tracking-widest rotate-3 animate-pulse shadow-lg -mr-2 -mt-2 border-2 border-white/20">
-                      К Ритуалу Готов
-                   </div>
-                 )}
-              </div>
-
-              {/* Evolution Animation Overlays */}
-              <AnimatePresence>
-                {evolving && (
-                  <motion.div 
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="absolute inset-0 bg-white/40 backdrop-blur-[2px] z-30 flex flex-col items-center justify-center p-6 text-center"
-                  >
-                     <motion.div
-                       animate={{ 
-                         rotate: 360,
-                         scale: [1, 1.2, 1]
-                       }}
-                       transition={{ repeat: Infinity, duration: 2 }}
-                     >
-                       <Sparkles className="h-16 w-16 text-pen-red" />
-                     </motion.div>
-                     <div className="mt-4 text-xl font-black text-pen-blue uppercase italic tracking-tighter">Метаморфоза...</div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Bottom Info & Stats */}
-              <div className="absolute bottom-0 left-0 right-0 p-5 space-y-4 z-20 bg-gradient-to-t from-black via-black/60 to-transparent pt-12">
-                 <div className="flex items-center justify-between text-white border-b border-white/10 pb-2">
-                    <div className="flex items-center gap-2">
-                       <Zap className="h-4 w-4 text-sticker-yellow" />
-                       <span className="text-xs font-black">УР. {pet.level}</span>
-                    </div>
-                    {!isMajorEvolution && (
-                       <div className="text-[9px] font-black opacity-60">
-                          {pet.experience}/{expNeeded} EXP
-                       </div>
-                    )}
-                 </div>
-
-                 {!isMajorEvolution && (
-                    <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
-                       <motion.div 
-                         initial={{ width: 0 }}
-                         animate={{ width: `${(pet.experience / expNeeded) * 100}%` }}
-                         className="h-full bg-pen-blue shadow-[0_0_10px_rgba(0,71,171,0.5)]" 
-                       />
-                    </div>
-                 )}
-
-                 <div className="pt-2">
-                    {!isMajorEvolution ? (
-                      <div className="space-y-3">
-                         <div className="flex justify-between items-end">
-                            <span className="text-[8px] text-white/40 font-black uppercase tracking-widest">Протокол Перехода</span>
-                            <span className="text-xl font-black text-white tracking-tighter">{costPerLevel} ₽</span>
-                         </div>
-                         <NeonButton 
-                           onClick={handleLevelUp} 
-                           disabled={evolving || !canLevelUp || progress.currency < costPerLevel}
-                           className="w-full py-4 text-sm font-black bg-white text-pen-blue border-none shadow-xl hover:scale-105 active:scale-95 transition-all"
-                         >
-                           <span>ПОВЫСИТЬ ПРЕДЕЛ</span>
-                         </NeonButton>
-                      </div>
-                    ) : (
-                      <NeonButton 
-                        onClick={handleLevelUp} 
-                        disabled={evolving}
-                        className="w-full py-6 text-xl font-black bg-pen-red text-white border-none shadow-[0_10px_30px_rgba(196,30,58,0.5)] animate-bounce-subtle hover:brightness-110"
-                      >
-                        <Sparkles className="h-6 w-6 mr-2" />
-                        <span>ВОЗВЫСИТЬСЯ</span>
-                      </NeonButton>
-                    )}
-                 </div>
-              </div>
-           </div>
-
-           {/* Corner Accents */}
-           <div className="absolute -top-1 -left-1 w-4 h-4 border-t-2 border-l-2 border-pen-blue/40 z-30" />
-           <div className="absolute -bottom-1 -right-1 w-4 h-4 border-b-2 border-r-2 border-pen-blue/40 z-30" />
-        </div>
-      </div>
-
-      {!canLevelUp && !isMajorEvolution && pet.level < MAX_LEVEL && (
-         <p className="text-center text-pen-red/40 text-[9px] font-black uppercase tracking-widest shrink-0">Недостаточно резонанса для трансформации</p>
-      )}
+    <div className="h-full flex flex-col items-center justify-center space-y-4">
+       <div className="relative">
+          <div className="absolute inset-0 bg-pen-blue/5 rounded-full blur-3xl animate-pulse" />
+          <GitBranch className="h-20 w-20 text-pen-blue/10 relative z-10" />
+       </div>
+       <div className="text-center space-y-2">
+          <h3 className="text-xl font-black text-pen-blue/30 italic">Ожидание эволюции</h3>
+          <p className="text-xs font-black text-pen-blue/10 max-w-[200px] mx-auto">
+             Выберите сущность из списка слева для проведения трансформации
+          </p>
+       </div>
+       
+       <div className="pt-8 grid grid-cols-3 gap-2 opacity-10">
+          {[1,2,3].map(i => (
+            <div key={i} className="h-10 w-10 border-2 border-dashed border-pen-blue rounded-sm" />
+          ))}
+       </div>
     </div>
   );
 
@@ -307,9 +261,9 @@ export const Evolve: React.FC<{
                <motion.div 
                  initial={{ y: 20, opacity: 0 }}
                  animate={{ y: 0, opacity: 1 }}
-                 className="text-sticker-pink font-black text-xl tracking-[0.3em] uppercase italic"
+                 className="text-sticker-pink font-black text-xl tracking-[0.3em] italic"
                >
-                 Эволюция Завершена!
+                 Эволюция завершена!
                </motion.div>
                <h2 className="text-6xl font-black text-pen-blue tracking-tighter">
                   {pet.name} <span className="text-pen-blue/20">→</span> {evolutionResult.name}
@@ -361,7 +315,7 @@ export const Evolve: React.FC<{
 
             <div className="flex justify-center pt-8">
                <NeonButton onClick={handleFinishEvolution} className="px-12 py-6 text-xl bg-sticker-yellow">
-                  Продолжить Путь
+                  Продолжить путь
                </NeonButton>
             </div>
          </motion.div>
