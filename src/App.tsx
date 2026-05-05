@@ -400,7 +400,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
       return <Battle key={currentBattleId} progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} manualId={activePetId} side={side} battleId={currentBattleId} />;
     }
     if (path.includes('/evolve')) {
-      return <Evolve progress={progress} setProgress={setProgress} manualId={activePetId || undefined} toggleFlipLock={toggleFlipLock} />;
+      return <Evolve progress={progress} setProgress={setProgress} manualId={activePetId || undefined} toggleFlipLock={toggleFlipLock} side={side} />;
     }
     if (path.includes('/quest')) {
       return <Quest progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} />;

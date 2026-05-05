@@ -196,7 +196,7 @@ export const PetDetail: React.FC<{
                           className="py-3 text-sm px-4 flex-1 transition-all duration-500 bg-pen-red text-white border-none animate-pulse scale-105 shadow-[0_0_20px_rgba(196,30,58,0.5)]"
                         >
                            <Sparkles className="h-4 w-4 mr-2 text-white" />
-                           <span>ЭВОЛЮЦИЯ</span>
+                           <span>Эволюция</span>
                         </NeonButton>
                       )}
                    </div>
