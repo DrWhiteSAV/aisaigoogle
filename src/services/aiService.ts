@@ -78,9 +78,10 @@ export const generatePetArt = async (pet: Partial<Pet>) => {
 export const generateEvolutionUpdate = async (
   pet: Pet,
   newRank: string
-): Promise<{ abilities: string[]; lore: string; newSkills: Skill[] }> => {
+): Promise<{ newName: string; abilities: string[]; lore: string; newSkills: Skill[] }> => {
   const prompt = `Питомец ${pet.name} эволюционировал до ранга ${newRank}!
     Текущая информация:
+    - Имя: ${pet.name}
     - Биологическая классификация: ${pet.classification.genus} ${pet.classification.species} (${pet.classification.family})
     - Элемент: ${pet.element}
     - Атрибут: ${pet.attribute}
@@ -88,17 +89,16 @@ export const generateEvolutionUpdate = async (
     - Текущая легенда: ${pet.lore}
     
     Сгенерируй:
-    1. Новую уникальную способность, которая добавляется к текущему списку.
-    2. Обновленную легенду.
-    3. ДВА новых навыка: 
+    1. Новое эпичное имя (newName), которое отражает его новую форму и силу (может быть развитием старого имени).
+    2. Новую уникальную способность, которая добавляется к текущему списку.
+    3. Обновленную легенду.
+    4. ДВА новых навыка: 
        - Один ПАССИВНЫЙ (passive) - влияет на любой из статов (health, attack, defense, speed, magic, regeneration).
        - Один АКТИВНЫЙ (случайно active_buff ИЛИ active_debuff).
     
-    Descripción навыка должнo быть ПОДРОБНЫМ (минимум 2-3 предложения), объясняющим как именно питомец использует свою биологию, магию или физиологию для достижения этого эффекта.
-    
     Верни JSON объект на русском языке:
     {
-      "newAbility": "...", // Оставь пустым или удали, используем skills
+      "newName": "...",
       "updatedLore": "...",
       "newSkills": [
         { 
@@ -151,13 +151,14 @@ export const generateEvolutionUpdate = async (
     }));
 
     return {
+      newName: data.newName || pet.name,
       abilities: [], 
       lore: data.updatedLore || pet.lore,
       newSkills
     };
   } catch (error) {
     console.error("Evolution generation failed:", error);
-    return { abilities: [], lore: pet.lore, newSkills: [] };
+    return { newName: pet.name, abilities: [], lore: pet.lore, newSkills: [] };
   }
 };
 

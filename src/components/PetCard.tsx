@@ -2,10 +2,10 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Pet, Element, Attribute } from '../types';
-import { calculateCP, getExpNeeded } from '../lib/gameLogic';
+import { getPetRankByLevel, calculateCP, getExpNeeded } from '../lib/gameLogic';
 import { RARITY_STYLES, RARITY_LABELS } from '../constants/gameData';
 import { ElementSticker, AttributeSticker } from './GameUI';
-import { ShoppingBag, Briefcase, ChevronRight, Maximize2 } from 'lucide-react';
+import { ShoppingBag, Briefcase, ChevronRight, Maximize2, Sparkles } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface PetCardProps {
@@ -44,11 +44,34 @@ export const PetCard: React.FC<PetCardProps> = ({
   const expProgress = (pet.experience / expNeeded) * 100;
   const rankLetter = pet.ageStage.split(' ')[0];
 
+  const potentialRank = getPetRankByLevel(pet.level);
+  const potentialRankCode = potentialRank.split(' ')[0];
+  const currentRankIndex = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'EX', 'UX', 'Z'].indexOf(potentialRankCode);
+  const expectedSkills = (currentRankIndex * 2) + 2;
+  const isEvolutionReady = potentialRankCode !== rankLetter || (pet.level >= 11 && (pet.skills || []).length < expectedSkills);
+
+  const handleEvolutionClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigate(`/evolve/${pet.id}`);
+  };
+
   return (
     <motion.div 
       whileHover={{ y: -5 }}
       className={cn("relative group cursor-pointer", className)}
     >
+      {/* Evolution Badge TOP CENTER */}
+      {isEvolutionReady && (
+        <motion.div 
+          initial={{ y: -10, opacity: 0, x: '-50%' }}
+          animate={{ y: -5, opacity: 1, x: '-50%' }}
+          className="absolute -top-3 left-1/2 z-[70] bg-pen-red text-white p-2 rounded-full cursor-pointer shadow-[0_0_15px_rgba(196,30,58,0.6)] hover:scale-110 active:scale-95 transition-all"
+          onClick={handleEvolutionClick}
+        >
+           <Sparkles className="h-4 w-4 animate-spin-slow" />
+        </motion.div>
+      )}
+
       {/* CP Badge - No shadow, rarity color border */}
       <div 
         className="absolute -top-2 -right-3 z-[60] bg-sticker-yellow border-2 px-2 py-0.5 rotate-3"

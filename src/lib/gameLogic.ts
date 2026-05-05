@@ -133,8 +133,20 @@ export function checkLevelUp(pet: Pet): Pet {
     const growth = RARITY_WEIGHTS[currentPet.rarity].growth;
     currentPet.statPoints = (currentPet.statPoints || 0) + growth;
     
-    // Update age stage if needed
-    currentPet.ageStage = getPetRankByLevel(currentPet.level);
+    // Automatic age stage update removed to allow manual evaluation (ritual)
+    // Only update if it doesn't cross a 10-level threshold (which requires evolution)
+    const potentialStage = getPetRankByLevel(currentPet.level);
+    const potentialStageCode = potentialStage.split(' ')[0];
+    const currentStageCode = currentPet.ageStage.split(' ')[0];
+    
+    // If it's the same rank bracket, we can update it (e.g., within level 1-10)
+    // but we don't auto-jump from F to E (10 to 11) anymore.
+    // Actually, it's safer to just let the user trigger the evolution.
+    // If the next level suggests a new rank, we stay at the old one.
+    if (potentialStageCode === currentStageCode) {
+      currentPet.ageStage = potentialStage;
+    }
+    
     expNeeded = getExpNeeded(currentPet.level);
   }
   

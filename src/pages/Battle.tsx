@@ -310,8 +310,8 @@ const BattleProvider: React.FC<{
   const getSpeedGainFormatted = (pSpeed: number, eSpeed: number) => {
     const sum = pSpeed + eSpeed;
     if (sum === 0) return "";
-    const pGain = Math.floor((pSpeed / sum) * 200);
-    const eGain = Math.floor((eSpeed / sum) * 200);
+    const pGain = Math.floor((pSpeed / sum) * 100);
+    const eGain = Math.floor((eSpeed / sum) * 100);
     return ` | Скор: ${pGain}/${eGain}% (${pSpeed}v${eSpeed})`;
   };
 
@@ -321,13 +321,14 @@ const BattleProvider: React.FC<{
     let currentP = prev.speedGauge.player;
     let currentE = prev.speedGauge.enemy;
 
-    const EPSILON = 0.01;
+    const EPSILON = 0.1;
 
     // 1. Если кто-то уже готов (100+), выбираем его.
     if (currentP >= 100 - EPSILON || currentE >= 100 - EPSILON) {
       let turn: 'player' | 'enemy' = 'player';
       if (currentP >= 100 - EPSILON && currentE >= 100 - EPSILON) {
-        if (Math.abs(currentP - currentE) > 5.0) { 
+        // Если перебор почти одинаковый (допуск 2.0 ед.), используем строгое чередование
+        if (Math.abs(currentP - currentE) > 2.0) { 
           turn = currentP > currentE ? 'player' : 'enemy';
         } else {
           turn = prev.lastTurnSide === 'player' ? 'enemy' : 'player';
@@ -351,9 +352,9 @@ const BattleProvider: React.FC<{
     const stepsToE = (100 - currentE) / eGainPerStep;
     const minSteps = Math.max(0.01, Math.min(stepsToP, stepsToE));
     
-    // Продвигаем шкалы ровно до момента, когда кто-то станет 100
-    const nextP = Math.min(200, currentP + pGainPerStep * minSteps);
-    const nextE = Math.min(200, currentE + eGainPerStep * minSteps);
+    // Продвигаем шкалы и округляем для стабильности
+    const nextP = Math.round((Math.min(200, currentP + pGainPerStep * minSteps)) * 10) / 10;
+    const nextE = Math.round((Math.min(200, currentE + eGainPerStep * minSteps)) * 10) / 10;
 
     let nextTurn: 'player' | 'enemy' = 'player';
     if (nextP >= 100 - EPSILON && nextE >= 100 - EPSILON) {
@@ -616,7 +617,7 @@ const BattleProvider: React.FC<{
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [state.turn, state.winner]); // Only trigger when turn or winner changes
+  }, [state.turn, state.winner]);
 
   useEffect(() => {
     if (!state.enemy && playerPet && location.pathname.startsWith('/battle')) {

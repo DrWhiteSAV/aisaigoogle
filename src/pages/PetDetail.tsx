@@ -46,6 +46,14 @@ export const PetDetail: React.FC<{
   }, [initialTab]);
 
   const pet = (progress.pets || []).find(p => p.id === id);
+  const potentialRank = pet ? getPetRankByLevel(pet.level) : null;
+  const currentRankCode = pet?.ageStage.split(' ')[0];
+  const potentialRankCode = potentialRank?.split(' ')[0];
+  const rankIndex = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'EX', 'UX', 'Z'].indexOf(potentialRankCode || 'F');
+  const expectedSkills = (rankIndex * 2) + 2;
+  const isEvolutionReady = pet && potentialRank && (
+    potentialRankCode !== currentRankCode || (pet.level >= 11 && (pet.skills || []).length < expectedSkills)
+  );
 
   React.useEffect(() => {
     if (toggleFlipLock) {
@@ -117,6 +125,15 @@ export const PetDetail: React.FC<{
             onClick={handleTitleClick}
           >
             {pet.name}
+            {isEvolutionReady && (
+              <motion.span 
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="ml-3 text-[10px] bg-pen-red text-white px-2 py-0.5 rounded-full uppercase tracking-widest align-middle"
+              >
+                Готов к эволюции!
+              </motion.span>
+            )}
           </div>
         </div>
       </header>
@@ -172,10 +189,16 @@ export const PetDetail: React.FC<{
                          <Package className="h-4 w-4 mr-2" />
                          <span>Инвентарь</span>
                       </NeonButton>
-                      <NeonButton onClick={() => navigate(`/evolve/${pet.id}`)} className="py-3 text-sm px-4 bg-white border-2 border-black flex-1">
-                         <Sparkles className="h-4 w-4 mr-2 text-pen-blue" />
-                         <span>Развитие</span>
-                      </NeonButton>
+                      
+                      {isEvolutionReady && (
+                        <NeonButton 
+                          onClick={() => navigate(`/evolve/${pet.id}`)} 
+                          className="py-3 text-sm px-4 flex-1 transition-all duration-500 bg-pen-red text-white border-none animate-pulse scale-105 shadow-[0_0_20px_rgba(196,30,58,0.5)]"
+                        >
+                           <Sparkles className="h-4 w-4 mr-2 text-white" />
+                           <span>ЭВОЛЮЦИЯ</span>
+                        </NeonButton>
+                      )}
                    </div>
 
                    <div className="border-2 border-pen-blue p-4 sm:px-6 rounded-sm bg-white/50 ledger-grid">

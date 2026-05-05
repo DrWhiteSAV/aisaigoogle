@@ -46,60 +46,151 @@ export const Evolve: React.FC<{
   const expNeeded = getExpNeeded(pet.level);
   const canLevelUp = pet.experience >= expNeeded && pet.level < MAX_LEVEL;
   const growthPerLevel = RARITY_WEIGHTS[pet.rarity].growth;
+  
+  const potentialRank = getPetRankByLevel(pet.level);
+  const currentRankCode = pet.ageStage.split(' ')[0];
+  const potentialRankCode = potentialRank.split(' ')[0];
+  
+  // Ritual is ready if rank code differs OR if we are at/past a threshold but lack the ritual skills
+  // F (lvl 1-10) -> 2 skills. E (lvl 11-20) -> 4 skills. D (lvl 21-30) -> 6 skills.
+  const rankIndex = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'EX', 'UX', 'Z'].indexOf(potentialRankCode);
+  const expectedSkills = (rankIndex * 2) + 2;
+  const currentSkillsCount = (pet.skills || []).length;
+
+  const isMajorEvolution = potentialRankCode !== currentRankCode || (pet.level >= 11 && currentSkillsCount < expectedSkills);
 
   const handleLevelUp = async () => {
     if (pet.level >= MAX_LEVEL) return;
-    if (pet.experience < expNeeded) {
-      return;
-    }
-    if (progress.currency < costPerLevel) {
-      return;
-    }
+    if (pet.experience < expNeeded) return;
+    if (progress.currency < costPerLevel && !isMajorEvolution) return; // Evolution might be free or have separate cost, let's keep it for now
 
     setEvolving(true);
     
     try {
-      const nextLevel = pet.level + 1;
-      const nextStage = getPetRankByLevel(nextLevel);
-      let updatedAbilities = [...pet.abilities];
-      let updatedLore = pet.lore;
-      let updatedImage = pet.image;
-      let updatedSkills = [...(pet.skills || [])];
+      let updatedPet: Pet;
 
-      // Major Rank Up every 10 levels
-      if (nextLevel % 10 === 1 || (nextLevel === 11 || nextLevel === 21 || nextLevel === 31 || nextLevel === 41 || nextLevel === 51 || nextLevel === 61 || nextLevel === 71 || nextLevel === 81 || nextLevel === 91)) {
+      if (isMajorEvolution) {
+        const nextStage = getPetRankByLevel(pet.level);
         const evolutionData = await generateEvolutionUpdate(pet, nextStage);
-        updatedAbilities = evolutionData.abilities;
-        updatedLore = evolutionData.lore;
-        if (evolutionData.newSkills && evolutionData.newSkills.length > 0) {
-          updatedSkills = [...updatedSkills, ...evolutionData.newSkills];
-        }
-        updatedImage = await generatePetArt({ ...pet, level: nextLevel, ageStage: nextStage });
-      }
+        const updatedImage = await generatePetArt({ ...pet, ageStage: nextStage });
 
-      const updatedPet: Pet = {
-        ...pet,
-        level: nextLevel,
-        experience: pet.experience - expNeeded,
-        ageStage: nextStage,
-        abilities: updatedAbilities,
-        skills: updatedSkills,
-        lore: updatedLore,
-        image: updatedImage,
-        statPoints: pet.statPoints + growthPerLevel,
-      };
+        updatedPet = {
+          ...pet,
+          name: evolutionData.newName,
+          ageStage: nextStage,
+          skills: [...(pet.skills || []), ...evolutionData.newSkills],
+          lore: evolutionData.lore,
+          image: updatedImage,
+          statPoints: pet.statPoints + growthPerLevel, // Evolution also counts as a level-up-like boost
+        };
+        
+        setEvolutionResult(updatedPet);
+      } else {
+        const nextLevel = pet.level + 1;
+        const nextStage = getPetRankByLevel(nextLevel);
+        
+        updatedPet = {
+          ...pet,
+          level: nextLevel,
+          experience: pet.experience - expNeeded,
+          ageStage: nextStage,
+          statPoints: pet.statPoints + growthPerLevel,
+        };
+      }
 
       setProgress(prev => ({
         ...prev,
-        currency: prev.currency - costPerLevel,
+        currency: prev.currency - (isMajorEvolution ? 0 : costPerLevel), // Evolution itself is a reward/ritual
         pets: prev.pets.map(p => p.id === pet.id ? updatedPet : p)
       }));
     } catch (e) {
       console.error("Evolution failed", e);
     } finally {
-      setEvolving(false);
+      if (!isMajorEvolution) {
+        setEvolving(false);
+      }
     }
   };
+
+  const handleFinishEvolution = () => {
+    setEvolving(false);
+    setEvolutionResult(null);
+    navigate(`/pet/${pet.id}`);
+  };
+
+  if (evolutionResult) {
+    return (
+      <div className="fixed inset-0 z-[600] bg-white flex flex-col items-center justify-center p-6 sm:p-12 overflow-y-auto ledger-grid">
+         <motion.div 
+           initial={{ opacity: 0, scale: 0.9 }}
+           animate={{ opacity: 1, scale: 1 }}
+           className="w-full max-w-5xl space-y-12"
+         >
+            <div className="text-center space-y-4">
+               <motion.div 
+                 initial={{ y: 20, opacity: 0 }}
+                 animate={{ y: 0, opacity: 1 }}
+                 className="text-sticker-pink font-black text-xl tracking-[0.3em] uppercase italic"
+               >
+                 Эволюция Завершена!
+               </motion.div>
+               <h2 className="text-6xl font-black text-pen-blue tracking-tighter">
+                  {pet.name} <span className="text-pen-blue/20">→</span> {evolutionResult.name}
+               </h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+               <div className="space-y-4 text-center">
+                  <div className="text-[10px] font-black text-pen-blue/30 uppercase tracking-widest">Прошлое</div>
+                  <div className="relative aspect-[9/16] max-h-[400px] mx-auto border-2 border-dashed border-black/10 rounded-sm overflow-hidden grayscale opacity-50">
+                     <img src={pet.image} className="w-full h-full object-cover" />
+                  </div>
+                  <div className="font-black text-pen-blue/40">{pet.ageStage}</div>
+               </div>
+
+               <div className="space-y-4 text-center">
+                  <div className="text-[10px] font-black text-sticker-pink uppercase tracking-widest animate-pulse">Новая Форма</div>
+                  <motion.div 
+                    initial={{ x: 50, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    transition={{ delay: 0.3 }}
+                    className="relative aspect-[9/16] max-h-[400px] mx-auto border-4 border-pen-blue rounded-sm overflow-hidden shadow-[20px_20px_0_rgba(0,71,171,0.1)]"
+                  >
+                     <img src={evolutionResult.image} className="w-full h-full object-cover" />
+                  </motion.div>
+                  <div className="font-black text-pen-blue">{evolutionResult.ageStage}</div>
+               </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+               <GlassCard color="blue" rotation={-1} className="p-6">
+                  <h4 className="text-sm font-black text-pen-blue/40 mb-2">Новая Легенда</h4>
+                  <p className="text-sm font-black text-pen-blue leading-relaxed italic">
+                    "{evolutionResult.lore}"
+                  </p>
+               </GlassCard>
+               <GlassCard color="pink" rotation={1} className="p-6">
+                  <h4 className="text-sm font-black text-pen-blue/40 mb-2">Полученные Навыки</h4>
+                  <div className="space-y-2">
+                     {evolutionResult.skills.slice(-2).map((s, i) => (
+                       <div key={i} className="bg-white/50 p-2 border-2 border-black/5 rounded-sm">
+                          <div className="text-xs font-black text-pen-blue">{s.name}</div>
+                          <div className="text-[10px] font-black text-pen-blue/40">{s.description}</div>
+                       </div>
+                     ))}
+                  </div>
+               </GlassCard>
+            </div>
+
+            <div className="flex justify-center pt-8">
+               <NeonButton onClick={handleFinishEvolution} className="px-12 py-6 text-xl bg-sticker-yellow">
+                  Продолжить Путь
+               </NeonButton>
+            </div>
+         </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-12 pt-12 pb-32 min-h-screen relative">
@@ -119,28 +210,106 @@ export const Evolve: React.FC<{
             {pet.name}
           </div>
         </div>
-        <div className="text-xl font-black text-pen-blue/20 uppercase">Развитие</div>
+        <div className="text-xl font-black text-pen-blue/20 uppercase">
+           {isMajorEvolution ? "Великая Эволюция" : "Развитие"}
+        </div>
       </header>
 
-       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+          {/* LEFT: Mini Pet Gallery */}
+          <div className="lg:col-span-5 space-y-6">
+             <div className="flex items-center justify-between px-2">
+                <span className="text-[10px] font-black text-pen-blue/30 uppercase tracking-widest">Ваши Сущности</span>
+             </div>
+             
+             <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
+                {progress.pets.map((p) => {
+                  const pRankCode = getPetRankByLevel(p.level).split(' ')[0];
+                  const pCurrentRankCode = p.ageStage.split(' ')[0];
+                  const pRankIndex = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'EX', 'UX', 'Z'].indexOf(pRankCode);
+                  const pExpectedSkills = (pRankIndex * 2) + 2;
+                  const pIsReady = pRankCode !== pCurrentRankCode || (p.level >= 11 && (p.skills || []).length < pExpectedSkills);
+                  
+                  return (
+                    <div 
+                      key={p.id}
+                      onClick={() => navigate(`/evolve/${p.id}`)}
+                      className={cn(
+                        "group relative p-4 bg-white border-2 transition-all duration-300 cursor-pointer overflow-hidden",
+                        p.id === id ? "border-pen-blue shadow-[8px_8px_0_rgba(0,71,171,0.1)]" : "border-black/5 hover:border-pen-blue/30 hover:scale-[1.01]"
+                      )}
+                    >
+                       {pIsReady && (
+                         <div className="absolute top-2 right-2 z-10">
+                            <Sparkles className="h-3 w-3 text-pen-red animate-pulse" />
+                         </div>
+                       )}
+                       
+                       <div className="flex gap-4 items-center">
+                          <div className="h-16 w-16 rounded-sm overflow-hidden border border-black/5 bg-white">
+                             <img src={p.image} className="w-full h-full object-cover" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                             <div className="text-xs font-black text-pen-blue truncate">{p.name}</div>
+                             <div className="text-[10px] font-black text-pen-blue/40 uppercase">{p.ageStage}</div>
+                             <div className="mt-1 h-1 w-full bg-black/5 rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-pen-blue transition-all duration-500" 
+                                  style={{ width: `${(p.experience / getExpNeeded(p.level)) * 100}%` }}
+                                />
+                             </div>
+                          </div>
+                          <div className="text-right">
+                             <div className="text-[10px] font-black text-pen-blue/20">УР</div>
+                             <div className="text-sm font-black text-pen-blue">{p.level}</div>
+                          </div>
+                       </div>
+                    </div>
+                  );
+                })}
+             </div>
+          </div>
+
+          {/* RIGHT: Evolution UI */}
           <div className="lg:col-span-7">
-            <GlassCard color="white" className="p-10 border-2 border-black/5 relative overflow-hidden group">
-               <div className="relative z-10 space-y-12">
+            <GlassCard color="white" className="p-6 sm:p-10 border-2 border-black/5 relative overflow-hidden group">
+               {isMajorEvolution && (
+                 <div className="absolute top-4 right-4 bg-pen-red text-white px-3 py-1 text-[10px] font-black uppercase tracking-widest rotate-12 animate-pulse z-20 shadow-lg">
+                    К Ритуалу Готов
+                 </div>
+               )}
+               
+               <div className="relative z-10 space-y-8 sm:space-y-12">
                   <div className="text-center space-y-2">
-                     <div className="text-[12px] font-black text-pen-blue/30">Текущая Стадия</div>
-                     <h2 className="text-5xl font-black text-pen-blue tracking-tighter leading-none">{pet.ageStage}</h2>
-                     <div className="flex items-center justify-center gap-4 text-pen-blue/40 text-[12px] font-black pt-2">
-                        <span className="flex items-center gap-1.5"><Zap className="h-4 w-4" /> Ур. {pet.level} / {MAX_LEVEL}</span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-pen-blue/10" />
-                        <span>Оп. {pet.experience}/{expNeeded}</span>
+                     <div className="text-[12px] font-black text-pen-blue/30">Стадия Развития</div>
+                     <h2 className="text-3xl sm:text-5xl font-black text-pen-blue tracking-tighter leading-none">{pet.ageStage}</h2>
+                     <div className="flex items-center justify-center gap-4 text-pen-blue/40 text-[10px] sm:text-[12px] font-black pt-2">
+                        <span className="flex items-center gap-1.5"><Zap className="h-4 w-4" /> Ур. {pet.level}</span>
+                        {!isMajorEvolution && (
+                          <>
+                            <span className="w-1.5 h-1.5 rounded-full bg-pen-blue/10" />
+                            <span>Оп. {pet.experience}/{expNeeded}</span>
+                          </>
+                        )}
                      </div>
                   </div>
 
                   <div className="flex justify-center relative">
-                     <div className="relative h-56 w-56 flex items-center justify-center">
+                     <div className="relative h-40 w-40 sm:h-56 sm:w-56 flex items-center justify-center">
+                        <AnimatePresence>
+                          {evolving && (
+                            <motion.div 
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1.2 }}
+                              exit={{ opacity: 0, scale: 1.5 }}
+                              className="absolute inset-0 bg-sticker-pink/20 rounded-full blur-3xl z-0"
+                            />
+                          )}
+                        </AnimatePresence>
+
                         <div className={cn(
                           "absolute inset-0 rounded-full border-2 border-dashed border-pen-blue/10 animate-[spin_15s_linear_infinite]",
-                          evolving ? "border-pen-blue border-solid border-4 opacity-50 animate-[spin_2s_linear_infinite]" : ""
+                          evolving ? "border-pen-red border-solid border-4 opacity-70 animate-[spin_1s_linear_infinite]" : ""
                         )} />
                         <div className={cn(
                           "absolute inset-6 rounded-full overflow-hidden border-2 border-black/5 bg-white shadow-inner transition-transform duration-700",
@@ -150,61 +319,46 @@ export const Evolve: React.FC<{
                         </div>
                         {evolving && (
                           <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/40 z-20 rounded-full text-center p-4">
-                             <TrendingUp className="h-10 w-10 text-pen-blue animate-bounce" />
-                             <span className="text-[12px] font-black text-pen-blue">Сенситизация...</span>
+                             <Sparkles className="h-10 w-10 text-pen-red animate-spin" />
+                             <span className="text-[12px] font-black text-pen-blue mt-2 uppercase tracking-tighter">Метаморфоза...</span>
                           </div>
                         )}
                      </div>
                   </div>
 
                   <div className="space-y-6 pt-4">
-                     <div className="text-center">
-                        <div className="text-[12px] font-black text-pen-blue/30 mb-2">Стоимость перехода</div>
-                        <div className="text-4xl font-black text-pen-blue">{costPerLevel} ₽</div>
-                     </div>
-                     <NeonButton 
-                       onClick={handleLevelUp} 
-                       disabled={evolving || !canLevelUp}
-                       className="w-full py-8 text-2xl font-black"
-                     >
-                       <GitBranch className="h-6 w-6" />
-                       <span>Повысить Уровень</span>
-                     </NeonButton>
-                     {!canLevelUp && pet.level < MAX_LEVEL && (
+                     {!isMajorEvolution ? (
+                       <>
+                         <div className="text-center">
+                            <div className="text-[12px] font-black text-pen-blue/30 mb-2">Стоимость перехода</div>
+                            <div className="text-4xl font-black text-pen-blue">{costPerLevel} ₽</div>
+                         </div>
+                         <NeonButton 
+                           onClick={handleLevelUp} 
+                           disabled={evolving || !canLevelUp || progress.currency < costPerLevel}
+                           className="w-full py-8 text-2xl font-black"
+                         >
+                           <TrendingUp className="h-6 w-6" />
+                           <span>Повысить Уровень</span>
+                         </NeonButton>
+                       </>
+                     ) : (
+                       <NeonButton 
+                         onClick={handleLevelUp} 
+                         disabled={evolving}
+                         className="w-full py-10 text-3xl font-black bg-pen-red text-white border-none shadow-[0_10px_30px_rgba(196,30,58,0.3)] hover:scale-[1.02]"
+                       >
+                         <Sparkles className="h-8 w-8" />
+                         <span>НАЧАТЬ ЭВОЛЮЦИЮ</span>
+                       </NeonButton>
+                     )}
+                     
+                     {!canLevelUp && !isMajorEvolution && pet.level < MAX_LEVEL && (
                         <p className="text-center text-pen-red/40 text-[10px] font-black">Недостаточно опыта для трансформации</p>
                      )}
                   </div>
                </div>
             </GlassCard>
-          </div>
-
-          <div className="lg:col-span-5 space-y-8">
-             <GlassCard color="blue" rotation={-1} className="p-8 border-2 border-black/5">
-                <h3 className="text-lg font-black text-pen-blue/60 mb-8 flex items-center gap-2">
-                   <FlaskConical className="h-5 w-5" />
-                   Лаборатория материалов
-                </h3>
-                
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="col-span-2 py-10 text-center border-2 border-dashed border-black/10 flex flex-col items-center justify-center gap-2 opacity-30">
-                       <Plus className="h-6 w-6 text-pen-blue" />
-                       <span className="text-[12px] font-black">Пусто</span>
-                       <span className="text-[10px] font-black">Материалы будут доступны в будущих обновлениях</span>
-                    </div>
-                </div>
-             </GlassCard>
-
-             <GlassCard color="pink" rotation={1} className="p-8 border-2 border-black/5">
-                <h4 className="text-lg font-black text-pen-blue/60 mb-4 flex items-center gap-2">
-                   <Info className="h-4 w-4" />
-                   Справочник эволюции
-                </h4>
-                <ul className="space-y-4 text-[12px] text-pen-blue/50 font-black leading-relaxed list-none">
-                   <li className="flex gap-2"><span>•</span> <span>Каждый уровень дает 30 свободных очков характеристик.</span></li>
-                   <li className="flex gap-2"><span>•</span> <span>С ростом уровня меняется стадия развития сущности.</span></li>
-                   <li className="flex gap-2"><span>•</span> <span>Успешный призыв зависит от вашего ранга призывателя.</span></li>
-                </ul>
-             </GlassCard>
           </div>
        </div>
     </div>
