@@ -3,7 +3,7 @@ import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { Pet, UserProgress, Skill, PetStats } from '../types';
 import { NeonButton } from '../components/UI';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sword, Shield, Zap, Coins, Flame, Droplets, Wind, Mountain, Star, Sparkles, Timer, Target, Heart, PenLine } from 'lucide-react';
+import { Sword, Shield, Zap, Sprout, Flame, Droplets, Wind, Mountain, Star, Sparkles, Timer, Target, Heart, PenLine } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { ElementSticker, AttributeSticker } from '../components/GameUI';
 import { getElementAdvantageMultiplier, getAttributeDefenseMultiplier, calculateCP, getBattleRewards, checkLevelUp, getEffectiveStat, getPassiveBonus } from '../lib/gameLogic';
@@ -25,6 +25,15 @@ const Typewriter: React.FC<{ text: string; delay?: number; className?: string }>
   return <span className={className}>{displayedText}</span>;
 };
 
+interface FloatingDamage {
+  id: string;
+  value: number;
+  isPlayer: boolean;
+  x: number;
+  y: number;
+  type: 'damage' | 'heal' | 'ult';
+}
+
 interface BattleState {
   enemy: Pet | null;
   battleLog: string[];
@@ -33,7 +42,7 @@ interface BattleState {
   turn: 'player' | 'enemy' | 'waiting';
   lastTurnSide: 'player' | 'enemy' | null;
   winner: 'player' | 'enemy' | null;
-  rewards: { rubles: number; xp: number } | null;
+  rewards: { sprouts: number; xp: number } | null;
   defenseBoost: { player: number; enemy: number };
   speedGauge: { player: number; enemy: number };
   isEnemyHit: boolean;
@@ -44,6 +53,7 @@ interface BattleState {
   showUlt: boolean;
   isPlayerRegen: boolean;
   isEnemyRegen: boolean;
+  floatingDamages: FloatingDamage[];
   debuffs: {
     player: Partial<Record<keyof PetStats, number>>;
     enemy: Partial<Record<keyof PetStats, number>>;
@@ -54,6 +64,19 @@ interface BattleState {
 
 const BattleContext = createContext<BattleState | null>(null);
 
+const DamageNumber: React.FC<{ damage: FloatingDamage }> = ({ damage }) => (
+  <motion.div
+    initial={{ opacity: 0, y: damage.y, x: damage.x, scale: 0.5 }}
+    animate={{ opacity: [0, 1, 1, 0], y: damage.y - 100, scale: [0.5, 1.5, 1.2, 1] }}
+    transition={{ duration: 1, ease: "easeOut" }}
+    className={cn(
+      "absolute z-[400] font-black text-3xl italic pointer-events-none drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)]",
+      damage.type === 'heal' ? "text-green-500" : damage.type === 'ult' ? "text-sticker-yellow" : "text-pen-red"
+    )}
+  >
+    {damage.type === 'heal' ? `+${damage.value}` : `-${damage.value}`}
+  </motion.div>
+);
 const UltAnimation: React.FC<{ element: string }> = ({ element }) => {
   const getElementColor = () => {
     switch (element) {
@@ -376,9 +399,9 @@ const BattleProvider: React.FC<{
     const enemyCP = calculateCP(currentEnemy);
     const cpRatio = enemyCP / (playerCP || 1); 
     
-    const { xp: xpAwarded, rubles: rublesAwarded } = getBattleRewards(playerPet.level, playerWon, cpRatio);
+    const { xp: xpAwarded, sprouts: sproutsAwarded } = getBattleRewards(playerPet.level, playerWon, cpRatio);
 
-    syncState({ rewards: { rubles: rublesAwarded, xp: xpAwarded } });
+    syncState({ rewards: { sprouts: sproutsAwarded, xp: xpAwarded } });
 
     setProgress(prev => {
       const updatedPets = prev.pets.map(p => {
@@ -389,7 +412,7 @@ const BattleProvider: React.FC<{
       });
       return {
         ...prev,
-        currency: prev.currency + rublesAwarded,
+        sprouts: prev.sprouts + sproutsAwarded,
         pets: updatedPets
       };
     });
@@ -477,6 +500,17 @@ const BattleProvider: React.FC<{
     let nextEnemyRage = currentRage.enemy;
     let logSuffix = '';
     
+    // Add floating damage
+    const damageId = Math.random().toString(36).substring(7);
+    const newDamage: FloatingDamage = {
+      id: damageId,
+      value: total,
+      isPlayer: true,
+      x: -50 + Math.random() * 100, // randomized around center
+      y: 100 + Math.random() * 50,
+      type: actionType === 'ult' ? 'ult' : 'damage'
+    };
+
     if (useUlt) {
       nextEnemyRage -= 100;
       logSuffix = ' | Ярость: -100%';
@@ -496,6 +530,8 @@ const BattleProvider: React.FC<{
         rage: { ...currentRage, enemy: nextEnemyRage },
         speedGauge: { ...prev.speedGauge, enemy: prev.speedGauge.enemy - 100 },
         lastTurnSide: 'enemy',
+        floatingDamages: [...prev.floatingDamages, newDamage],
+        isPlayerHit: true,
         defenseBoost: { ...prev.defenseBoost, player: 1.0 }, // Reset player boost after being hit
         battleLog: [log + logSuffix + speedSuffix, ...prev.battleLog],
       };
@@ -505,7 +541,19 @@ const BattleProvider: React.FC<{
       }
       return updateSpeedAndDecideTurn(intermediate);
     });
-  }, [state.winner, playerPet, calculateDamageDetailed, syncState]);
+
+    // Reset hit effects and remove damage numbers after delay
+    setTimeout(() => {
+      syncState({ isPlayerHit: false, isEnemyAttacking: false });
+    }, 500);
+
+    setTimeout(() => {
+      syncState(prev => ({
+        ...prev,
+        floatingDamages: prev.floatingDamages.filter(d => d.id !== damageId)
+      }));
+    }, 2000);
+  }, [state.winner, playerPet, calculateDamageDetailed, syncState, state.debuffs]);
 
   const handleAction = async (type: 'attack' | 'ult' | 'regen') => {
     if (state.turn !== 'player' || state.winner || !state.enemy || !playerPet) return;
@@ -530,6 +578,16 @@ const BattleProvider: React.FC<{
       const defenseBoostVal = 1.0 + (Math.random() * 0.2); // 100-120%
       const newHp = { ...state.hp, player: state.hp.player + finalRegen };
       
+      const damageId = Math.random().toString(36).substring(7);
+      const newDamage: FloatingDamage = {
+        id: damageId,
+        value: finalRegen,
+        isPlayer: true,
+        x: -50 + Math.random() * 100,
+        y: 100 + Math.random() * 50,
+        type: 'heal'
+      };
+
       const pSpeed = Math.max(1, getVal(playerPet, 'speed', 'player', newDebuffs));
       const eSpeed = Math.max(1, getVal(state.enemy, 'speed', 'enemy', newDebuffs));
       const speedSuffix = getSpeedGainFormatted(pSpeed, eSpeed);
@@ -540,6 +598,7 @@ const BattleProvider: React.FC<{
           hp: newHp,
           speedGauge: { ...prev.speedGauge, player: prev.speedGauge.player - 100 },
           lastTurnSide: 'player',
+          floatingDamages: [...prev.floatingDamages, newDamage],
           defenseBoost: { ...prev.defenseBoost, player: defenseBoostVal },
           debuffs: newDebuffs,
           battleLog: [
@@ -549,6 +608,14 @@ const BattleProvider: React.FC<{
         };
         return updateSpeedAndDecideTurn(intermediate);
       });
+
+      setTimeout(() => {
+        syncState(prev => ({
+          ...prev,
+          floatingDamages: prev.floatingDamages.filter(d => d.id !== damageId)
+        }));
+      }, 2000);
+
       return;
     }
 
@@ -573,6 +640,17 @@ const BattleProvider: React.FC<{
 
     const currentEnemyHp = Math.max(0, state.hp.enemy - total);
     
+    // Add floating damage
+    const damageId = Math.random().toString(36).substring(7);
+    const newDamage: FloatingDamage = {
+      id: damageId,
+      value: total,
+      isPlayer: false,
+      x: -50 + Math.random() * 100,
+      y: 100 + Math.random() * 50,
+      type: type === 'ult' ? 'ult' : 'damage'
+    };
+
     let newRage = { ...state.rage };
     let logSuffix = '';
     const gain = calculateRageGain(attack + magic);
@@ -595,6 +673,8 @@ const BattleProvider: React.FC<{
         rage: newRage,
         speedGauge: { ...prev.speedGauge, player: prev.speedGauge.player - 100 },
         lastTurnSide: 'player',
+        floatingDamages: [...prev.floatingDamages, newDamage],
+        isEnemyHit: true,
         defenseBoost: { ...prev.defenseBoost, enemy: 1.0 }, // Reset enemy boost after being hit
         battleLog: [log + logSuffix + speedSuffix, ...prev.battleLog],
       };
@@ -604,6 +684,18 @@ const BattleProvider: React.FC<{
       }
       return updateSpeedAndDecideTurn(intermediate);
     });
+
+    // Cleanup effects
+    setTimeout(() => {
+      syncState({ isEnemyHit: false, isPlayerAttacking: false, activeActionEffect: null, showUlt: false });
+    }, 600);
+
+    setTimeout(() => {
+      syncState(prev => ({
+        ...prev,
+        floatingDamages: prev.floatingDamages.filter(d => d.id !== damageId)
+      }));
+    }, 2000);
   };
 
   const initStarted = React.useRef(false);
@@ -628,7 +720,7 @@ const BattleProvider: React.FC<{
         return;
       }
 
-      if (progress.energy < 1) {
+      if (progress.energy < 5) {
         navigate('/main');
         return;
       }
@@ -683,6 +775,7 @@ const BattleProvider: React.FC<{
         showUlt: false,
         isPlayerRegen: false,
         isEnemyRegen: false,
+        floatingDamages: [],
         winner: null,
         rewards: null,
         debuffs: { player: {}, enemy: {} },
@@ -693,7 +786,7 @@ const BattleProvider: React.FC<{
       syncState(withTurn);
       setProgress(prev => {
         console.log('[Battle] Consuming energy');
-        return { ...prev, energy: prev.energy - 1 };
+        return { ...prev, energy: prev.energy - 5 };
       });
     }
   }, [playerPet?.id, location.pathname, navigate, progress.energy, setProgress, syncState, state.enemy, playerPet]);
@@ -703,7 +796,7 @@ const BattleProvider: React.FC<{
   return <BattleContext.Provider value={value}>{children}</BattleContext.Provider>;
 };
 
-const BattleCard = React.memo(({ pet, currentHp, maxHp, isPlayer, rage, speedGauge, opponent, sideDebuffs }: { 
+const BattleCard = React.memo(({ pet, currentHp, maxHp, isPlayer, rage, speedGauge, opponent, sideDebuffs, isHit }: { 
   pet: Pet, 
   currentHp: number, 
   maxHp: number, 
@@ -711,7 +804,8 @@ const BattleCard = React.memo(({ pet, currentHp, maxHp, isPlayer, rage, speedGau
   rage: { player: number, enemy: number }, 
   speedGauge: { player: number, enemy: number }, 
   opponent: Pet,
-  sideDebuffs: Partial<Record<keyof PetStats, number>>
+  sideDebuffs: Partial<Record<keyof PetStats, number>>,
+  isHit?: boolean
 }) => {
     const cp = calculateCP(pet);
 
@@ -739,8 +833,13 @@ const BattleCard = React.memo(({ pet, currentHp, maxHp, isPlayer, rage, speedGau
     return (
       <motion.div 
         initial={{ rotate: isPlayer ? -1.5 : 1.5 }}
-        animate={{ rotate: isPlayer ? -1.5 : 1.5 }}
-        transition={{ type: "spring", damping: 30, stiffness: 400 }}
+        animate={isHit ? { 
+          x: [0, -10, 10, -10, 10, 0],
+          rotate: isPlayer ? [-1.5, -5, 5, -5, 5, -1.5] : [1.5, 5, -5, 5, -5, 1.5]
+        } : { 
+          rotate: isPlayer ? -1.5 : 1.5 
+        }}
+        transition={isHit ? { duration: 0.4 } : { type: "spring", damping: 30, stiffness: 400 }}
         className={cn(
           "relative w-full aspect-[3/4.8] bg-white border-2 border-pen-blue flex flex-col select-none rounded-sm"
         )}
@@ -877,13 +976,16 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
     );
   }
 
-  const { playerPet, enemy, hp, rage, speedGauge, turn, winner, rewards, isEnemyHit, isPlayerHit, isPlayerAttacking, isEnemyAttacking, activeActionEffect, showUlt, isPlayerRegen, isEnemyRegen, handleAction, battleLog, debuffs } = context;
+  const { playerPet, enemy, hp, rage, speedGauge, turn, winner, rewards, isEnemyHit, isPlayerHit, isPlayerAttacking, isEnemyAttacking, activeActionEffect, showUlt, isPlayerRegen, isEnemyRegen, handleAction, battleLog, debuffs, floatingDamages } = context;
 
   if (side === 'left') {
     return (
       <div className="h-full flex flex-col pt-4 pb-8 px-4 relative overflow-hidden ledger-grid">
         <AnimatePresence>
           {showUlt && <UltAnimation element={playerPet.element} />}
+          {floatingDamages.map(d => (
+            <DamageNumber key={d.id} damage={d} />
+          ))}
         </AnimatePresence>
         
         <div className="flex-1 relative mb-2 min-h-[550px]">
@@ -905,11 +1007,11 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
           </AnimatePresence>
 
           <div className="absolute top-20 left-[5%] w-[44.5%] flex justify-start z-30">
-             <BattleCard pet={playerPet} currentHp={hp.player} maxHp={getEffectiveStat(playerPet, 'health')} isPlayer={true} rage={rage} speedGauge={speedGauge} opponent={enemy} sideDebuffs={debuffs.player} />
+             <BattleCard pet={playerPet} currentHp={hp.player} maxHp={getEffectiveStat(playerPet, 'health')} isPlayer={true} rage={rage} speedGauge={speedGauge} opponent={enemy} sideDebuffs={debuffs.player} isHit={isPlayerHit} />
           </div>
 
           <div className="absolute bottom-20 right-[5%] w-[44.5%] flex justify-end z-10">
-             <BattleCard pet={enemy} currentHp={hp.enemy} maxHp={getEffectiveStat(enemy, 'health')} isPlayer={false} rage={rage} speedGauge={speedGauge} opponent={playerPet} sideDebuffs={debuffs.enemy} />
+             <BattleCard pet={enemy} currentHp={hp.enemy} maxHp={getEffectiveStat(enemy, 'health')} isPlayer={false} rage={rage} speedGauge={speedGauge} opponent={playerPet} sideDebuffs={debuffs.enemy} isHit={isEnemyHit} />
           </div>
 
           <div className="absolute top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-[60] flex flex-col gap-3 scale-[0.8]">
@@ -959,7 +1061,7 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
                     transition={{ repeat: Infinity, duration: 0.8 }}
                     className={cn("absolute inset-0 border-[4px] rounded-full pointer-events-none", rage.player >= 100 ? "border-sticker-yellow" : "border-pen-blue")}
                   />
-                  <div className={cn("flex items-center justify-center rounded-full w-full h-full uppercase", rage.player >= 100 ? "bg-sticker-yellow/10" : "bg-transparent")}>
+                  <div className={cn("flex items-center justify-center rounded-full w-full h-full", rage.player >= 100 ? "bg-sticker-yellow/10" : "bg-transparent")}>
                     <Zap className={cn("w-10 h-10 text-pen-blue", rage.player >= 100 && "fill-current")} strokeWidth={3} />
                   </div>
                 </motion.button>
@@ -1048,7 +1150,7 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
             <div className="w-full space-y-6 mb-10">
                <div className="flex justify-between items-center border-b-2 border-pen-blue/10 pb-3">
                   <span className="text-[18px] font-black text-pen-blue/60 italic tracking-widest">Добыча:</span>
-                  <span className="text-[28px] font-black text-pen-blue italic">{rewards?.rubles || 0} ₽</span>
+                  <span className="text-[28px] font-black text-pen-blue italic">{rewards?.sprouts || 0} 🌱</span>
                </div>
                <div className="flex justify-between items-center border-b-2 border-pen-blue/10 pb-3">
                   <span className="text-[18px] font-black text-pen-blue/60 italic tracking-widest">Опыт:</span>

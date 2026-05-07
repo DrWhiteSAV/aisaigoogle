@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { cn } from '../lib/utils';
 import { Pet, UserProgress } from '../types';
 import { GlassCard, NeonButton, HandwrittenText } from '../components/UI';
+import { PetEvolutionCard } from '../components/PetEvolutionCard';
 import { motion, AnimatePresence } from 'motion/react';
-import { GitBranch, Zap, Sparkles, AlertCircle, TrendingUp, FlaskConical, Plus, Info, ArrowLeft } from 'lucide-react';
+import { GitBranch, Zap, Sparkles, AlertCircle, TrendingUp, FlaskConical, Plus, Info, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getPetRankByLevel, getExpNeeded, RARITY_WEIGHTS } from '../lib/gameLogic';
 import { RARITY_STYLES, RARITY_LABELS } from '../constants/gameData';
@@ -18,12 +19,18 @@ export const Evolve: React.FC<{
   manualId?: string;
   toggleFlipLock?: (id: string, locked: boolean) => void;
   side?: 'left' | 'right';
-}> = ({ progress, setProgress, manualId, toggleFlipLock, side }) => {
+  spreadIndex?: number;
+}> = ({ progress, setProgress, manualId, toggleFlipLock, side, spreadIndex = 0 }) => {
+  const { id: paramsId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const componentId = React.useId();
   const lockId = `evolve-${componentId}`;
   
-  const { id: paramsId } = useParams<{ id: string }>();
+  // Decide if paramsId represents a page number (1-3 digits) or a pet ID
+  const isPageNum = paramsId && /^\d{1,3}$/.test(paramsId);
+  const pageNumFromRoute = isPageNum ? parseInt(paramsId) : 1;
+  const currentPetId = isPageNum ? null : paramsId;
+
   const [evolving, setEvolving] = useState(false);
   const [evolutionResult, setEvolutionResult] = useState<Pet | null>(null);
 
@@ -33,37 +40,42 @@ export const Evolve: React.FC<{
     }
   }, [evolving, evolutionResult, toggleFlipLock, lockId]);
   
-  const id = manualId || paramsId;
-  const pet = progress.pets.find(p => p.id === id);
+  const id = manualId || currentPetId;
+  const pet = progress.pets.find(p => p.id === id) || progress.pets[0];
 
-  if (!pet) {
+  // Find which page this pet belongs to, or use the page number from route
+  const currentPetIndex = progress.pets.findIndex(p => p.id === id);
+  const effectivePageNum = currentPetIndex !== -1 ? Math.floor(currentPetIndex / 4) + 1 : (spreadIndex + 1);
+  const totalPages = Math.ceil((progress.pets?.length || 0) / 4);
+
+  if (!pet && progress.pets.length === 0) {
     return (
       <div className="p-8 flex flex-col items-center justify-center min-h-screen text-center space-y-4">
-        <h2 className="text-3xl font-black text-pen-blue">Сущность не найдена</h2>
-        <NeonButton onClick={() => navigate('/main')}>Вернуться в Бестиарий</NeonButton>
+        <h2 className="text-3xl font-black text-pen-blue">Сущностей пока нет</h2>
+        <NeonButton onClick={() => navigate('/summon')}>Призвать первую</NeonButton>
       </div>
     );
   }
 
-  const costPerLevel = Math.floor(pet.level * 500 * Math.pow(1.05, pet.level - 1));
-  const expNeeded = getExpNeeded(pet.level);
-  const canLevelUp = pet.experience >= expNeeded && pet.level < MAX_LEVEL;
-  const growthPerLevel = RARITY_WEIGHTS[pet.rarity].growth;
+  const costPerLevel = pet ? Math.floor(pet.level * 500 * Math.pow(1.05, pet.level - 1)) : 0;
+  const expNeeded = pet ? getExpNeeded(pet.level) : 0;
+  const canLevelUp = pet ? (pet.experience >= expNeeded && pet.level < MAX_LEVEL) : false;
+  const growthPerLevel = pet ? RARITY_WEIGHTS[pet.rarity].growth : 0;
   
-  const potentialRank = getPetRankByLevel(pet.level);
-  const currentRankCode = pet.ageStage.split(' ')[0];
-  const potentialRankCode = potentialRank.split(' ')[0];
+  const potentialRank = pet ? getPetRankByLevel(pet.level) : '';
+  const currentRankCode = pet ? pet.ageStage.split(' ')[0] : '';
+  const potentialRankCode = pet ? potentialRank.split(' ')[0] : '';
   
   const rankIndex = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'EX', 'UX', 'Z'].indexOf(potentialRankCode);
   const expectedSkills = (rankIndex * 2) + 2;
-  const currentSkillsCount = (pet.skills || []).length;
+  const currentSkillsCount = pet ? (pet.skills || []).length : 0;
 
-  const isMajorEvolution = potentialRankCode !== currentRankCode || (pet.level >= 11 && currentSkillsCount < expectedSkills);
+  const isMajorEvolution = potentialRankCode !== currentRankCode || (pet && pet.level >= 11 && currentSkillsCount < expectedSkills);
 
   const handleLevelUp = async () => {
-    if (pet.level >= MAX_LEVEL) return;
+    if (!pet || pet.level >= MAX_LEVEL) return;
     if (pet.experience < expNeeded) return;
-    if (progress.currency < costPerLevel && !isMajorEvolution) return;
+    if (progress.sprouts < costPerLevel && !isMajorEvolution) return;
 
     setEvolving(true);
     
@@ -101,7 +113,7 @@ export const Evolve: React.FC<{
 
       setProgress(prev => ({
         ...prev,
-        currency: prev.currency - (isMajorEvolution ? 0 : costPerLevel),
+        sprouts: prev.sprouts - (isMajorEvolution ? 0 : costPerLevel),
         pets: prev.pets.map(p => p.id === pet.id ? updatedPet : p)
       }));
     } catch (e) {
@@ -119,135 +131,127 @@ export const Evolve: React.FC<{
     navigate(`/pet/${pet.id}`);
   };
 
-  const renderGallery = () => (
-    <div className="space-y-6 h-full flex flex-col">
-       <header className="flex items-center justify-between border-b-2 border-black/5 pb-4 shrink-0">
-        <div className="flex items-center gap-3">
-          <NeonButton 
-            onClick={() => navigate('/pet/' + pet.id)}
-            className="text-[16px] px-4 py-1"
-          >
-            <ArrowLeft className="h-5 w-5" />
-            Назад
-          </NeonButton>
-          <div 
-             className="text-[16px] font-black text-pen-blue cursor-pointer hover:opacity-70 truncate max-w-[150px] sm:max-w-none"
-             onClick={() => navigate('/pet/' + pet.id)}
-          >
-            {pet.name}
-          </div>
-        </div>
-        <div className="text-[12px] font-black text-pen-blue/20 tracking-tighter">
-           {isMajorEvolution ? "Великая эволюция" : "Развитие"}
+  const renderGallery = (sidePets: Pet[]) => (
+    <div className="space-y-4 h-full flex flex-col">
+       <header className="flex items-center justify-between border-b-2 border-black/5 pb-2 shrink-0">
+        <div className="flex items-center gap-2">
+          {side === 'left' && (
+            <button 
+              onClick={() => navigate('/pet/' + (pet?.id || progress.pets[0]?.id))}
+              className="p-1 hover:bg-black/5 rounded-full transition-colors text-pen-blue"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+          )}
+          <h2 className="text-lg font-black text-pen-blue italic tracking-tighter flex items-center gap-2">
+            <GitBranch className="h-4 w-4" />
+            Эволюция
+          </h2>
         </div>
       </header>
 
-       <div className="flex items-center justify-between px-2 pt-2">
-          <span className="text-[10px] font-black text-pen-blue/30 tracking-widest">Ваши сущности</span>
+       <div className="flex-1 overflow-visible">
+          <div className="grid grid-cols-2 gap-x-3 h-full">
+             {sidePets.map((p) => (
+               <PetEvolutionCard 
+                 key={p.id}
+                 pet={p}
+                 isSelected={p.id === id}
+                 isEvolving={evolving}
+                 onSelect={() => navigate(`/evolve/${p.id}`)}
+                 onLevelUp={() => handleLevelUp()}
+               />
+             ))}
+          </div>
        </div>
-       
-       <div className="grid grid-cols-2 gap-4 overflow-y-auto pr-2 custom-scrollbar flex-1">
-          {progress.pets.map((p) => {
-            const pRankCode = getPetRankByLevel(p.level).split(' ')[0];
-            const pCurrentRankCode = p.ageStage.split(' ')[0];
-            const pRankIndex = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'EX', 'UX', 'Z'].indexOf(pRankCode);
-            const pExpectedSkills = (pRankIndex * 2) + 2;
-            const pIsReady = pRankCode !== pCurrentRankCode || (p.level >= 11 && (p.skills || []).length < pExpectedSkills);
-            
-            const pCostPerLevel = Math.floor(p.level * 500 * Math.pow(1.05, p.level - 1));
-            const pExpNeeded = getExpNeeded(p.level);
-            const pCanLevelUp = p.experience >= pExpNeeded && p.level < MAX_LEVEL;
-            const pIsMajor = pRankCode !== pCurrentRankCode || (p.level >= 11 && (p.skills || []).length < pExpectedSkills);
-            const isSelected = p.id === id;
-            const pRarityType = p.rarity.toLowerCase() as Rarity;
-            const pRarityStyle = RARITY_STYLES[pRarityType] || RARITY_STYLES.normal;
 
-            return (
-              <div 
-                key={p.id}
-                onClick={() => navigate(`/evolve/${p.id}`)}
-                className={cn(
-                  "group relative aspect-[9/16] bg-white border-2 transition-all duration-300 cursor-pointer overflow-visible mb-8",
-                  isSelected ? "scale-100" : "border-black/5 hover:scale-100 scale-[0.98]"
-                )}
-                style={isSelected ? { borderColor: pRarityStyle.color } : {}}
-              >
-                 <div className="absolute inset-0 overflow-hidden">
-                    <img src={p.image} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-white via-white/20 to-transparent opacity-80" />
-                 </div>
+       <div className="pt-2 border-t border-black/5 flex items-center justify-between shrink-0">
+          <div className="text-[16px] font-black text-pen-blue">
+            Лист {effectivePageNum} / {totalPages}
+          </div>
+       </div>
+    </div>
+  );
 
-                 {/* Potential & Level */}
-                 <div className="absolute top-2 left-2 z-10 space-y-2">
-                    <div 
-                      className="px-2 py-0.5 text-[12px] font-black border-2 bg-white shadow-sm"
-                      style={{ 
-                        borderColor: pRarityStyle.color,
-                        color: pRarityStyle.color
-                      }}
-                    >
-                      {RARITY_LABELS[pRarityType]}
-                    </div>
-                    <div className="text-[16px] font-black text-pen-blue bg-transparent px-0 drop-shadow-sm">
-                       Ур. {p.level}
-                    </div>
-                 </div>
-                 
-                 <div className="absolute bottom-4 left-4 right-4 z-10 flex flex-col gap-2">
-                    <div className="pointer-events-none">
-                      <div className="text-[16px] font-black text-pen-blue truncate drop-shadow-sm">{p.name}</div>
-                      <div className="text-[16px] font-black text-pen-blue/80 tracking-tight drop-shadow-sm">{p.ageStage}</div>
-                    </div>
-
-                    {isSelected && (
-                      <div className="pt-2 flex justify-center">
-                         {pIsMajor ? (
-                           <NeonButton 
-                             onClick={(e) => { e.stopPropagation(); handleLevelUp(); }}
-                             disabled={evolving}
-                             className="px-6 py-2 bg-pen-red text-white text-[16px] font-black scale-105 shadow-[0_5px_15px_rgba(196,30,58,0.4)] animate-pulse"
-                           >
-                             Возвыситься
-                           </NeonButton>
-                         ) : (
-                           <NeonButton 
-                             onClick={(e) => { e.stopPropagation(); handleLevelUp(); }}
-                             disabled={evolving || !pCanLevelUp || progress.currency < pCostPerLevel}
-                             className="px-6 py-2 bg-pen-blue text-white text-[16px] font-black shadow-[0_5px_15px_rgba(0,71,171,0.2)]"
-                           >
-                             Повысить уровень
-                           </NeonButton>
-                         )}
-                      </div>
-                    )}
-                 </div>
+  const renderEvolution = () => {
+    if (!pet) return null;
+    
+    return (
+      <div className="h-full flex flex-col space-y-6">
+         <header className="flex items-center justify-between border-b-2 border-black/5 pb-2 shrink-0">
+            <div className="flex items-center gap-2">
+              <div className="text-[14px] font-black text-pen-blue truncate max-w-[150px]">
+                {pet.name}
               </div>
-            );
-          })}
-       </div>
-    </div>
-  );
+            </div>
+            <div className="text-[10px] font-black text-pen-blue/30 italic">
+               {isMajorEvolution ? "Великая трансформация" : "Стабильный рост"}
+            </div>
+         </header>
 
-  const renderEvolution = () => (
-    <div className="h-full flex flex-col items-center justify-center space-y-4">
-       <div className="relative">
-          <div className="absolute inset-0 bg-pen-blue/5 rounded-full blur-3xl animate-pulse" />
-          <GitBranch className="h-20 w-20 text-pen-blue/10 relative z-10" />
-       </div>
-       <div className="text-center space-y-2">
-          <h3 className="text-xl font-black text-pen-blue/30 italic">Ожидание эволюции</h3>
-          <p className="text-xs font-black text-pen-blue/10 max-w-[200px] mx-auto">
-             Выберите сущность из списка слева для проведения трансформации
-          </p>
-       </div>
-       
-       <div className="pt-8 grid grid-cols-3 gap-2 opacity-10">
-          {[1,2,3].map(i => (
-            <div key={i} className="h-10 w-10 border-2 border-dashed border-pen-blue rounded-sm" />
-          ))}
-       </div>
-    </div>
-  );
+         <div className="flex-1 flex flex-col items-center justify-center space-y-8 bg-white/5 rounded-sm p-4 border border-black/5">
+            <div className="relative group">
+               <div className="absolute inset-0 bg-pen-blue/5 rounded-full blur-3xl group-hover:bg-pen-blue/10 transition-colors" />
+               <GitBranch className={cn(
+                 "h-16 w-16 text-pen-blue/20 relative z-10 transition-transform duration-700",
+                 evolving && "rotate-180 scale-75"
+               )} />
+               {evolving && (
+                 <motion.div 
+                   animate={{ rotate: 360 }}
+                   transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                   className="absolute inset-0 border-2 border-dashed border-pen-blue/20 rounded-full"
+                 />
+               )}
+            </div>
+
+            <div className="text-center space-y-4 max-w-[240px]">
+               <div className="space-y-1">
+                  <h3 className="text-xl font-black text-pen-blue italic tracking-tighter whitespace-nowrap">
+                    {evolving ? "Идет слияние..." : (isMajorEvolution ? "Готов к Возвышению" : "Накоплен опыт")}
+                  </h3>
+                  <p className="text-[10px] font-black text-pen-blue/40 leading-tight">
+                    {isMajorEvolution 
+                      ? "Сущность достигла предела текущей оболочки" 
+                      : (canLevelUp ? "Достаточно опыта для укрепления формы" : "Продолжайте тренировки для роста")}
+                  </p>
+               </div>
+
+               <div className="flex flex-col gap-3 pt-4">
+                  <div className="flex items-center justify-between text-[11px] font-black px-2">
+                    <span className="text-pen-blue/30">СТОИМОСТЬ:</span>
+                    <span className="text-pen-blue">{isMajorEvolution ? "ДАР БОГОВ" : `${costPerLevel} ₽`}</span>
+                  </div>
+                  
+                  <NeonButton 
+                    onClick={handleLevelUp}
+                    disabled={evolving || (!isMajorEvolution && (!canLevelUp || progress.sprouts < costPerLevel))}
+                    className={cn(
+                      "w-fit mx-auto px-8 py-3 text-[20px] font-black tracking-wider",
+                      isMajorEvolution ? "bg-pen-red text-white shadow-xl animate-pulse" : "bg-pen-blue text-white"
+                    )}
+                  >
+                    {evolving ? "Трансмутация..." : (isMajorEvolution ? "Возвыситься" : "Улучшить")}
+                  </NeonButton>
+               </div>
+            </div>
+
+            {!isMajorEvolution && !canLevelUp && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-black/5 rounded-full">
+                 <AlertCircle className="h-3 w-3 text-pen-blue/40" />
+                 <span className="text-[9px] font-black text-pen-blue/40">Недостаточно опыта</span>
+              </div>
+            )}
+         </div>
+
+         <div className="grid grid-cols-3 gap-2 opacity-20 shrink-0">
+            {[1,2,3].map(i => (
+              <div key={i} className="h-12 border-2 border-dashed border-pen-blue rounded-sm" />
+            ))}
+         </div>
+      </div>
+    );
+  };
 
   if (evolutionResult) {
     return (
@@ -272,22 +276,22 @@ export const Evolve: React.FC<{
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
                <div className="space-y-4 text-center">
-                  <div className="text-[10px] font-black text-pen-blue/30 uppercase tracking-widest">Прошлое</div>
+                  <div className="text-[10px] font-black text-pen-blue/30 tracking-widest">Прошлое</div>
                   <div className="relative aspect-[9/16] max-h-[400px] mx-auto border-2 border-dashed border-black/10 rounded-sm overflow-hidden grayscale opacity-50">
-                     <img src={pet.image} className="w-full h-full object-cover" />
+                     <img src={pet.image} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   </div>
                   <div className="font-black text-pen-blue/40">{pet.ageStage}</div>
                </div>
 
                <div className="space-y-4 text-center">
-                  <div className="text-[10px] font-black text-sticker-pink uppercase tracking-widest animate-pulse">Новая Форма</div>
+                  <div className="text-[10px] font-black text-sticker-pink tracking-widest animate-pulse">Новая Форма</div>
                   <motion.div 
                     initial={{ x: 50, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
                     transition={{ delay: 0.3 }}
                     className="relative aspect-[9/16] max-h-[400px] mx-auto border-4 border-pen-blue rounded-sm overflow-hidden shadow-[20px_20px_0_rgba(0,71,171,0.1)]"
                   >
-                     <img src={evolutionResult.image} className="w-full h-full object-cover" />
+                     <img src={evolutionResult.image} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   </motion.div>
                   <div className="font-black text-pen-blue">{evolutionResult.ageStage}</div>
                </div>
@@ -323,19 +327,28 @@ export const Evolve: React.FC<{
     );
   }
 
+  const currentSpreadStartIndex = (effectivePageNum - 1) * 4;
+  const leftSidePets = progress.pets.slice(currentSpreadStartIndex, currentSpreadStartIndex + 2);
+  const rightSidePets = progress.pets.slice(currentSpreadStartIndex + 2, currentSpreadStartIndex + 4);
+
   if (side === 'left') {
-    return <div className="p-4 sm:p-2">{renderGallery()}</div>;
+    return <div className="p-4 h-full">{renderGallery(leftSidePets)}</div>;
   }
 
   if (side === 'right') {
-    return <div className="p-4 sm:p-2">{renderEvolution()}</div>;
+    // If a pet is selected, show evolution workspace. Otherwise show the next 2 pets.
+    return (
+      <div className="p-4 h-full">
+        {currentPetId ? renderEvolution() : renderGallery(rightSidePets)}
+      </div>
+    );
   }
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-12 pt-12 pb-32 min-h-screen relative">
        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
           <div className="lg:col-span-5 hidden lg:block">
-            {renderGallery()}
+            {renderGallery(leftSidePets)}
           </div>
           <div className="lg:col-span-7">
             {renderEvolution()}

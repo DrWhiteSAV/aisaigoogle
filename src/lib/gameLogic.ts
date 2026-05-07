@@ -34,7 +34,30 @@ export function getExpNeeded(level: number): number {
   return Math.floor(100 * Math.pow(1.1, n));
 }
 
-export function getBattleRewards(level: number, success: boolean, cpRatio: number): { xp: number, rubles: number } {
+export function getQuestRewards(level: number, success: boolean): { xp: number, sprouts: number } {
+  const n = level;
+  const expNeeded = getExpNeeded(n);
+  
+  // XP formula: (30±25)*0,95^n*100% for success, (5±3)*0,95^n*100% for failure
+  const midXP = success ? 30 : 5;
+  const scatterXP = success ? 25 : 3;
+  const baseRewardPercent = (midXP + (Math.random() * scatterXP * 2 - scatterXP));
+  const modifier = Math.pow(0.95, n);
+  
+  const xpAwarded = Math.round(expNeeded * (baseRewardPercent * modifier / 100));
+  
+  // Sprouts rewards (reasonable scaling)
+  const sproutBase = success ? 100 : 20;
+  const sproutScatter = success ? 50 : 10;
+  const sproutsAwarded = Math.round((sproutBase + (Math.random() * sproutScatter * 2 - sproutScatter)) * Math.pow(1.05, n));
+  
+  return {
+    xp: Math.max(1, xpAwarded),
+    sprouts: Math.max(1, sproutsAwarded)
+  };
+}
+
+export function getBattleRewards(level: number, success: boolean, cpRatio: number): { xp: number, sprouts: number } {
   const n = level;
   const expNeeded = getExpNeeded(n);
   
@@ -46,14 +69,14 @@ export function getBattleRewards(level: number, success: boolean, cpRatio: numbe
   
   const xpAwarded = Math.round(expNeeded * (baseRewardPercent * modifier / 100) * cpRatio);
   
-  // Rubles: (20±10) * cpRatio * 1.05^n (scaling slightly with level but much lower than before)
-  const baseRubles = success ? 50 : 10;
-  const scatterRubles = success ? 20 : 5;
-  const rubReward = (baseRubles + (Math.random() * scatterRubles * 2 - scatterRubles)) * cpRatio * Math.pow(1.05, n);
+  // Sprouts: (20±10) * cpRatio * 1.05^n
+  const baseSprouts = success ? 50 : 10;
+  const scatterSprouts = success ? 20 : 5;
+  const sproutReward = (baseSprouts + (Math.random() * scatterSprouts * 2 - scatterSprouts)) * cpRatio * Math.pow(1.05, n);
   
   return {
     xp: Math.max(1, xpAwarded),
-    rubles: Math.max(1, Math.round(rubReward))
+    sprouts: Math.max(1, Math.round(sproutReward))
   };
 }
 

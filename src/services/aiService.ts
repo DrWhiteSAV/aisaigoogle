@@ -1,5 +1,5 @@
-import { GoogleGenAI, Type } from "@google/genai";
-import { Pet, PetStats, Rarity, Element, Attribute, Personality, Habitat, Classification, UserProfile, InventoryItem, Skill } from "../types";
+import { GoogleGenAI } from "@google/genai";
+import { Pet, PetStats, Rarity, Element, Attribute, UserProfile, InventoryItem, Skill, Classification } from "../types";
 import { RARITY_WEIGHTS } from "../lib/gameLogic";
 
 // Safe way to access environment variables in Vite/React
@@ -32,6 +32,44 @@ const getAI = () => {
 // Use recommended models for this environment
 const TEXT_MODEL = "gemini-3-flash-preview";
 const IMAGE_MODEL = "gemini-2.5-flash-image";
+
+const cleanAIJson = (str: string) => {
+  if (!str) return "";
+  
+  // Strategy 1: Look for matching braces (most robust for LLM output)
+  let depth = 0;
+  let firstCurly = -1;
+  let lastCurly = -1;
+  
+  for (let i = 0; i < str.length; i++) {
+    if (str[i] === '{') {
+      if (firstCurly === -1) firstCurly = i;
+      depth++;
+    } else if (str[i] === '}') {
+      depth--;
+      if (depth === 0 && firstCurly !== -1) {
+        lastCurly = i;
+        break; // Found the first complete object
+      }
+    }
+  }
+  
+  if (firstCurly !== -1 && lastCurly !== -1) {
+    return str.substring(firstCurly, lastCurly + 1);
+  }
+
+  // Strategy 2: Fallback to existing logic if no matching braces found (e.g. for arrays)
+  let cleaned = str.replace(/```json\n?|\n?```/g, '').trim();
+  const firstSquare = cleaned.indexOf('[');
+  if (firstSquare !== -1) {
+    const lastSquare = cleaned.lastIndexOf(']');
+    if (lastSquare > firstSquare) {
+      return cleaned.substring(firstSquare, lastSquare + 1);
+    }
+  }
+  
+  return cleaned;
+};
 
 export const generatePetArt = async (pet: Partial<Pet>) => {
   const isInfant = !pet.ageStage || pet.ageStage === 'F - младенчество';
@@ -88,7 +126,7 @@ export const generateEvolutionUpdate = async (
     - Текущие способности: ${pet.abilities.join(', ')}
     - Текущая легенда: ${pet.lore}
     
-    Сгенерируй:
+    Сгенерируй (строго без КАПСЛОКА, только прописные и строчные буквы):
     1. Новое эпичное имя (newName), которое отражает его новую форму и силу (может быть развитием старого имени).
     2. Новую уникальную способность, которая добавляется к текущему списку.
     3. Обновленную легенду.
@@ -105,13 +143,15 @@ export const generateEvolutionUpdate = async (
           "name": "Название навыка", 
           "description": "ПОДРОБНОЕ ОПИСАНИЕ (2+ предложения): Как именно питомец делает это с точки зрения биологии.", 
           "type": "passive", 
-          "targetStat": "health|attack|defense|speed|magic|regeneration" 
+          "targetStat": "health|attack|defense|speed|magic|regeneration",
+          "emoji": "ОДИН ПОДХОДЯЩИЙ ЭМОДЗИ (анимированный, если возможно)"
         },
         { 
           "name": "Название активного навыка", 
           "description": "ПОДРОБНОЕ ОПИСАНИЕ (2+ предложения): Как именно питомец использует стихию или крик для влияния на бой.", 
           "type": "active_buff|active_debuff", 
-          "targetStat": "health|attack|defense|speed|magic|regeneration" 
+          "targetStat": "health|attack|defense|speed|magic|regeneration",
+          "emoji": "ОДИН ПОДХОДЯЩИЙ ЭМОДЗИ (анимированный, если возможно)"
         }
       ]
     }`;
@@ -130,14 +170,20 @@ export const generateEvolutionUpdate = async (
     const text = response.text;
 
     if (!text) throw new Error("Empty response from AI");
+    
     let data;
     try {
-      const cleanedText = text.replace(/```json\n?|\n?```/g, '').trim();
-      data = JSON.parse(cleanedText);
+      data = JSON.parse(cleanAIJson(text));
     } catch (e) {
       console.error("Failed to parse AI response as JSON:", text);
       throw new Error("Invalid format from AI");
     }
+
+    const getEmojiUrl = (emoji: string) => {
+      if (!emoji) return undefined;
+      const codePoints = Array.from(emoji).map(c => c.codePointAt(0)?.toString(16)).filter(Boolean);
+      return codePoints.length > 0 ? `https://fonts.gstatic.com/s/e/notoemoji/latest/${codePoints.join('_')}/512.png` : undefined;
+    };
     
     const newSkills: Skill[] = (data.newSkills || []).map((s: any) => ({
       id: Math.random().toString(36).substr(2, 9),
@@ -145,6 +191,10 @@ export const generateEvolutionUpdate = async (
       description: s.description || "Новый уровень мастерства.",
       type: s.type || 'passive',
       targetStat: s.targetStat || 'attack',
+      image: getEmojiUrl(s.emoji),
+      fallbackEmoji: s.emoji,
+      element: s.type !== 'passive' ? pet.element : undefined,
+      attribute: s.type === 'passive' ? pet.attribute : undefined,
       value: s.type === 'active_debuff' 
         ? Math.floor(Math.random() * 41) + 10 // 10-50%
         : Math.floor(Math.random() * 10) + 1  // 1-10%
@@ -195,7 +245,7 @@ export const generatePetStatsAndLore = async (
     
     Важно: Так как это стадия МЛАДЕНЧЕСТВА, описание должно подчеркивать его потенциал и хрупкость, но в рамках его вида.
     
-    Верни JSON (ВСЕ ТЕКСТОВЫЕ ПОЛЯ ДОЛЖНЫ БЫТЬ НА РУССКОМ ЯЗЫКЕ):
+    Верни JSON (ВСЕ ТЕКСТОВЫЕ ПОЛЯ ДОЛЖНЫ БЫТЬ НА РУССКОМ ЯЗЫКЕ, БЕЗ КАПСЛОКА):
     {
       "name": "Эпичное имя на русском",
       "element": "water|fire|air|earth",
@@ -221,19 +271,22 @@ export const generatePetStatsAndLore = async (
           "name": "...", 
           "description": "Подробное описание (2+ предложения): Как именно питомец использует свою биологию или магию для достижения этого пассивного эффекта.", 
           "type": "passive", 
-          "targetStat": "health|attack|defense|speed|magic|regeneration" 
+          "targetStat": "health|attack|defense|speed|magic|regeneration",
+          "emoji": "ОДИН ПОДХОДЯЩИЙ ЭМОДЗИ"
         },
         { 
           "name": "...", 
           "description": "Подробное описание (2+ предложения): Как именно питомец концентрирует энергию или использует свое тело для получения бонуса во время атаки.", 
           "type": "active_buff", 
-          "targetStat": "attack" 
+          "targetStat": "attack",
+          "emoji": "ОДИН ПОДХОДЯЩИЙ ЭМОДЗИ"
         },
         { 
           "name": "...", 
           "description": "Подробное описание (2+ предложения): Как именно питомец воздействует на противника (крик, запах, свечение) для его ослабления.", 
           "type": "active_debuff", 
-          "targetStat": "health|attack|defense|speed|magic|regeneration" 
+          "targetStat": "health|attack|defense|speed|magic|regeneration",
+          "emoji": "ОДИН ПОДХОДЯЩИЙ ЭМОДЗИ"
         }
       ],
       "lore": "легенда появления (акцент на рождении и связи с пользователем)"
@@ -259,8 +312,7 @@ export const generatePetStatsAndLore = async (
     if (!text) throw new Error("Empty response from AI for Stats");
     let parsed;
     try {
-      const cleanedText = text.replace(/```json\n?|\n?```/g, '').trim();
-      parsed = JSON.parse(cleanedText);
+      parsed = JSON.parse(cleanAIJson(text));
     } catch (e) {
       console.error("JSON parse failed for stats:", text);
       throw new Error("Invalid format from AI");
@@ -278,12 +330,22 @@ export const generatePetStatsAndLore = async (
         species: "Неизвестно"
     };
 
+    const getEmojiUrl = (emoji: string) => {
+      if (!emoji) return undefined;
+      const codePoints = Array.from(emoji).map(c => c.codePointAt(0)?.toString(16)).filter(Boolean);
+      return codePoints.length > 0 ? `https://fonts.gstatic.com/s/e/notoemoji/latest/${codePoints.join('_')}/512.png` : undefined;
+    };
+
     const skills: Skill[] = (parsed.skills || []).map((s: any) => ({
       id: Math.random().toString(36).substr(2, 9),
       name: s.name || "Мистический Дар",
       description: s.description || "Древняя сила пробуждается и течет по жилам существа, раскрывая его истинный боевой потенциал.",
       type: s.type || 'passive',
       targetStat: s.targetStat || 'attack',
+      image: getEmojiUrl(s.emoji),
+      fallbackEmoji: s.emoji,
+      element: s.type !== 'passive' ? element : undefined,
+      attribute: s.type === 'passive' ? attribute : undefined,
       value: s.type === 'active_debuff' 
         ? Math.floor(Math.random() * 41) + 10 // 10-50%
         : Math.floor(Math.random() * 10) + 1  // 1-10%
@@ -316,10 +378,55 @@ export const generatePetStatsAndLore = async (
   }
 };
 
-export const generateBonusItem = async (type: 'material' | 'food' | 'egg'): Promise<InventoryItem> => {
-  const prompt = `Сгенерируй описание предмета типа "${type}" для игры aiSai.
-    Это должен быть либо редкий материал для эволюции, либо особая еда, либо мистическое яйцо.
-    Верни JSON с полями: name, description, value (сила предмета от 10 до 50).`;
+export interface RewardData {
+  type: InventoryItem['type'];
+  stat?: keyof PetStats;
+  value?: number;
+  skillType?: 'passive' | 'active_buff' | 'active_debuff';
+  targetStat?: keyof PetStats;
+}
+
+export const preRollQuestReward = (pet: Pet): RewardData | null => {
+  const roll = Math.random();
+  
+  if (roll < 0.5) return null; // 50% Nothing
+  
+  const stats: (keyof PetStats)[] = ['attack', 'defense', 'speed', 'magic', 'regeneration', 'luck'];
+
+  if (roll < 0.85) {
+    // 35% Artifact (+1-5 stats)
+    const stat = stats[Math.floor(Math.random() * stats.length)];
+    return { type: 'artifact', stat, value: Math.floor(Math.random() * 5) + 1 };
+  }
+  
+  if (roll < 0.95) {
+    // 10% Skill
+    const skillTypes: RewardData['skillType'][] = ['passive', 'active_buff', 'active_debuff'];
+    const skillType = skillTypes[Math.floor(Math.random() * skillTypes.length)];
+    const targetStat = stats[Math.floor(Math.random() * stats.length)];
+    const value = Math.floor(Math.random() * 15) + 5; // 5-20% boost
+    return { type: 'skill', skillType, targetStat, value };
+  }
+  
+  // 5% Egg
+  return { type: 'egg' };
+};
+
+export const generateQuestBonusItem = async (reward: RewardData): Promise<InventoryItem> => {
+  const prompt = `Сгенерируй название и атмосферное описание предмета для игры aiSai. СТРОГО БЕЗ КАПСЛОКА.
+    ТИП ПРЕДМЕТА: ${
+      reward.type === 'artifact' ? `Артефакт, увеличивающий характеристику ${reward.stat} на ${reward.value} ед.` : 
+      reward.type === 'skill' ? `Свиток с навыком (Тип: ${reward.skillType === 'passive' ? 'Пассивный' : reward.skillType === 'active_buff' ? 'Активное усиление' : 'Активное ослабление врага'}), который повышает характеристику ${reward.targetStat} на ${reward.value}%.` : 
+      reward.type === 'egg' ? 'Яйцо Питомца, содержащее в себе искру новой жизни.' : 'Особая находка'
+    }
+    
+    ВАЖНО: Нейросеть генерирует только название (name) и художественное описание (description), объясняющее ОТКУДА взялся этот предмет и как его магические/биологические свойства связаны с его эффектом. Пожалуйста, НЕ ВКЛЮЧАЙ числовые значения и проценты в описание, это сделает приложение само.
+    
+    ДЛЯ СВИтКОВ НАВЫКОВ (skill):
+    - Если тип пассивный, добавь поле "attribute": "light|dark|void|time".
+    - Если тип активный, добавь поле "element": "fire|water|air|earth".
+    
+    Верни JSON с полями: name, description, emoji (один подходящий анимированный эмодзи), и element/attribute (только для навыков). Текст на русском языке.`;
 
   try {
     const ai = getAI();
@@ -333,41 +440,138 @@ export const generateBonusItem = async (type: 'material' | 'food' | 'egg'): Prom
     });
 
     const text = response.text;
+    if (!text) throw new Error("Empty response");
+    const data = JSON.parse(cleanAIJson(text));
+    
+    // Helper to get Google Noto Emoji URL
+    const getEmojiUrl = (emoji: string) => {
+      if (!emoji) return undefined;
+      if (reward.type === 'egg') return 'https://i.ibb.co/JwYQcc2D/egg.png';
+      
+      const codePoints = Array.from(emoji).map(c => c.codePointAt(0)?.toString(16)).filter(Boolean);
+      // Constructing URL for animated webp. If it fails, the frontend should handle it (e.g. via onError)
+      return codePoints.length > 0 ? `https://fonts.gstatic.com/s/e/notoemoji/latest/${codePoints.join('_')}/512.webp` : undefined;
+    };
 
-    if (!text) throw new Error("Empty response from AI for Item");
-    try {
-      const cleanedText = text.replace(/```json\n?|\n?```/g, '').trim();
-      const data = JSON.parse(cleanedText);
-      return {
-        id: Math.random().toString(36).substr(2, 9),
-        type,
-        name: data.name || "Странный объект",
-        description: data.description || "Не описано",
-        value: data.value || 0
-      };
-    } catch (e) {
-      throw new Error("Parse failed");
-    }
+    return {
+      id: Math.random().toString(36).substr(2, 9),
+      type: reward.type,
+      name: data.name || "Странный объект",
+      description: data.description || "Мистический артефакт",
+      value: reward.value || 10,
+      image: getEmojiUrl(data.emoji || (reward.type === 'egg' ? '🥚' : '💎')),
+      effect: reward.stat ? { stat: reward.stat, value: reward.value || 1 } : undefined,
+      skillData: reward.type === 'skill' ? {
+        type: reward.skillType!,
+        targetStat: reward.targetStat!,
+        value: reward.value!,
+        element: reward.skillType !== 'passive' ? (data.element || 'fire') : undefined,
+        attribute: reward.skillType === 'passive' ? (data.attribute || 'void') : undefined
+      } : undefined,
+      hue: reward.type === 'egg' ? Math.floor(Math.random() * 360) : undefined,
+      // Pass the raw emoji as fallback
+      fallbackEmoji: data.emoji || (reward.type === 'egg' ? '🥚' : '💎')
+    };
   } catch (e) {
     return {
-      id: 'fallback',
-      type: 'food',
-      name: 'Медовый Сгусток',
-      description: 'Восстанавливает силы.',
-      value: 20
+      id: 'fallback-' + Date.now(),
+      type: reward.type,
+      name: reward.type === 'artifact' ? 'Древний Тотем' : 'Мистический Сгусток',
+      description: 'Обладает скрытой силой.',
+      value: reward.value || 10,
+      image: reward.type === 'egg' ? 'https://i.ibb.co/JwYQcc2D/egg.png' : 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f48e/512.webp',
+      hue: reward.type === 'egg' ? Math.floor(Math.random() * 360) : undefined,
+      effect: reward.stat ? { stat: reward.stat, value: reward.value || 1 } : undefined,
+      skillData: reward.type === 'skill' ? {
+        type: 'passive',
+        targetStat: 'attack',
+        value: 10
+      } : undefined,
+      fallbackEmoji: reward.type === 'egg' ? '🥚' : '💎'
     };
   }
 };
 
-export const generateQuest = async (pet: Pet) => {
-  const prompt = `Сгенерируй случайное испытание (квест) для ИИ-питомца ${pet.name} (${pet.classification.species}).
-    Питомец находится в Среде: ${pet.habitat}.
-    Верни JSON объект на русском языке.
+export interface QuestNode {
+  scenario: string;
+  options: {
+    text: string;
+    outcome: string;
+    isCorrect: boolean;
+    nextNodeId: string | null;
+  }[];
+}
+
+export interface QuestTree {
+  title: string;
+  scenes: Record<string, QuestNode>;
+}
+
+export const generateQuest = async (
+  profile: UserProfile, 
+  pet: Pet, 
+  reward: RewardData | null
+): Promise<QuestTree | null> => {
+    const rewardDesc = reward 
+    ? `В конце успешного прохождения герои должны найти: ${
+        reward.type === 'artifact' ? `Артефакт, дающий +${reward.value} к ${reward.stat}` :
+        reward.type === 'skill' ? `Свиток с навыком (Тип: ${reward.skillType === 'passive' ? 'пассивный' : reward.skillType === 'active_buff' ? 'активный бафф' : 'активный дебафф'}). Эффект: ${reward.value}% к характеристике ${reward.targetStat}` :
+        reward.type === 'egg' ? `Загадочное яйцо нового существа` : 'сокровище'
+      }.`
+    : "В конце успешного прохождения герои получают опыт и ростки, но новых предметов не находят.";
+
+  const prompt = `Сгенерируй полноценную приключенческую историю для Призывателя и его Питомца. 
+    ПРАВИЛА ДЛЯ ПРЕДМЕТОВ:
+    - Все названия и тексты должны быть на русском без КАПСЛОКА.
+    - Пассивные навыки: +1-10% к статам, связаны с Атрибутами (Свет, Тьма, Время, Пустота).
+    - Активные баффы: +1-10% к атаке, связаны со Стихиями (Огонь, Вода, Земля, Воздух).
+    - Активные дебаффы: -10-50% от стата соперника, связаны со стихией.
+    - Доступные статы: Атака, Защита, Здоровье, Скорость, Магия, Регенерация.
     
-    1. Название (title): Эпичное название задания.
-    2. Сценарий (scenario): Описание ситуации (1-2 предложения).
-    3. Варианты (options): массив из 4 объектов { text, outcome, rewardXP, rewardRubles }.
-    4. Награды: от 50 до 1000.`;
+    ИНФОРМАЦИЯ О ГЕРОЯХ:
+    Призыватель: Имя: ${profile.name}, Пол: ${profile.gender === 'male' ? 'Мужской' : 'Женский'}, Город: ${profile.city}, Манифест: ${profile.about}, Возраст: ${profile.age}.
+    Питомец: Имя: ${pet.name}, Стихия: ${pet.element}, Атрибут: ${pet.attribute}, Ранг: ${pet.rank}, Потенциал: ${pet.potential}, Уровень: ${pet.level}.
+    Классификация питомца: Тип: ${pet.classification.type}, Класс: ${pet.classification.class}, Семейство: ${pet.classification.family}, Отряд: ${pet.classification.order}, Род: ${pet.classification.genus}, Вид: ${pet.classification.species}.
+    Лор питомца: ${pet.lore}.
+    Навыки питомца: ${pet.skills.map(s => `${s.name} (${s.description})`).join(', ')}.
+    Место действия: ${pet.habitat}.
+    
+    СТРУКТУРА КВЕСТА (ТРИ АКТА):
+    Эта история должна быть классическим приключением в трех актах:
+    1. Акт I (Завязка): Сцена "root". Герои сталкиваются с проблемой или вызовом в ${pet.habitat}. Постепенное знакомство с обстановкой.
+    2. Акт II (Развитие и Напряжение): Сцены s2_a и s2_b. Ситуация усложняется, герои должны использовать свои навыки для преодоления препятствий.
+    3. Акт III (Кульминация и Финал): Сцены s3_a, s3_b, s3_c, s3_d. Решающее столкновение или открытие. В каждом финальном результате должен быть четкий вывод от Призывателя и Питомца, завершающий сюжетную арку.
+    
+    УСЛОВИЕ УСПЕХА: ${rewardDesc}
+    
+    ТРЕБОВАНИЯ К ТЕКСТУ:
+    1. Полноценная история с завязкой, развитием и финальным выводом. 
+    2. В каждом варианте выбора (option) поле outcome должно описывать, ЧТО ПРОИЗОШЛО сразу после выбора (успех или неудача этого шага) и как это продвигает сюжет дальше.
+    3. Используй особенности стихии (${pet.element}), атрибута (${pet.attribute}) и биологического вида питомца в деталях повествовании.
+    4. ВАЖНО: В каждой сцене ОБЯЗАТЕЛЬНО ровно 2 варианта выбора (options), не больше и не меньше. 
+    5. КРИТИЧЕСКИ ВАЖНО ДЛЯ ГЕЙМПЛЕЯ: Правильный вариант (isCorrect: true) должен распределяться СЛУЧАЙНЫМ ОБРАЗОМ между первым и вторым индексом. Мы фиксируем аномалию, где второй вариант почти всегда ведет к неудаче — исправь это, делая выбор непредсказуемым.
+    6. Если общее приключение в 3 актах, то в 3-ем акте (финальные сцены) обязательно завершай историю полноценным финалом.
+    7. Текст должен быть атмосферным, в стиле фэнтези-дневника или визуальной новеллы.
+    
+    Верни JSON объект на русском языке:
+    {
+      "title": "Название приключения",
+      "scenes": {
+        "root": {
+          "scenario": "Завязка истории...",
+          "options": [
+            { "text": "Вариант 1", "outcome": "Текст результата...", "isCorrect": true/false (СЛУЧАЙНО!), "nextNodeId": "s2_a" / "s2_b" },
+            { "text": "Вариант 2", "outcome": "Текст результата...", "isCorrect": false/true (СЛУЧАЙНО!), "nextNodeId": "s2_a" / "s2_b" }
+          ]
+        },
+        "s2_a": { "scenario": "Обстановка во втором акте...", "options": [ { "text": "...", "outcome": "...", "isCorrect": true/false, "nextNodeId": "s3_a" / "s3_b" }, { "text": "...", "outcome": "...", "isCorrect": false/true, "nextNodeId": "s3_a" / "s3_b" } ] },
+        "s2_b": { "scenario": "...", "options": [...] },
+        "s3_a": { "scenario": "Финал истории...", "options": [ { "text": "Вариант 1", "outcome": "Завершение сюжета...", "isCorrect": true/false, "nextNodeId": null }, { "text": "Вариант 2", "outcome": "Завершение сюжета...", "isCorrect": false/true, "nextNodeId": null } ] },
+        "s3_b": { "scenario": "...", "options": [...] },
+        "s3_c": { "scenario": "...", "options": [...] },
+        "s3_d": { "scenario": "...", "options": [...] }
+      }
+    }`;
 
   try {
     const ai = getAI();
@@ -381,17 +585,15 @@ export const generateQuest = async (pet: Pet) => {
     });
 
     const text = response.text;
-
     if (!text) return null;
     try {
-      const cleanedText = text.replace(/```json\n?|\n?```/g, '').trim();
-      return JSON.parse(cleanedText);
+      return JSON.parse(cleanAIJson(text)) as QuestTree;
     } catch (e) {
-      console.error("Quest parse failed:", text);
+      console.error("Quest tree parse failed:", text);
       return null;
     }
   } catch (error) {
-    console.error("Quest generation failed:", error);
+    console.error("Quest tree generation failed:", error);
     return null;
   }
 };

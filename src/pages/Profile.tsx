@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { UserProgress } from '../types';
 import { GlassCard, NeonButton, HandwrittenText } from '../components/UI';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, Settings, LogOut, Trash2, Award, Zap, Coins, ShieldCheck, Compass } from 'lucide-react';
+import { User, Settings, LogOut, Trash2, Award, Zap, Sprout, ShieldCheck, Compass } from 'lucide-react';
 import { getSummonerRank } from '../lib/gameLogic';
 
 export const Profile: React.FC<{ 
@@ -152,7 +152,7 @@ export const Profile: React.FC<{
               </h3>
               
               <div className="text-3xl font-black text-pen-blue leading-none">
-                 {progress.currency.toLocaleString()} ₽
+                 {progress.sprouts.toLocaleString()} 🌱
               </div>
 
               <div className="flex justify-center pt-2">

@@ -25,7 +25,7 @@ export const ElementSticker: React.FC<{
       style={{ color: data.color }}
     >
       <Icon className="h-6 w-6" />
-      {showLabel && <span className="text-[20px] font-black">{data.label}</span>}
+      {showLabel && <span className="text-[16px] font-black">{data.label}</span>}
     </button>
   );
 };
@@ -49,7 +49,7 @@ export const AttributeSticker: React.FC<{
       style={{ color: data.color }}
     >
       <Icon className="h-6 w-6" />
-      {showLabel && <span className="text-[20px] font-black">{data.label}</span>}
+      {showLabel && <span className="text-[16px] font-black">{data.label}</span>}
     </button>
   );
 };
@@ -105,7 +105,7 @@ export const InfoModal: React.FC<{
               <X className={plain ? "h-8 w-8" : "h-6 w-6"} strokeWidth={3} />
             </button>
           )}
-          {!plain && <h3 className="text-2xl font-black text-pen-blue mb-4 tracking-tight">{title}</h3>}
+          {!plain && <h3 className="text-[24px] font-black text-pen-blue mb-4 tracking-tight">{title}</h3>}
           <div className={plain ? "flex items-center justify-center overflow-hidden rounded-lg max-h-[85vh] aspect-[9/16]" : "space-y-4"}>
             {children}
           </div>
@@ -125,10 +125,10 @@ export const TypeChartContent: React.FC<{ element?: Element; attribute?: Attribu
     return (
       <div className="space-y-6">
         <div className="space-y-2">
-          <p className="text-sm font-black text-pen-blue/70 leading-tight">
+          <p className="text-[16px] font-black text-pen-blue leading-tight">
             {data.description}
           </p>
-          <p className="text-[12px] font-bold text-pen-blue/50 italic leading-snug">
+          <p className="text-[16px] font-bold text-pen-blue italic leading-snug">
             Цикл стихий: Вода → Огонь → Воздух → Земля → Вода. Питомец с превосходящей стихией наносит на 20% больше урона (Атака и Магия x1.2).
           </p>
         </div>
@@ -153,11 +153,11 @@ export const TypeChartContent: React.FC<{ element?: Element; attribute?: Attribu
 
         <div className="space-y-3 pt-4 border-t border-black/5">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black text-pen-blue/40 tracking-widest uppercase">Атака x1.2 над:</span>
+            <span className="text-[16px] font-black text-pen-blue tracking-widest">Атака x1.2 над:</span>
             <ElementSticker element={data.strongAgainst} />
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black text-pen-blue/40 tracking-widest uppercase">Уязвим к:</span>
+            <span className="text-[16px] font-black text-pen-blue tracking-widest">Уязвим к:</span>
             <ElementSticker element={data.weakTo} />
           </div>
         </div>
@@ -172,10 +172,10 @@ export const TypeChartContent: React.FC<{ element?: Element; attribute?: Attribu
     return (
       <div className="space-y-6">
         <div className="space-y-2">
-          <p className="text-sm font-black text-pen-blue/70 leading-tight">
+          <p className="text-[16px] font-black text-pen-blue leading-tight">
             {data.description}
           </p>
-          <p className="text-[12px] font-bold text-pen-blue/50 italic leading-snug">
+          <p className="text-[16px] font-bold text-pen-blue italic leading-snug">
             Цикл атрибутов: Свет → Тьма → Пустота → Время → Свет. Питомец с превосходящим атрибутом получает на 20% больше Защиты (Защита x1.2).
           </p>
         </div>
@@ -200,7 +200,7 @@ export const TypeChartContent: React.FC<{ element?: Element; attribute?: Attribu
         
         <div className="space-y-3 pt-4 border-t border-black/5">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black text-pen-blue/40 tracking-widest uppercase">Защита x1.2 от:</span>
+            <span className="text-[16px] font-black text-pen-blue tracking-widest">Защита x1.2 от:</span>
             <AttributeSticker attribute={data.opponent} />
           </div>
         </div>

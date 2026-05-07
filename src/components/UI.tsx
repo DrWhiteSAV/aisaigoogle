@@ -94,6 +94,69 @@ export const GlassCard: React.FC<StickyNoteProps> = ({
   );
 };
 
+export const AnimatedEgg: React.FC<{ 
+  hue?: number; 
+  className?: string;
+  pulseScale?: number;
+}> = ({ hue = 0, className, pulseScale = 1.05 }) => (
+  <motion.div
+    animate={{ 
+      scale: [1, pulseScale, 1],
+    }}
+    transition={{ 
+      duration: 3, 
+      repeat: Infinity, 
+      ease: "easeInOut" 
+    }}
+    className={cn("relative flex items-center justify-center", className)}
+    style={{ 
+      filter: `hue-rotate(${hue}deg) brightness(1.1) contrast(1.1)`
+    }}
+  >
+    <img 
+      src="https://i.ibb.co/JwYQcc2D/egg.png" 
+      alt="Egg" 
+      className="w-full h-full object-contain"
+    />
+  </motion.div>
+);
+
+export const ItemIcon: React.FC<{
+  type: string;
+  image?: string;
+  hue?: number;
+  fallbackEmoji?: string;
+  className?: string;
+}> = ({ type, image, hue, fallbackEmoji, className }) => {
+  const [imgError, setImgError] = useState(false);
+
+  // Use raw emoji if image loading failed or if it was requested
+  const emoji = fallbackEmoji || (type === 'egg' ? '🥚' : '📦');
+
+  if (type === 'egg') {
+    return <AnimatedEgg hue={hue} className={className} />;
+  }
+
+  if (image && !imgError) {
+    return (
+      <img 
+        src={image} 
+        onError={(e) => {
+          setImgError(true);
+        }} 
+        className={cn("w-full h-full object-contain", className)} 
+        alt="" 
+      />
+    );
+  }
+
+  return (
+    <div className={cn("flex items-center justify-center", className)}>
+      <span className="drop-shadow-sm">{emoji}</span>
+    </div>
+  );
+};
+
 export const NeonButton: React.FC<{
   children: React.ReactNode;
   onClick?: () => void;

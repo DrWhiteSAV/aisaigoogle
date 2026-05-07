@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '../lib/utils';
-import { NeonButton } from '../components/UI';
+import { NeonButton, AnimatedEgg } from '../components/UI';
 import { Pet, Rarity, UserProfile } from '../types';
 import { generatePetStatsAndLore, generatePetArt } from '../services/aiService';
 import { motion, AnimatePresence } from 'motion/react';
@@ -213,9 +213,19 @@ export const Setup: React.FC<{
   onStartSummon
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const componentId = React.useId();
   const lockId = `setup-${currentStep}-${side || 'main'}-${componentId}`;
-  
+
+  // Auto-start summoning if requested via state
+  useEffect(() => {
+    if (location.state?.autoSummon && onStartSummon) {
+      onStartSummon();
+      // Clear state to avoid re-triggering
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, onStartSummon, navigate, location.pathname]);
+
   const [localLoading, setLocalLoading] = useState(false);
   const [localPet, setLocalPet] = useState<Pet | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -364,12 +374,17 @@ export const Setup: React.FC<{
   if (loading) return (
     <div className="flex items-center justify-center h-full text-center p-8 bg-[#f5f2e9] ledger-grid relative overflow-hidden">
       <div className="space-y-6 relative z-10 w-full max-w-xs">
-        <Loader2 className="h-16 w-16 text-pen-blue animate-spin mx-auto" />
+        <div className="h-80 w-80 mx-auto relative flex items-center justify-center">
+            {/* Background Aura */}
+            <div className="absolute inset-x-[-60px] inset-y-[-60px] border-4 border-dashed border-pen-blue/5 rounded-full animate-spin-slow opacity-20" />
+            
+            <AnimatedEgg hue={45} className="h-72 w-72 relative z-10" />
+        </div>
         <h2 className="text-3xl font-black text-pen-blue leading-tight">
-          {side === 'left' ? 'Синтез сущности...' : 'Материализация...'}
+          {side === 'left' ? (isMarketSummon ? 'Высиживание...' : 'Призыв...') : (isMarketSummon ? 'Вылупление...' : 'Пробуждение...')}
         </h2>
         <p className="text-pen-blue/40 font-black text-xs tracking-wide">
-          {side === 'left' ? 'Формирование цифровой структуры' : 'Адаптация биометрии'}
+          {side === 'left' ? 'Энергетическая инкубация' : 'Материлизация сущности'}
         </p>
         
         <div className="relative">
@@ -410,13 +425,14 @@ export const Setup: React.FC<{
 
   if (currentStep === 3 && !pet) return (
     <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-6 bg-[#f5f2e9] ledger-grid opacity-50">
-      <div className="w-32 h-32 border-4 border-dashed border-pen-blue/20 rounded-full flex items-center justify-center rotate-12">
-        <div className="w-16 h-16 border-2 border-dashed border-pen-blue/10 rounded-full animate-pulse" />
+      <div className="w-80 h-80 relative flex items-center justify-center">
+        <div className="absolute inset-x-[-60px] inset-y-[-60px] border-2 border-dashed border-pen-blue/10 rounded-full animate-spin-slow opacity-20" />
+        <AnimatedEgg hue={45} className="h-72 w-72 opacity-30" />
       </div>
       <div className="space-y-2">
-        <h2 className="text-xl font-black text-pen-blue">Ожидание Инициации</h2>
+        <h2 className="text-xl font-black text-pen-blue">{isMarketSummon ? 'Подготовка к инкубации' : 'Ожидание Инициации'}</h2>
         <p className="text-[12px] font-black text-pen-blue/40 leading-relaxed">
-          Завершите заполнение анкеты на левой странице и нажмите «Призвать сущность»
+          {isMarketSummon ? 'Настройте будущую сущность и разбейте скорлупу' : 'Завершите заполнение анкеты на левой странице и нажмите «Призвать сущность»'}
         </p>
       </div>
     </div>
@@ -429,10 +445,10 @@ export const Setup: React.FC<{
            <div className="w-8 h-8 bg-white rotate-45" />
         </div>
         <h2 className="text-2xl font-black text-pen-blue leading-tight italic">
-          Связь установлена
+          {isMarketSummon ? 'Скорлупа разбита!' : 'Связь установлена'}
         </h2>
         <p className="text-[10px] font-black text-pen-blue/40 italic tracking-[0.2em] animate-pulse">
-          Перенос данных в бестиарий...
+          {isMarketSummon ? 'Новый питомец готов...' : 'Перенос данных в бестиарий...'}
         </p>
       </div>
     </div>
@@ -460,15 +476,17 @@ export const Setup: React.FC<{
       )}
       {currentStep === 1 && (
         <div className="space-y-4 flex-1 flex flex-col overflow-hidden">
-          <h2 className="text-4xl font-black text-pen-blue mb-4">Анкета</h2>
+          <h2 className="text-4xl font-black text-pen-blue mb-4">
+            {isMarketSummon ? 'ДНК Яйца' : 'Анкета'}
+          </h2>
           <div className="space-y-5 flex-1 overflow-y-auto no-scrollbar pr-1">
             <div className="space-y-1">
-              <label className="text-sm font-black text-pen-blue/40">Инициалы</label>
+              <label className="text-sm font-black text-pen-blue/40">Имя Питомца</label>
               <button 
                 onClick={() => openEditModal('name', profile.name)}
                 className="w-full text-left bg-transparent border-b-2 border-black/10 py-1 text-2xl font-black text-pen-blue focus:border-pen-blue outline-none transition-all min-h-[2.5rem]"
               >
-                {profile.name || 'Введите имя...'}
+                {profile.name || 'Назовите его...'}
               </button>
             </div>
             
@@ -597,10 +615,10 @@ export const Setup: React.FC<{
                   !isStep2Valid ? "opacity-20 grayscale cursor-not-allowed text-black/10" : "bg-sticker-yellow"
                 )}
               >
-                Призвать сущность
+                {isMarketSummon ? 'Вылупить Яйцо' : 'Призвать сущность'}
               </NeonButton>
               <p className="mt-4 text-[12px] font-black text-pen-blue/30 tracking-wide">
-                {isStep2Valid ? 'Форма готова к призыву' : 'Выберите увлечения и черты души'}
+                {isStep2Valid ? (isMarketSummon ? 'Яйцо готово' : 'Форма готова к призыву') : 'Выберите увлечения и черты души'}
               </p>
             </div>
           </div>

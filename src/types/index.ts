@@ -61,6 +61,9 @@ export interface Skill {
   type: SkillType;
   targetStat: keyof PetStats;
   value: number; // Percentage
+  image?: string;
+  fallbackEmoji?: string;
+  hue?: number;
 }
 
 export interface UserProfile {
@@ -109,17 +112,30 @@ export interface Pet {
 export interface InventoryItem {
   id: string;
   name: string;
-  type: 'energy' | 'material' | 'food' | 'egg';
+  type: 'energy' | 'material' | 'food' | 'egg' | 'artifact' | 'skill';
   value: number;
   description: string;
   image?: string;
+  fallbackEmoji?: string;
+  hue?: number;
+  effect?: {
+    stat: keyof PetStats;
+    value: number;
+  };
+  skillData?: {
+    type: SkillType;
+    targetStat: keyof PetStats;
+    value: number;
+    element?: Element;
+    attribute?: Attribute;
+  };
 }
 
 export interface UserProgress {
   id: string; // Summoner ID
   pets: Pet[];
   activePetId: string | null;
-  currency: number; // Rubles
+  sprouts: number; // 🌱 (Sprouts)
   inventory: InventoryItem[];
   energy: number;
   lastEnergyUpdate: number; // timestamp

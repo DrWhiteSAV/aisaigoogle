@@ -21,6 +21,7 @@ interface PetCardProps {
   showDetails?: boolean;
   className?: string;
   hideDetailsText?: boolean;
+  showPrice?: number;
 }
 
 export const PetCard: React.FC<PetCardProps> = ({ 
@@ -35,7 +36,8 @@ export const PetCard: React.FC<PetCardProps> = ({
   onOpenInventory,
   showDetails = false, 
   className = "",
-  hideDetailsText = false
+  hideDetailsText = false,
+  showPrice
 }) => {
   const navigate = useNavigate();
   const cp = calculateCP(pet);
@@ -58,7 +60,7 @@ export const PetCard: React.FC<PetCardProps> = ({
   return (
     <motion.div 
       whileHover={{ y: -5 }}
-      className={cn("relative group cursor-pointer", className)}
+      className={cn("relative group cursor-pointer aspect-[9/16]", className)}
     >
       {/* Evolution Badge TOP CENTER */}
       {isEvolutionReady && (
@@ -78,7 +80,7 @@ export const PetCard: React.FC<PetCardProps> = ({
         style={{ borderColor: rarityStyle.color }}
         onClick={(e) => e.stopPropagation()}
       >
-        <span className="text-[10px] font-black">{cp}</span>
+        <span className="font-black text-[16px]">{cp}</span>
       </div>
 
       {/* Rarity Tag - No shadow, rarity color border */}
@@ -87,30 +89,30 @@ export const PetCard: React.FC<PetCardProps> = ({
         style={{ backgroundColor: rarityStyle.bgColor, color: rarityStyle.color, borderColor: rarityStyle.color }}
         onClick={(e) => { e.stopPropagation(); onOpenRarityInfo?.(e); }}
       >
-        <span className="text-[8px] font-black uppercase">{RARITY_LABELS[pet.rarity]}</span>
+        <span className="font-black text-[16px]">{RARITY_LABELS[pet.rarity]}</span>
       </div>
 
       {/* Large Rank Letter - Positioned below the rarity tag on the left edge */}
       <div 
-        className="absolute top-8 -left-4 z-[70] cursor-pointer hover:scale-110 transition-transform"
+        className="absolute top-8 -left-[11px] z-[70] cursor-pointer hover:scale-110 transition-transform"
         onClick={(e) => { e.stopPropagation(); onOpenRankInfo?.(e); }}
       >
-        <span className="text-5xl font-black italic select-none leading-none tracking-tighter" style={{ color: '#0047ab', WebkitTextStroke: '0px transparent' }}>{rankLetter}</span>
+        <span className="text-[64px] font-black italic select-none leading-none tracking-tighter" style={{ color: '#0047ab', WebkitTextStroke: '0px transparent' }}>{rankLetter}</span>
       </div>
 
       <div 
         onClick={onClick}
-        className="w-full h-full relative aspect-[9/16] group"
+        className="w-full h-full relative group"
       >
         {/* The Card Body with Internal Overflow Hidden for the Background Image */}
         <div 
-          className="absolute inset-0 bg-white border-2 overflow-hidden"
+          className="absolute inset-0 bg-white border-2 overflow-visible"
           style={{ 
             borderColor: rarityStyle.color,
           }}
         >
           {/* Background Image Layer */}
-          <div className="absolute inset-0 z-0">
+          <div className="absolute inset-0 z-0 overflow-hidden">
             <img 
               src={pet.image} 
               alt={pet.name} 
@@ -141,34 +143,27 @@ export const PetCard: React.FC<PetCardProps> = ({
                    className="hover:scale-110 transition-transform origin-bottom-left w-fit rotate-[-4deg] pointer-events-auto"
                    onClick={(e) => { e.stopPropagation(); onOpenElementInfo?.(pet.element, e); }}
                  >
-                    <ElementSticker element={pet.element} className="scale-[0.8]" />
+                    <ElementSticker element={pet.element} />
                  </div>
                  <div 
                    className="hover:scale-110 transition-transform origin-bottom-right w-fit rotate-[4deg] pointer-events-auto"
                    onClick={(e) => { e.stopPropagation(); onOpenAttributeInfo?.(pet.attribute, e); }}
                  >
-                    <AttributeSticker attribute={pet.attribute} className="scale-[0.8]" />
+                    <AttributeSticker attribute={pet.attribute} />
                  </div>
               </div>
 
               {/* Text Information Block - Transparent Background */}
-              <div className="w-full space-y-1 p-4 pb-5">
-                <div className="flex justify-between items-end gap-2 mb-1">
-                  <h3 
-                    className={cn(
-                      "font-black text-pen-blue leading-none truncate",
-                      pet.name.length > 20 ? "text-[10px]" : 
-                      pet.name.length > 15 ? "text-xs" : 
-                      "text-sm"
-                    )}
-                  >
+              <div className="w-full space-y-1 p-3 pb-4">
+                <div className="flex justify-between items-start gap-2 mb-1">
+                  <h3 className="font-black text-pen-blue leading-[1.1] text-balance text-[16px]">
                     {pet.name}
                   </h3>
-                  <span className="text-[18px] font-black text-pen-blue whitespace-nowrap leading-none">LVL {pet.level}</span>
+                  <span className="font-black text-pen-blue whitespace-nowrap leading-none text-[16px]">LVL {pet.level}</span>
                 </div>
                 
                 <div 
-                  className="flex items-center justify-between text-[14px] font-black text-pen-blue italic leading-tight cursor-pointer hover:opacity-60 transition-opacity"
+                  className="flex items-center justify-between font-black text-pen-blue italic leading-tight cursor-pointer hover:opacity-60 transition-opacity text-[16px]"
                   onClick={(e) => { e.stopPropagation(); onOpenRankInfo?.(e); }}
                 >
                   <span className="opacity-80">{pet.ageStage.split(' - ')[1] || pet.ageStage}</span>
@@ -176,7 +171,7 @@ export const PetCard: React.FC<PetCardProps> = ({
                 </div>
 
                 {/* XP Bar */}
-                <div className="h-1 bg-black/10 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-black/10 rounded-full overflow-hidden">
                   <motion.div 
                     initial={{ width: 0 }}
                     animate={{ width: `${expProgress}%` }}
@@ -184,13 +179,17 @@ export const PetCard: React.FC<PetCardProps> = ({
                   />
                 </div>
 
+                {showPrice !== undefined && (
+                  <div className="text-[16px] font-black text-pen-blue mt-1 italic text-center w-full">{showPrice} 🌱</div>
+                )}
+
                 {showDetails && !hideDetailsText && (
                   <button 
                     onClick={(e) => { e.stopPropagation(); onClick?.(); }}
                     className="w-full mt-1 pt-1 border-t border-dashed border-black/10 flex items-center justify-between hover:text-pen-blue transition-colors text-pen-blue/40"
                   >
-                    <span className="text-[9px] font-black uppercase tracking-widest">Подробнее</span>
-                    <ChevronRight className="h-3 w-3" />
+                    <span className="text-[16px] font-black tracking-widest">Подробнее</span>
+                    <ChevronRight className="h-4 w-4" />
                   </button>
                 )}
               </div>
@@ -213,7 +212,7 @@ export const PetCard: React.FC<PetCardProps> = ({
         {/* Top Right Quick Actions */}
         <div className="absolute top-10 right-[-14px] flex flex-col gap-2 z-50">
           <button 
-            onClick={(e) => { e.stopPropagation(); navigate('/sale'); }}
+            onClick={(e) => { e.stopPropagation(); navigate('/shop'); }}
             className="bg-sticker-yellow border-2 p-1.5 hover:bg-white transition-colors rotate-[4deg] active:scale-95"
             style={{ borderColor: rarityStyle.color }}
           >
@@ -227,8 +226,6 @@ export const PetCard: React.FC<PetCardProps> = ({
             <Briefcase className="h-4 w-4 text-pen-blue" />
           </button>
         </div>
-
-
       </div>
     </motion.div>
   );

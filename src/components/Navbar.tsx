@@ -1,12 +1,12 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutGrid, ShoppingBag, User, Coins, Image as ImageIcon } from 'lucide-react';
+import { LayoutGrid, ShoppingBag, User, Sprout, Image as ImageIcon, GitBranch } from 'lucide-react';
 
-export const Navbar: React.FC<{ rubles?: number }> = ({ rubles }) => {
+export const Navbar: React.FC<{ sprouts?: number }> = ({ sprouts }) => {
   const navItems = [
     { to: '/main', icon: LayoutGrid, label: 'Бестиарий' },
     { to: '/gallery/1', icon: ImageIcon, label: 'Галерея' },
-    { to: '/shop', icon: Coins, label: 'Рынок' },
+    { to: '/shop', icon: Sprout, label: 'Рынок' },
     { to: '/profile', icon: User, label: 'Профиль' },
   ];
 

@@ -4,7 +4,7 @@ import { Pet, Element, Attribute, UserProgress } from '../types';
 import { GlassCard, NeonButton, HandwrittenText } from '../components/UI';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
-import { Shield, Sword, Brain, Zap, Star, Sparkles, Heart, Activity, Compass, Coins, Plus, Box, Package, ChevronRight, Zap as EnergyIcon, ShoppingBag } from 'lucide-react';
+import { Shield, Sword, Brain, Zap, Star, Sparkles, Heart, Activity, Compass, Sprout, Plus, Box, Package, ChevronRight, Zap as EnergyIcon, ShoppingBag } from 'lucide-react';
 import { getPetRankByLevel, calculateCP, getExpNeeded } from '../lib/gameLogic';
 import { ELEMENT_DATA, RARITY_LABELS } from '../constants/gameData';
 import { ElementSticker, InfoModal, TypeChartContent } from '../components/GameUI';
@@ -20,7 +20,7 @@ export const Main: React.FC<{
   const { id: paramsId } = useParams();
   const activeId = manualActiveId || paramsId;
   const [timeLeft, setTimeLeft] = useState("");
-  const [modalType, setModalType] = useState<{ element?: Element, attribute?: Attribute, rank?: boolean, rarity?: boolean, fullScreenImage?: string } | null>(null);
+  const [modalType, setModalType] = useState<{ element?: Element, attribute?: Attribute, rank?: boolean, rarity?: boolean, fullScreenImage?: string, pet?: Pet } | null>(null);
 
   const petCount = progress.pets.length;
 
@@ -75,8 +75,8 @@ export const Main: React.FC<{
             onClick={() => navigate('/topup')}
             className="group cursor-pointer bg-sticker-blue px-4 py-2 border-2 border-black rotate-1 flex items-center gap-3 text-lg font-black hover:-translate-y-1 transition-all"
           >
-            <Coins className="h-5 w-5" />
-            <span>{progress.currency.toLocaleString()} ₽</span>
+            <Sprout className="h-5 w-5" />
+            <span>{progress.sprouts.toLocaleString()} 🌱</span>
           </div>
         </div>
       </header>
@@ -107,8 +107,8 @@ export const Main: React.FC<{
                <PetCard 
                  pet={pet} 
                  onClick={() => navigate(`/pet/${pet.id}`)}
-                 onOpenRankInfo={() => setModalType({ rank: true })}
-                 onOpenRarityInfo={() => setModalType({ rarity: true })}
+                 onOpenRankInfo={() => setModalType({ rank: true, pet })}
+                 onOpenRarityInfo={() => setModalType({ rarity: true, pet })}
                  onOpenImage={() => setModalType({ fullScreenImage: pet.image })}
                  onOpenElementInfo={(el) => setModalType({ element: el })}
                  onOpenAttributeInfo={(attr) => setModalType({ attribute: attr })}
@@ -150,7 +150,7 @@ export const Main: React.FC<{
            />
         ) : modalType?.rank ? (
           <div className="space-y-4">
-             <p className="text-sm font-black text-pen-blue/70 leading-relaxed border-b border-black/5 pb-4">
+             <p className="text-[16px] font-black text-pen-blue leading-relaxed border-b border-black/5 pb-4">
                Ранг Питомца определяется текущим уровнем созревания:
              </p>
              <div className="grid grid-cols-1 gap-2">
@@ -165,22 +165,26 @@ export const Main: React.FC<{
                   { range: "71-80", code: "EX", label: "единство" },
                   { range: "81-90", code: "UX", label: "пробуждение" },
                   { range: "91-100", code: "Z", label: "абсолютность" }
-                ].map((r, i) => (
-                  <div key={i} className={cn(
-                    "flex items-center justify-between p-2 border-2",
-                    progress.pets.some(p => p.level >= parseInt(r.range.split('-')[0]) && p.level <= parseInt(r.range.split('-')[1]))
-                      ? "bg-sticker-yellow border-black rotate-1"
-                      : "border-black/5 opacity-40"
-                  )}>
-                    <span className="text-[10px] font-black">{r.range}</span>
-                    <span className="text-xs font-black text-pen-blue">{r.code} - {r.label}</span>
-                  </div>
-                ))}
+                ].map((r, i) => {
+                  const [min, max] = r.range.split('-').map(Number);
+                  const isSelected = modalType?.pet && modalType.pet.level >= min && modalType.pet.level <= (max || min);
+                  return (
+                    <div key={i} className={cn(
+                      "flex items-center justify-between p-2 border-2 transition-all",
+                      isSelected
+                        ? "border-pen-blue ring-4 ring-pen-blue/10 rotate-1 bg-transparent z-10"
+                        : "border-black/10 bg-transparent opacity-60"
+                    )}>
+                      <span className="text-[16px] font-black text-pen-blue">{r.range}</span>
+                      <span className="text-[16px] font-black text-pen-blue">{r.code} - {r.label}</span>
+                    </div>
+                  );
+                })}
              </div>
           </div>
         ) : modalType?.rarity ? (
           <div className="space-y-4">
-             <p className="text-sm font-black text-pen-blue/70 leading-relaxed border-b border-black/5 pb-4">
+             <p className="text-[16px] font-black text-pen-blue leading-relaxed border-b border-black/5 pb-4">
                 Начальные характеристики и потенциал роста зависят от редкости питомца:
              </p>
              <div className="grid grid-cols-1 gap-2">
@@ -188,24 +192,27 @@ export const Main: React.FC<{
                   { label: "Обычный", base: 20, growth: 5 },
                   { label: "Продвинутый", base: 50, growth: 10 },
                   { label: "Редкий", base: 100, growth: 15 },
-                  { label: "Идеальный", base: 200, growth: 20 },
+                  { label: "Совершенный", base: 200, growth: 20 },
                   { label: "Эпический", base: 300, growth: 25 },
                   { label: "Легендарный", base: 400, growth: 30 },
                   { label: "Мифический", base: 500, growth: 35 },
                   { label: "Вечный", base: 600, growth: 40 },
                   { label: "Божественный", base: 800, growth: 45 },
                   { label: "Трансцендентный", base: 1000, growth: 50 }
-                ].map((r, i) => (
-                  <div key={i} className={cn(
-                    "flex items-center justify-between p-2 border-2 transition-all",
-                    progress.pets.some(p => RARITY_LABELS[p.rarity] === r.label)
-                      ? "bg-sticker-pink border-black rotate-1"
-                      : "border-black/5 opacity-40"
-                  )}>
-                    <span className="text-[10px] font-black">{r.label}</span>
-                    <span className="text-xs font-black text-pen-blue">{r.base} / +{r.growth} lvl</span>
-                  </div>
-                ))}
+                ].map((r, i) => {
+                  const isSelected = modalType?.pet && RARITY_LABELS[modalType.pet.rarity] === r.label;
+                  return (
+                    <div key={i} className={cn(
+                      "flex items-center justify-between p-2 border-2 transition-all",
+                      isSelected
+                        ? "border-pen-blue ring-4 ring-pen-blue/10 rotate-1 bg-transparent z-10"
+                        : "border-black/10 bg-transparent opacity-60"
+                    )}>
+                      <span className="text-[16px] font-black text-pen-blue">{r.label}</span>
+                      <span className="text-[16px] font-black text-pen-blue">{r.base} / +{r.growth} lvl</span>
+                    </div>
+                  );
+                })}
              </div>
           </div>
         ) : (
