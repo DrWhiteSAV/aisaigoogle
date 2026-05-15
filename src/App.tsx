@@ -130,7 +130,7 @@ const Page = React.forwardRef<HTMLDivElement, { children: React.ReactNode; side?
          isRestoring.current = false;
       };
     }
-  }); // Run after every render update
+  }, [id]); // Only run on mount or id change
 
   return (
     <div className={cn(
@@ -156,7 +156,13 @@ const Page = React.forwardRef<HTMLDivElement, { children: React.ReactNode; side?
       <div 
         ref={scrollRef}
         onScroll={(e) => {
-          if (id && !isRestoring.current) pageScrollData.set(id, e.currentTarget.scrollTop);
+          if (id && !isRestoring.current) {
+             const target = e.currentTarget;
+             // Don't save 0 if the container suddenly became unscrollable (meaning it's hiding/unmounting)
+             if (target.scrollHeight > target.clientHeight) {
+                pageScrollData.set(id, target.scrollTop);
+             }
+          }
         }}
         className="p-6 sm:p-8 pt-[10px] h-full overflow-y-auto no-scrollbar relative z-10"
       >
@@ -239,6 +245,7 @@ const BestiaryActionPage = ({
           profile={profile} 
           setProfile={setUserProfile || (() => {})} 
           onComplete={onAddNewPet || (() => {})} 
+          step={3}
           isMarketSummon 
           toggleFlipLock={toggleFlipLock} 
           onStartSummon={onStartSummon}
@@ -603,7 +610,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
          portraitIsRestoring.current = false;
       };
     }
-  });
+  }, [isPortrait, currentBook]);
 
   if (isPortrait) {
     const showNav = hasPets && !isOnboarding;

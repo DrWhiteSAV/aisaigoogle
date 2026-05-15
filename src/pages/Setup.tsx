@@ -258,9 +258,9 @@ export const Setup: React.FC<{
     return () => clearInterval(timer);
   }, [loading, countdown]);
 
-  // Auto-complete when pet appears and we are on the right side
+  // Auto-complete when pet appears and we are the designated completion side
   useEffect(() => {
-    if (pet && side === 'right') {
+    if (pet && (side === 'right' || (currentStep === 3 && side === 'left'))) {
       onComplete(pet);
       // Add a small delay to allow state to settle before navigation
       const timer = setTimeout(() => {
@@ -268,7 +268,7 @@ export const Setup: React.FC<{
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [pet, side, onComplete, navigate]);
+  }, [pet, side, currentStep, onComplete, navigate]);
 
   const [customHobby, setCustomHobby] = useState('');
   const [customTrait, setCustomTrait] = useState('');
@@ -444,7 +444,7 @@ export const Setup: React.FC<{
     </div>
   );
 
-  if (pet && side === 'right') return (
+  if (pet && (side === 'right' || (currentStep === 3 && side === 'left'))) return (
     <div className="flex items-center justify-center h-full text-center p-8 bg-[#f5f2e9] ledger-grid relative overflow-hidden">
       <div className="space-y-6 relative z-10 w-full max-w-xs">
         <div className="w-16 h-16 bg-pen-blue rounded-full mx-auto flex items-center justify-center animate-pulse">

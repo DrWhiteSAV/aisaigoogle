@@ -99,7 +99,11 @@ export const Main: React.FC<{
 
       <section className="space-y-8">
         <div className="grid grid-cols-2 gap-4 sm:gap-6">
-           {progress.pets.map((pet, i) => (
+           {[...progress.pets].reverse().sort((a, b) => {
+             if (a.id === activeId) return -1;
+             if (b.id === activeId) return 1;
+             return 0;
+           }).map((pet, i) => (
              <motion.div
                key={pet.id}
                initial={{ opacity: 0, y: 20 }}

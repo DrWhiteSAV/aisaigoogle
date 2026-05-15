@@ -118,7 +118,8 @@ export const InfoModal: React.FC<{
   children: React.ReactNode;
   showClose?: boolean;
   plain?: boolean;
-}> = ({ isOpen, onClose, title, children, showClose = true, plain = false }) => {
+  centerTitle?: boolean;
+}> = ({ isOpen, onClose, title, children, showClose = true, plain = false, centerTitle = false }) => {
   return createPortal(
     <AnimatePresence>
       {isOpen && (
@@ -129,6 +130,11 @@ export const InfoModal: React.FC<{
           e.nativeEvent.stopImmediatePropagation();
         }}
         onMouseMove={(e) => e.stopPropagation()}
+        onTouchStart={(e) => {
+          e.stopPropagation();
+          e.nativeEvent.stopImmediatePropagation();
+        }}
+        onTouchMove={(e) => e.stopPropagation()}
       >
         <motion.div 
           initial={{ opacity: 0 }}
@@ -161,7 +167,7 @@ export const InfoModal: React.FC<{
               <X className={plain ? "h-8 w-8" : "h-6 w-6"} strokeWidth={3} />
             </button>
           )}
-          {!plain && <h3 className="text-[24px] font-black text-pen-blue mb-4 tracking-tight">{title}</h3>}
+          {!plain && <h3 className={cn("text-[24px] font-black text-pen-blue mb-4 tracking-tight", centerTitle && "text-center")}>{title}</h3>}
           <div className={plain ? "flex flex-col items-center justify-center overflow-hidden rounded-lg max-h-[85vh] aspect-[9/16]" : "space-y-4"}>
             {children}
           </div>

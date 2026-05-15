@@ -83,10 +83,8 @@ export const PetDetail: React.FC<{
   const evolveBtnPulse = isMajorEvolution || canLevelUp;
 
   React.useEffect(() => {
-    if (toggleFlipLock) {
-      toggleFlipLock(lockId, !!modalType);
-    }
-  }, [modalType, toggleFlipLock, lockId]);
+    // Intentionally empty, no longer locking flip to prevent layout jumping
+  }, [modalType]);
 
   if (!pet) {
     return <LogoAnimation />;
@@ -339,8 +337,8 @@ export const PetDetail: React.FC<{
                                 />
                              </div>
                              <div className="w-full flex flex-col items-center justify-end z-20 relative pb-0.5">
-                                <div className="text-[10px] font-black text-[#0047ab] leading-[1.1] italic max-w-full px-0.5 whitespace-normal break-words drop-shadow-md relative z-20 text-center">{skill.name}</div>
-                                <div className="text-[8px] font-black bg-white/80 border border-[#0047ab]/10 relative z-20 whitespace-nowrap text-[#0047ab] rounded-full px-1.5 mt-0.5 leading-tight">
+                                <div className="text-[14px] font-black text-[#0047ab] leading-[1.1] italic max-w-full px-0.5 whitespace-normal break-words drop-shadow-md relative z-20 text-center">{skill.name}</div>
+                                <div className="text-[12px] font-black bg-white/80 border border-[#0047ab]/10 relative z-20 whitespace-nowrap text-[#0047ab] rounded-full px-1.5 mt-0.5 leading-tight">
                                   {skill.value}% • {skill.type === 'passive' ? 'Пассив' : skill.type === 'active_buff' ? 'Бафф' : 'Дебафф'}
                                 </div>
                              </div>
@@ -517,8 +515,9 @@ export const PetDetail: React.FC<{
 
       <InfoModal 
         isOpen={!!modalType} onClose={() => setModalType(null)}
-        title={modalType?.rank ? "Ранг Сущности" : modalType?.stats ? "Аналитика Потенциала" : modalType?.element ? "Элемент" : modalType?.attribute ? "Атрибут" : "Детали"}
+        title={modalType?.rank ? "Ранг Сущности" : modalType?.stats ? "Аналитика Потенциала" : modalType?.element ? "Элемент" : modalType?.attribute ? "Атрибут" : modalType?.selectedSkill ? modalType.selectedSkill.name : "Детали"}
         showClose={true} plain={!!modalType?.fullScreenImage}
+        centerTitle={!!modalType?.selectedSkill}
       >
         {modalType?.fullScreenImage ? (
            <motion.img 
@@ -541,10 +540,10 @@ export const PetDetail: React.FC<{
                     />
                  </div>
                  <div className="space-y-1">
-                    <div className="text-[12px] font-black text-[#0047ab] tracking-[0.2em]">
+                    <div className="text-[16px] font-black text-[#0047ab] tracking-[0.2em]">
                       {modalType.selectedSkill.type === 'passive' ? "Пассивный навык" : modalType.selectedSkill.type === 'active_buff' ? "Боевой бафф" : "Боевой дебафф"}
                     </div>
-                    <div className="text-[12px] font-black text-[#0047ab] capitalize">
+                    <div className="text-[16px] font-black text-[#0047ab] capitalize">
                       {modalType.selectedSkill.type === 'passive' ? 'Атрибут: ' : 'Стихия: '}
                       {modalType.selectedSkill.type === 'passive' 
                         ? (modalType.selectedSkill.attribute === 'light' ? 'Свет' : modalType.selectedSkill.attribute === 'dark' ? 'Тьма' : modalType.selectedSkill.attribute === 'time' ? 'Время' : 'Пустота')
@@ -556,12 +555,12 @@ export const PetDetail: React.FC<{
               <p className="text-[16px] font-bold text-[#0047ab] mb-6 leading-relaxed italic">{modalType.selectedSkill.description}</p>
               <div className="grid grid-cols-2 gap-4 border-t border-[#0047ab]/10 pt-4 pb-6">
                 <div>
-                   <div className="text-[12px] font-black text-[#0047ab] tracking-tighter">Влияние</div>
-                   <div className="text-[20px] font-black text-[#0047ab]">{modalType.selectedSkill.value}%</div>
+                   <div className="text-[16px] font-black text-[#0047ab] tracking-tighter">Влияние</div>
+                   <div className="text-[16px] font-black text-[#0047ab]">{modalType.selectedSkill.value}%</div>
                 </div>
                 <div>
-                   <div className="text-[12px] font-black text-[#0047ab] tracking-tighter">Цель</div>
-                   <div className="text-[20px] font-black text-[#0047ab] capitalize">
+                   <div className="text-[16px] font-black text-[#0047ab] tracking-tighter">Цель</div>
+                   <div className="text-[16px] font-black text-[#0047ab] capitalize">
                      {modalType.selectedSkill.targetStat === 'health' ? 'Здоровье' : 
                       modalType.selectedSkill.targetStat === 'attack' ? 'Атака' : 
                       modalType.selectedSkill.targetStat === 'defense' ? 'Защита' : 
@@ -851,7 +850,7 @@ const StatItem = ({ icon: Icon, label, value, passiveBonus, max, showAdd, onAdd 
 
 const ClassificationItem = ({ label, value }: { label: string, value?: string }) => (
   <div className="space-y-0.5">
-    <div className="font-black" style={{ color: '#0047ab', fontSize: '12px' }}>{label}</div>
-    <div className="text-[12px] font-black text-pen-blue truncate">{value || '---'}</div>
+    <div className="font-black" style={{ color: '#0047ab', fontSize: '16px' }}>{label}</div>
+    <div className="text-[16px] font-black text-pen-blue truncate">{value || '---'}</div>
   </div>
 );

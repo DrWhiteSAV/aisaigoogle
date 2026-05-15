@@ -102,8 +102,28 @@ export const Market: React.FC<{ progress: UserProgress; setProgress: React.Dispa
   const [skillTypeFilter, setSkillTypeFilter] = useState<string | 'all'>('all');
   const [skillAffinityFilter, setSkillAffinityFilter] = useState<string | 'all'>('all');
 
+  const [eggStyle, setEggStyle] = useState<{ hue: number, cardColor: any }>({ hue: 0, cardColor: 'yellow' });
+  useEffect(() => {
+    const colors = ['yellow', 'blue', 'pink', 'white'];
+    setEggStyle({
+      hue: Math.floor(Math.random() * 360),
+      cardColor: colors[Math.floor(Math.random() * colors.length)]
+    });
+  }, []);
+
   const shopItems = progress.marketInventory || [];
   const shopEggs = shopItems.filter(i => i.type === 'egg').slice(0, 1);
+  if (shopEggs.length === 0) {
+    shopEggs.push({
+      name: 'Яйцо Питомца',
+      code: 'egg_standard',
+      type: 'egg',
+      value: 5000,
+      price: 5000,
+      currency: 'sprouts',
+      isBuy: true
+    } as any);
+  }
   const shopArtifacts = shopItems.filter(i => i.type === 'artifact');
   const shopSkills = shopItems.filter(i => i.type === 'skill');
 
@@ -166,9 +186,24 @@ export const Market: React.FC<{ progress: UserProgress; setProgress: React.Dispa
         code: generateUniqueCode(item.type === 'egg' ? 'EG' : item.type === 'artifact' ? 'AR' : 'SK', '-owned'),
         isBuy: undefined
       };
+      // If it's an egg, retain the hue they saw in shop!
+      if (item.type === 'egg' && eggStyle) {
+        newItem.hue = eggStyle.hue;
+      }
       newInventory.push(newItem);
 
-      const nextMarketInventory = (prev.marketInventory || []).filter(i => i.code !== item.code);
+      const nextMarketInventory = item.type === 'egg' 
+        ? prev.marketInventory 
+        : (prev.marketInventory || []).filter(i => i.code !== item.code);
+
+      // Randomize next egg style if egg was bought
+      if (item.type === 'egg') {
+        const colors = ['yellow', 'blue', 'pink', 'white'];
+        setEggStyle({
+          hue: Math.floor(Math.random() * 360),
+          cardColor: colors[Math.floor(Math.random() * colors.length)]
+        });
+      }
 
       return {
         ...prev,
@@ -261,20 +296,25 @@ export const Market: React.FC<{ progress: UserProgress; setProgress: React.Dispa
              <div className="space-y-4">
                 {buyCategory === 'eggs' && (
                   <div className="grid grid-cols-1 gap-4">
-                    {shopEggs.map((item, i) => (
+                    {shopEggs.map((item, i) => {
+                      const color = eggStyle.cardColor;
+                      return (
                       <GlassCard 
                         key={item.code}
-                        color="yellow" 
-                        className="p-6 text-center border-2 border-black/5 hover:border-black/10 transition-all cursor-pointer bg-sticker-yellow/30" 
-                        onClick={() => setSelectedItemInfo({ ...item, isBuy: true })}
+                        color={color} 
+                        className={cn(
+                          "p-6 text-center border-2 border-black/5 hover:border-black/10 transition-all cursor-pointer",
+                          color === 'yellow' ? 'bg-sticker-yellow/30' : color === 'blue' ? 'bg-sticker-blue/30' : color === 'pink' ? 'bg-sticker-pink/30' : 'bg-white'
+                        )} 
+                        onClick={() => setSelectedItemInfo({ ...item, hue: eggStyle.hue, isBuy: true })}
                       >
                          <div className="mb-2 relative mx-auto w-44 h-44 flex items-center justify-center">
-                            <AnimatedEgg hue={item.hue} className="h-40 w-40" />
+                            <AnimatedEgg hue={eggStyle.hue} className="h-40 w-40" />
                          </div>
                          <h3 className="text-[20px] font-black text-pen-blue mb-1">{item.name}</h3>
                          <p className="text-[24px] text-pen-blue font-black">{item.value} 🌱</p>
                       </GlassCard>
-                    ))}
+                    )})}
                     {shopEggs.length === 0 && (
                       <div className="text-center py-12 text-pen-blue/40 font-black italic">Яйца закончились...</div>
                     )}
@@ -306,7 +346,7 @@ export const Market: React.FC<{ progress: UserProgress; setProgress: React.Dispa
                       const cardColor = colors[i % colors.length];
                       return (
                         <GlassCard 
-                          key={item.id} 
+                          key={item.code || item.id} 
                           color={cardColor} 
                           className={cn(
                             "p-2 pt-4 border-2 border-black/5 flex flex-col items-center justify-between aspect-[1/1.5] cursor-pointer group hover:scale-105 transition-all text-center overflow-visible",
@@ -418,7 +458,7 @@ export const Market: React.FC<{ progress: UserProgress; setProgress: React.Dispa
                       const cardColor = colors[(i + 2) % colors.length];
                       return (
                         <GlassCard 
-                          key={item.id} 
+                          key={item.code || item.id} 
                           color={cardColor} 
                           className={cn(
                             "p-2 pt-4 border-2 border-black/5 flex flex-col items-center justify-between aspect-[1/1.5] cursor-pointer group hover:scale-105 transition-all text-center overflow-visible",
@@ -554,7 +594,7 @@ export const Market: React.FC<{ progress: UserProgress; setProgress: React.Dispa
                      const cardColor = colors[i % colors.length];
                      return (
                       <GlassCard 
-                        key={`${pet.id}-${skill.id}`} 
+                        key={`${pet.id}-${skill.code || skill.id || i}`} 
                         color={cardColor} 
                         className={cn(
                           "p-2 border-2 border-black/5 flex flex-col items-center cursor-pointer group text-center aspect-[1/1.8] hover:scale-105 transition-all",
@@ -614,7 +654,7 @@ export const Market: React.FC<{ progress: UserProgress; setProgress: React.Dispa
                        const isEgg = item.type === 'egg';
                        return (
                           <GlassCard 
-                            key={item.id} 
+                            key={item.code || item.id} 
                             color={cardColor} 
                             className={cn(
                               "p-2 border-2 border-black/5 flex flex-col items-center aspect-[1/1.7] text-center cursor-pointer hover:scale-105 transition-all gap-2",
@@ -638,10 +678,10 @@ export const Market: React.FC<{ progress: UserProgress; setProgress: React.Dispa
                                   <div className="text-[14px] font-black text-[#0047ab] leading-tight px-1 break-words line-clamp-2">{item.name}</div>
                                   {isSkill && (
                                     <div className="flex flex-col items-center gap-1 mt-1">
-                                      <div className="text-[11px] font-black bg-pen-blue/10 text-[#0047ab] px-2 py-0.5 rounded-full tracking-tighter">
+                                      <div className="text-[12px] font-black bg-white/80 border border-[#0047ab]/10 text-[#0047ab] px-2 py-0.5 rounded-full tracking-tighter">
                                         {(item.skillData?.value || (item as any).value)}% • {item.skillData?.type === 'passive' ? 'Пассив' : 'Актив'}
                                       </div>
-                                      <div className="text-[10px] font-black text-[#0047ab] italic">
+                                      <div className="text-[12px] font-black text-[#0047ab] italic">
                                         {item.skillData?.type === 'passive' 
                                           ? (AFFINITY_MAP_RU[item.skillData?.attribute || item.attribute || ''] || item.skillData?.attribute || item.attribute) 
                                           : (AFFINITY_MAP_RU[item.skillData?.element || item.element || ''] || item.skillData?.element || item.element)}
