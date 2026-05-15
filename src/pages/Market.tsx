@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { UserProgress, Pet, Rarity, InventoryItem } from '../types';
 import { GlassCard, NeonButton, AnimatedEgg, ItemIcon } from '../components/UI';
 import { Trash2, Scale, Plus, Package, Sparkles, ShoppingBag } from 'lucide-react';
-import { getSummonerRank, calculateCP } from '../lib/gameLogic';
+import { getSummonerRank, calculateCP, generateUniqueCode } from '../lib/gameLogic';
 import { SELLING_PRICES, BUYING_PRICES, SHOP_ARTIFACTS, SHOP_SKILLS, STAT_MAP_RU } from '../constants/shop';
 
 import { GalleryCard } from '../components/GalleryCard';
@@ -45,25 +45,12 @@ const ITEM_TYPE_MAP_RU: Record<string, string> = {
 };
 
 const calculateSellPrice = (item: any) => {
-  if ('rarity' in item) { // It's a pet
-    const basePrices: Record<string, number> = { 
-      normal: 500, advanced: 1000, rare: 2500, perfect: 5000, 
-      epic: 10000, legendary: 25000, mythical: 60000, eternal: 150000, 
-      divine: 500000, transcendent: 1000000 
-    };
-    const stageMultipliers: Record<string, number> = { 
-      'F': 1, 'E': 1.2, 'D': 1.5, 'C': 2, 'B': 3, 'A': 5, 'S': 8, 'EX': 15, 'UX': 30, 'Z': 100 
-    };
-    const rarity = item.rarity.toLowerCase() as string;
-    const base = basePrices[rarity] || 500;
-    const stage = item.ageStage.split(' ')[0];
-    const mult = stageMultipliers[stage] || 1;
-    return Math.floor(base * mult);
+  if (item && 'rarity' in item && 'stats' in item) { // It's a pet
+    return Math.floor(calculateCP(item) * 10);
   }
   
-  // Handle skills (both in inventory and on pets)
-  if (item.type === 'skill' || item.targetStat) {
-    const type = item.type === 'skill' ? item.skillData?.type : item.type;
+  const type = item.type === 'skill' ? (item.skillData?.type || item.skill?.type) : (item.type || item.skillData?.type);
+  if (['passive', 'active_buff', 'active_debuff'].includes(type) || item.targetStat) {
     if (type === 'passive') return 800;
     if (type === 'active_buff') return 500;
     if (type === 'active_debuff') return 300;
@@ -72,14 +59,42 @@ const calculateSellPrice = (item: any) => {
   return SELLING_PRICES[item.type as keyof typeof SELLING_PRICES] || 500;
 };
 
-export const Market: React.FC<{ progress: UserProgress; setProgress: React.Dispatch<React.SetStateAction<UserProgress>> }> = ({ progress, setProgress }) => {
+export const Market: React.FC<{ progress: UserProgress; setProgress: React.Dispatch<React.SetStateAction<UserProgress>>; onBuy?: Function; mode?: string; }> = ({ progress, setProgress, mode }) => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'buy' | 'sell'>('buy');
+  const location = useLocation();
+  const activeTab = mode === 'sell' ? 'sell' : 'buy';
   const [buyCategory, setBuyCategory] = useState<'eggs' | 'artifacts' | 'skills' | 'resources'>('eggs');
+
+  useEffect(() => {
+    if (location.hash === '#resources') {
+      setBuyCategory('resources');
+    }
+  }, [location.hash]);
   const [selectedItemInfo, setSelectedItemInfo] = useState<any | null>(null);
   const [calculatorModal, setCalculatorModal] = useState<{ type: 'sprouts' | 'energy' } | null>(null);
   const [rublesForSprouts, setRublesForSprouts] = useState<number>(100);
   const [rublesForEnergy, setRublesForEnergy] = useState<number>(100);
+  const [timeLeft, setTimeLeft] = useState("");
+
+  useEffect(() => {
+    const updateTimer = () => {
+      const now = Date.now();
+      const nextUpdate = progress.lastEnergyUpdate + (5 * 60 * 1000);
+      const diff = nextUpdate - now;
+      
+      if (diff <= 0) {
+        setTimeLeft("00:00");
+      } else {
+        const mins = Math.floor(diff / 60000);
+        const secs = Math.floor((diff % 60000) / 1000);
+        setTimeLeft(`${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`);
+      }
+    };
+
+    const interval = setInterval(updateTimer, 1000);
+    updateTimer();
+    return () => clearInterval(interval);
+  }, [progress.lastEnergyUpdate]);
 
   // Filters
   const [artifactStatFilter, setArtifactStatFilter] = useState<string | 'all'>('all');
@@ -87,93 +102,96 @@ export const Market: React.FC<{ progress: UserProgress; setProgress: React.Dispa
   const [skillTypeFilter, setSkillTypeFilter] = useState<string | 'all'>('all');
   const [skillAffinityFilter, setSkillAffinityFilter] = useState<string | 'all'>('all');
 
+  const shopItems = progress.marketInventory || [];
+  const shopEggs = shopItems.filter(i => i.type === 'egg').slice(0, 1);
+  const shopArtifacts = shopItems.filter(i => i.type === 'artifact');
+  const shopSkills = shopItems.filter(i => i.type === 'skill');
+
   const handleSellPet = (petId: string) => {
     const pet = progress.pets.find(p => p.id === petId);
     if (!pet) return;
     const price = calculateSellPrice(pet);
-    if (confirm(`Продать ${pet.name} за ${price} 🌱?`)) {
-      setProgress(prev => ({
-        ...prev,
-        sprouts: prev.sprouts + price,
-        pets: prev.pets.filter(p => p.id !== petId)
-      }));
-    }
+    
+    setProgress(prev => ({
+      ...prev,
+      sprouts: prev.sprouts + price,
+      pets: prev.pets.filter(p => p.id !== petId)
+    }));
   };
 
-  const handleSellPetSkill = (petId: string, skillId: string) => {
+  const handleSellPetSkill = (petId: string, skillCode: string) => {
     const pet = progress.pets.find(p => p.id === petId);
-    const skill = pet?.skills?.find(s => s.id === skillId);
+    // Find by code OR id as fallback, ensure we get the item
+    const skill = pet?.skills?.find(s => s.code === skillCode || s.id === skillCode);
     if (!pet || !skill) return;
 
     const price = calculateSellPrice(skill);
-    if (confirm(`Продать навык "${skill.name}" за ${price} 🌱?`)) {
-      setProgress(prev => ({
-        ...prev,
-        sprouts: prev.sprouts + price,
-        pets: prev.pets.map(p => p.id === petId ? {
-          ...p,
-          skills: p.skills?.filter(s => s.id !== skillId)
-        } : p)
-      }));
-    }
+    setProgress(prev => ({
+      ...prev,
+      sprouts: prev.sprouts + price,
+      pets: prev.pets.map(p => p.id === petId ? {
+        ...p,
+        skills: p.skills?.filter(s => (s.code || s.id) !== (skill.code || skill.id))
+      } : p)
+    }));
+    
+    // Clear selection after sale
+    setSelectedItemInfo(null);
   };
 
-  const handleSellItem = (itemId: string) => {
-    const item = progress.inventory.find(i => i.id === itemId);
+  const handleSellItem = (itemCode: string) => {
+    const item = progress.inventory.find(i => i.code === itemCode || i.id === itemCode);
     if (!item) return;
     const price = calculateSellPrice(item);
     setProgress(prev => ({
       ...prev,
       sprouts: prev.sprouts + price,
-      inventory: prev.inventory.filter(i => i.id !== itemId)
+      inventory: prev.inventory.filter(i => (i.code || i.id) !== (item.code || item.id))
     }));
   };
 
+  const [insufficientFundsItem, setInsufficientFundsItem] = useState<any | null>(null);
+
   const handleBuy = (item: any) => {
     if (progress.sprouts < item.value) {
-      alert('Недостаточно ростков!');
+      setInsufficientFundsItem(item);
       return;
     }
 
     setProgress(prev => {
-      const newInven = [...prev.inventory];
-      if (item.type === 'egg') {
-        newInven.push({
-          id: 'egg-' + Date.now(),
-          type: 'egg',
-          name: 'Яйцо Питомца',
-          description: 'Яйцо случайной сущности.',
-          image: 'https://i.ibb.co/JwYQcc2D/egg.png',
-          value: item.value,
-          hue: Math.floor(Math.random() * 360)
-        });
-      } else {
-        newInven.push({
-          ...item,
-          id: item.id + '-' + Date.now(),
-          isBuy: undefined
-        });
-      }
+      const newInventory = [...prev.inventory];
+      const newItem = {
+        ...item,
+        // Give it a fresh unique code for the user's inventory to track its instance
+        code: generateUniqueCode(item.type === 'egg' ? 'EG' : item.type === 'artifact' ? 'AR' : 'SK', '-owned'),
+        isBuy: undefined
+      };
+      newInventory.push(newItem);
+
+      const nextMarketInventory = (prev.marketInventory || []).filter(i => i.code !== item.code);
 
       return {
         ...prev,
         sprouts: prev.sprouts - item.value,
-        inventory: newInven
+        inventory: newInventory,
+        marketInventory: nextMarketInventory
       };
     });
     setSelectedItemInfo(null);
 
-    // Navigate to inventory after purchase
-    navigate('/inventory');
+    // Navigate to inventory after purchase with a small delay to allow state to settle
+    setTimeout(() => {
+      navigate('/inventory');
+    }, 100);
   };
 
   const handleSellAction = (item: any) => {
     if (item.isPet) {
       handleSellPet(item.id);
     } else if (item.isPetSkill) {
-      handleSellPetSkill(item.petId, item.id);
+      handleSellPetSkill(item.petId, item.code || item.id);
     } else {
-      handleSellItem(item.id);
+      handleSellItem(item.code || item.id);
     }
     setSelectedItemInfo(null);
   };
@@ -182,21 +200,33 @@ export const Market: React.FC<{ progress: UserProgress; setProgress: React.Dispa
     <div className="space-y-6 pb-20">
       <header className="flex items-center justify-between">
         <h1 className="text-3xl font-black text-pen-blue italic">Магазин Сада</h1>
-        <div className="flex items-center gap-2 bg-sticker-yellow px-4 py-1.5 border-2 border-pen-blue -rotate-1 shadow-sm">
-           <span className="text-sm font-black text-pen-blue">{progress.sprouts} 🌱</span>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 text-sm font-black text-pen-blue bg-sticker-blue/10 px-3 py-1 border-2 border-black rotate-[-1deg]">
+             <Sparkles className="h-4 w-4 fill-pen-blue" />
+             <span>Заряд: {progress.energy}</span>
+             <span className="text-[10px] opacity-40">({timeLeft})</span>
+          </div>
+          <motion.div 
+            key={progress.sprouts}
+            initial={{ scale: 1 }}
+            animate={{ scale: [1, 1.1, 1] }}
+            className="flex items-center gap-2 bg-sticker-yellow px-4 py-1.5 border-2 border-pen-blue -rotate-1 shadow-sm"
+          >
+             <span className="text-sm font-black text-pen-blue">{progress.sprouts.toLocaleString()} 🌱</span>
+          </motion.div>
         </div>
       </header>
 
       <div className="flex gap-2">
         <button 
-          onClick={() => setActiveTab('buy')}
+          onClick={() => navigate('/shop')}
           className={cn(
             "flex-1 py-3 font-black text-sm tracking-widest border-2 transition-all",
             activeTab === 'buy' ? "bg-pen-blue text-white border-pen-blue translate-y-[-2px] shadow-[0_4px_0_0_#003380]" : "bg-white text-pen-blue/40 border-pen-blue/10 hover:border-pen-blue/20"
           )}
         >Покупка</button>
         <button 
-          onClick={() => setActiveTab('sell')}
+          onClick={() => navigate('/sale')}
           className={cn(
             "flex-1 py-3 font-black text-sm tracking-widest border-2 transition-all",
             activeTab === 'sell' ? "bg-pen-blue text-white border-pen-blue translate-y-[-2px] shadow-[0_4px_0_0_#003380]" : "bg-white text-pen-blue/40 border-pen-blue/10 hover:border-pen-blue/20"
@@ -231,27 +261,23 @@ export const Market: React.FC<{ progress: UserProgress; setProgress: React.Dispa
              <div className="space-y-4">
                 {buyCategory === 'eggs' && (
                   <div className="grid grid-cols-1 gap-4">
-                    <GlassCard 
-                      color="yellow" 
-                      className="p-6 text-center border-2 border-black/5 hover:border-black/10 transition-all cursor-pointer bg-sticker-yellow/30" 
-                      onClick={() => setSelectedItemInfo({
-                        id: `egg-shop`,
-                        name: "Яйцо Питомца",
-                        type: 'egg',
-                        value: BUYING_PRICES.egg,
-                        description: "Яйцо неведомого существа. Содержит в себе энергию случайной сущности. Можно высидеть в инкубаторе.",
-                        image: "https://i.ibb.co/JwYQcc2D/egg.png",
-                        isBuy: true,
-                        isEgg: true,
-                        hue: 30 // Shop egg color
-                      })}
-                    >
-                       <div className="mb-2 relative mx-auto w-36 h-36 flex items-center justify-center">
-                          <AnimatedEgg hue={30} className="h-32 w-32" />
-                       </div>
-                       <h3 className="text-[20px] font-black text-pen-blue mb-1">Яйцо Питомца</h3>
-                       <p className="text-[24px] text-pen-blue font-black">{BUYING_PRICES.egg} 🌱</p>
-                    </GlassCard>
+                    {shopEggs.map((item, i) => (
+                      <GlassCard 
+                        key={item.code}
+                        color="yellow" 
+                        className="p-6 text-center border-2 border-black/5 hover:border-black/10 transition-all cursor-pointer bg-sticker-yellow/30" 
+                        onClick={() => setSelectedItemInfo({ ...item, isBuy: true })}
+                      >
+                         <div className="mb-2 relative mx-auto w-44 h-44 flex items-center justify-center">
+                            <AnimatedEgg hue={item.hue} className="h-40 w-40" />
+                         </div>
+                         <h3 className="text-[20px] font-black text-pen-blue mb-1">{item.name}</h3>
+                         <p className="text-[24px] text-pen-blue font-black">{item.value} 🌱</p>
+                      </GlassCard>
+                    ))}
+                    {shopEggs.length === 0 && (
+                      <div className="text-center py-12 text-pen-blue/40 font-black italic">Яйца закончились...</div>
+                    )}
                   </div>
                 )}
                 {buyCategory === 'artifacts' && (
@@ -273,7 +299,7 @@ export const Market: React.FC<{ progress: UserProgress; setProgress: React.Dispa
                     </div>
 
                     <div className="grid grid-cols-3 gap-3">
-                      {SHOP_ARTIFACTS
+                      {shopArtifacts
                         .filter(item => artifactStatFilter === 'all' || item.effect?.stat === artifactStatFilter)
                         .map((item, i) => {
                       const colors: ("white" | "yellow" | "blue" | "pink")[] = ["white", "yellow", "blue", "pink"];
@@ -377,7 +403,7 @@ export const Market: React.FC<{ progress: UserProgress; setProgress: React.Dispa
                     </div>
 
                     <div className="grid grid-cols-3 gap-3">
-                      {SHOP_SKILLS
+                      {shopSkills
                         .filter(item => {
                           if (!item.skillData) return true;
                           const t = skillTypeFilter === 'all' || item.skillData.type === skillTypeFilter;
@@ -462,9 +488,11 @@ export const Market: React.FC<{ progress: UserProgress; setProgress: React.Dispa
                            onClick={() => {
                               if (rublesForSprouts <= 0) return;
                               const amount = rublesForSprouts * 100;
-                              setProgress(prev => ({ ...prev, sprouts: prev.sprouts + amount }));
-                              setRublesForSprouts(0);
-                              alert(`Пополнено на ${amount} 🌱!`);
+                              setProgress(prev => {
+                                const nextSprouts = prev.sprouts + amount;
+                                return { ...prev, sprouts: nextSprouts };
+                              });
+                              setRublesForSprouts(100);
                            }}
                            className="w-full py-3 bg-sticker-yellow text-sm"
                          >
@@ -489,8 +517,7 @@ export const Market: React.FC<{ progress: UserProgress; setProgress: React.Dispa
                               if (rublesForEnergy <= 0) return;
                               const amount = rublesForEnergy * 10;
                               setProgress(prev => ({ ...prev, energy: prev.energy + amount }));
-                              setRublesForEnergy(0);
-                              alert(`Пополнено на ${amount} ⚡!`);
+                              setRublesForEnergy(100);
                            }}
                            className="w-full py-3 bg-sticker-pink text-sm"
                          >
@@ -557,11 +584,11 @@ export const Market: React.FC<{ progress: UserProgress; setProgress: React.Dispa
                              <h3 className="text-[16px] font-black text-pen-blue leading-tight px-1 break-words">{skill.name}</h3>
                              <div className="text-[10px] font-black text-pen-blue/40">Владелец: {pet.name}</div>
                              <div className="flex flex-col items-center gap-1 mt-2">
-                               <div className="text-[12px] font-black bg-pen-blue/10 text-pen-blue px-3 py-0.5 rounded-full tracking-tighter">
-                                 {skill.type === 'passive' ? 'Пассивный' : 
+                               <div className="text-[12px] font-black bg-pen-blue/10 text-[#0047ab] px-3 py-0.5 rounded-full tracking-tighter">
+                                 {skill.type === 'passive' ? 'Пассив' : 
                                   skill.type === 'active_buff' ? 'Бафф' : 'Дебафф'}
                                </div>
-                               <div className="text-[11px] font-black text-pen-blue/60 italic">
+                               <div className="text-[12px] font-black text-[#0047ab] italic">
                                  {skill.type === 'passive' 
                                    ? (AFFINITY_MAP_RU[skill.attribute || ''] || skill.attribute) 
                                    : (AFFINITY_MAP_RU[skill.element || ''] || skill.element)}
@@ -597,32 +624,31 @@ export const Market: React.FC<{ progress: UserProgress; setProgress: React.Dispa
                             )}
                             onClick={() => setSelectedItemInfo(item)}
                           >
-                             <div className="h-24 w-full flex items-center justify-center mb-1">
+                             <div className={cn("group-hover:scale-110 transition-transform flex items-center justify-center mx-auto", item.type === 'egg' ? "w-24 h-24" : "h-24 w-full text-7xl")}>
                                 <ItemIcon 
                                   type={item.type} 
                                   image={item.image} 
                                   hue={item.hue}
                                   fallbackEmoji={item.fallbackEmoji}
-                                  className="text-7xl group-hover:scale-110 transition-transform" 
+                                  className={cn(item.type === 'egg' ? "w-20 h-20 scale-100" : "text-6xl")}
                                 />
                              </div>
-                             <div className="flex-1 flex flex-col justify-between w-full">
+                             <div className="flex-1 flex flex-col justify-start w-full overflow-hidden">
                                 <div>
-                                  <div className="text-[16px] font-black leading-tight px-1 break-words">{item.name}</div>
+                                  <div className="text-[14px] font-black text-[#0047ab] leading-tight px-1 break-words line-clamp-2">{item.name}</div>
                                   {isSkill && (
-                                    <div className="flex flex-col items-center gap-1 mt-2">
-                                      <div className="text-[16px] font-black bg-pen-blue/10 text-pen-blue px-3 py-0.5 rounded-full tracking-tighter">
-                                        {item.type === 'passive' ? 'Пассивный' : 
-                                         item.type === 'active_buff' ? 'Бафф' : 'Дебафф'}
+                                    <div className="flex flex-col items-center gap-1 mt-1">
+                                      <div className="text-[11px] font-black bg-pen-blue/10 text-[#0047ab] px-2 py-0.5 rounded-full tracking-tighter">
+                                        {(item.skillData?.value || (item as any).value)}% • {item.skillData?.type === 'passive' ? 'Пассив' : 'Актив'}
                                       </div>
-                                      <div className="text-[12px] font-black text-pen-blue/60 italic">
-                                        {item.type === 'passive' 
-                                          ? (AFFINITY_MAP_RU[item.attribute || ''] || item.attribute) 
-                                          : (AFFINITY_MAP_RU[item.element || ''] || item.element)}
+                                      <div className="text-[10px] font-black text-[#0047ab] italic">
+                                        {item.skillData?.type === 'passive' 
+                                          ? (AFFINITY_MAP_RU[item.skillData?.attribute || item.attribute || ''] || item.skillData?.attribute || item.attribute) 
+                                          : (AFFINITY_MAP_RU[item.skillData?.element || item.element || ''] || item.skillData?.element || item.element)}
                                       </div>
                                     </div>
                                   )}
-                                  <div className="text-[18px] font-black mt-2 italic">{calculateSellPrice(item)} 🌱</div>
+                                  <div className="text-[16px] font-black mt-1 italic text-[#0047ab]">{calculateSellPrice(item)} <span className="not-italic inline-block text-[#0047ab]">🌱</span></div>
                                 </div>
                              </div>
                           </GlassCard>
@@ -675,7 +701,7 @@ export const Market: React.FC<{ progress: UserProgress; setProgress: React.Dispa
                       image={selectedItemInfo.image} 
                       hue={selectedItemInfo.hue}
                       fallbackEmoji={selectedItemInfo.fallbackEmoji}
-                      className="text-[144px] animate-bounce-slow" 
+                      className={cn("text-[144px] animate-bounce-slow origin-center", selectedItemInfo.type === 'egg' && "scale-[0.7]")} 
                     />
                   </div>
 
@@ -746,6 +772,84 @@ export const Market: React.FC<{ progress: UserProgress; setProgress: React.Dispa
         )}
       </AnimatePresence>
 
+
+      <AnimatePresence>
+        {insufficientFundsItem && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[1200] flex items-center justify-center p-6 bg-black/60 backdrop-blur-lg"
+            onClick={() => setInsufficientFundsItem(null)}
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }}
+              className="w-full max-w-sm bg-white border-4 border-pen-blue shadow-2xl p-8 space-y-6 text-center"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="space-y-2">
+                <div className="bg-pen-red/10 border-2 border-pen-red p-4 -rotate-1">
+                  <h3 className="text-xl font-black text-pen-red">Недостаточно ростков!</h3>
+                  <p className="text-xs font-bold text-pen-red/70 mt-1">
+                    Для покупки "{insufficientFundsItem.name}" вам не хватает {insufficientFundsItem.value - progress.sprouts} 🌱
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4 pt-4 border-t-2 border-dashed border-black/5">
+                <h4 className="text-sm font-black text-pen-blue tracking-tighter">Пополнить баланс:</h4>
+                <div className="flex items-center gap-4">
+                  <input 
+                    type="number" 
+                    value={rublesForSprouts}
+                    autoFocus
+                    className="flex-1 p-3 border-4 border-pen-blue bg-white font-black text-2xl text-pen-blue text-center outline-none"
+                    onChange={(e) => setRublesForSprouts(Math.max(0, parseInt(e.target.value) || 0))}
+                  />
+                  <div className="flex flex-col items-center">
+                    <span className="text-[10px] font-black text-pen-blue/40 uppercase">Получите</span>
+                    <span className="text-lg font-black text-pen-blue">{rublesForSprouts * 100} 🌱</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <NeonButton 
+                  onClick={() => {
+                    const amount = rublesForSprouts * 100;
+                    if (amount > 0) {
+                      setProgress(prev => ({ ...prev, sprouts: prev.sprouts + amount }));
+                      setRublesForSprouts(100); 
+                      // If they now have enough, maybe we can even close the modal?
+                      // But let's let them see the balance update first.
+                    }
+                  }}
+                  className="w-full py-4 bg-sticker-yellow text-lg border-2 border-pen-blue shadow-[4px_4px_0px_0px_#1e3a8a]"
+                >
+                  Купить {rublesForSprouts * 100} 🌱
+                </NeonButton>
+                
+                {progress.sprouts >= insufficientFundsItem.value && (
+                  <NeonButton 
+                    onClick={() => {
+                      handleBuy(insufficientFundsItem);
+                      setInsufficientFundsItem(null);
+                    }}
+                    className="w-full py-4 bg-pen-blue text-white text-lg"
+                  >
+                    Теперь хватает! Купить
+                  </NeonButton>
+                )}
+
+                <button 
+                  onClick={() => setInsufficientFundsItem(null)}
+                  className="text-xs font-black text-pen-blue/40 uppercase tracking-widest py-2 hover:text-pen-blue transition-colors"
+                >
+                  Вернуться в магазин
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {calculatorModal && (

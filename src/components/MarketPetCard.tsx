@@ -4,6 +4,7 @@ import { Pet } from '../types';
 import { RARITY_LABELS, RARITY_STYLES } from '../constants/gameData';
 import { ElementSticker, AttributeSticker } from './GameUI';
 import { cn } from '../lib/utils';
+import { calculateCP } from '../lib/gameLogic';
 
 interface MarketPetCardProps {
   pet: Pet;
@@ -96,8 +97,11 @@ export const MarketPetCard: React.FC<MarketPetCardProps> = ({
             <span className={cn("font-black text-pen-blue whitespace-nowrap leading-none shrink-0", fontSize)}>LVL {pet.level}</span>
           </div>
           
-          <div className="flex items-center justify-between font-black text-pen-blue italic leading-tight">
-            <span className={cn("opacity-80", fontSize)}>{pet.ageStage.split(' - ')[1] || pet.ageStage}</span>
+          <div className="flex flex-col items-center justify-center font-black text-pen-blue italic leading-tight text-center w-full">
+            <span className={cn("opacity-80", fontSize)}>
+              {pet.ageStage.split(' - ')[1] || pet.ageStage} 
+              <span className="ml-1 text-[#0047ab] italic">{pet.ageStage.split(' ')[0]}</span>
+            </span>
           </div>
 
           {showPrice !== undefined && (
@@ -108,8 +112,3 @@ export const MarketPetCard: React.FC<MarketPetCardProps> = ({
     </motion.div>
   );
 };
-
-function calculateCP(pet: Pet): number {
-  const base = (pet.stats.attack + pet.stats.defense + pet.stats.speed + pet.stats.health / 5);
-  return Math.floor(base * (1 + (pet.level - 1) * 0.1));
-}

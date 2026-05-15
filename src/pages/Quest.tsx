@@ -136,7 +136,10 @@ export const Quest: React.FC<{
           ...prev,
           sprouts: prev.sprouts + sprouts,
           pets: updatedPets,
-          inventory: updatedInventory
+          inventory: updatedInventory,
+          totalQuests: (prev.totalQuests || 0) + 1,
+          successfulQuests: isOverallSuccess ? (prev.successfulQuests || 0) + 1 : (prev.successfulQuests || 0),
+          failedQuests: !isOverallSuccess ? (prev.failedQuests || 0) + 1 : (prev.failedQuests || 0),
         };
       });
 
@@ -358,7 +361,7 @@ export const Quest: React.FC<{
 
         {stage === 'ERROR' && (
           <motion.div key="error" className="w-full flex flex-col items-center justify-center space-y-8 py-20">
-            <div className="text-8xl">🏜️</div>
+            <div className="text-8xl not-italic">🏜️</div>
             <h2 className="text-3xl font-hand text-pen-blue tracking-widest text-center">история оборвалась...</h2>
             <NeonButton onClick={resetQuest} className="px-12 py-3 text-xl bg-sticker-blue border-2 border-pen-blue">
               Вернуться
@@ -382,11 +385,13 @@ export const Quest: React.FC<{
             >
               <div className="p-8 text-center space-y-6">
                 <div className="h-24 w-24 bg-sticker-blue border border-pen-blue/20 mx-auto flex items-center justify-center rotate-3 shadow-xl p-2 bg-white/50">
-                    {selectedItem.image ? (
-                      <img src={selectedItem.image} className="w-full h-full object-contain animate-bounce-slow" alt={selectedItem.name} />
-                    ) : (
-                      <Box className="h-12 w-12 text-pen-blue opacity-50" />
-                    )}
+                    <ItemIcon 
+                      type={selectedItem.type} 
+                      image={selectedItem.image} 
+                      fallbackEmoji={(selectedItem as any).fallbackEmoji}
+                      hue={(selectedItem as any).hue}
+                      className="text-7xl"
+                    />
                 </div>
                 <div className="space-y-2">
                   <div className="text-[16px] font-hand text-pen-blue/40 tracking-widest">находка!</div>

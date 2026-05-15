@@ -2,16 +2,72 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Element, Attribute, Rarity } from '../types';
 import { ELEMENT_DATA, ATTRIBUTE_DATA, RARITY_LABELS } from '../constants/gameData';
+import { getSummonerRank, RANKS_INFO } from '../lib/gameLogic';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { Info, X } from 'lucide-react';
+
+export const RankInfoModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  rankInfo: { name: string, limit: number };
+}> = ({ isOpen, onClose, rankInfo }) => {
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            className="relative max-w-md w-full max-h-[80vh] overflow-y-auto no-scrollbar bg-[#f2ede0] ledger-grid border-4 border-pen-blue p-6 text-left space-y-4 shadow-xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center border-b-2 border-pen-blue/20 pb-2 mb-4">
+               <h2 className="text-[20px] font-black text-pen-blue">Ранг Призывателя</h2>
+               <button onClick={onClose} className="flex items-center justify-center text-pen-blue text-[50px] leading-none hover:rotate-90 transition-transform origin-center">&times;</button>
+            </div>
+            <div className="space-y-2">
+               {RANKS_INFO.map(rank => {
+                  const isCurrent = rank.name === rankInfo.name;
+                  return (
+                    <div 
+                      key={rank.id} 
+                      className={cn(
+                        "p-3 flex justify-between items-center text-pen-blue font-black transition-colors border-2",
+                        isCurrent ? "bg-transparent border-pen-blue" : "border-transparent bg-pen-blue/5 hover:bg-pen-blue/10"
+                      )}
+                    >
+                       <div className="flex gap-3 items-center">
+                  <span className="text-[20px] text-pen-blue font-black w-6 text-left">{rank.id}.</span>
+                          <div className="flex flex-col">
+                             <span className="text-[20px] text-pen-blue font-black">{rank.name}</span>
+                             <span className="text-[20px] text-pen-blue font-black">(есть питомец {rank.req} ранга)</span>
+                          </div>
+                       </div>
+                       <div className="text-[20px] text-pen-blue font-black text-right">
+                          <span>право на {rank.limit} пит.</span>
+                       </div>
+                    </div>
+                  )
+               })}
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+};
+
+// LogoAnimation removed
 
 export const ElementSticker: React.FC<{ 
   element: Element; 
   showLabel?: boolean; 
   className?: string; 
+  labelClassName?: string;
   onClick?: () => void;
-}> = ({ element, showLabel = true, className, onClick }) => {
+}> = ({ element, showLabel = true, className, labelClassName, onClick }) => {
   const data = ELEMENT_DATA[element];
   const Icon = data.icon;
 
@@ -25,7 +81,7 @@ export const ElementSticker: React.FC<{
       style={{ color: data.color }}
     >
       <Icon className="h-6 w-6" />
-      {showLabel && <span className="text-[16px] font-black">{data.label}</span>}
+      {showLabel && <span className={cn("text-[16px] font-black", labelClassName)}>{data.label}</span>}
     </button>
   );
 };
@@ -34,8 +90,9 @@ export const AttributeSticker: React.FC<{
   attribute: Attribute; 
   showLabel?: boolean; 
   className?: string;
+  labelClassName?: string;
   onClick?: () => void;
-}> = ({ attribute, showLabel = true, className, onClick }) => {
+}> = ({ attribute, showLabel = true, className, labelClassName, onClick }) => {
   const data = ATTRIBUTE_DATA[attribute];
   const Icon = data.icon;
 
@@ -49,7 +106,7 @@ export const AttributeSticker: React.FC<{
       style={{ color: data.color }}
     >
       <Icon className="h-6 w-6" />
-      {showLabel && <span className="text-[16px] font-black">{data.label}</span>}
+      {showLabel && <span className={cn("text-[16px] font-black", labelClassName)}>{data.label}</span>}
     </button>
   );
 };
@@ -62,10 +119,9 @@ export const InfoModal: React.FC<{
   showClose?: boolean;
   plain?: boolean;
 }> = ({ isOpen, onClose, title, children, showClose = true, plain = false }) => {
-  if (!isOpen) return null;
-
   return createPortal(
     <AnimatePresence>
+      {isOpen && (
       <div 
         className="fixed inset-0 z-[1000] flex items-center justify-center p-0 md:p-4 h-screen w-screen"
         onMouseDown={(e) => {
@@ -106,11 +162,12 @@ export const InfoModal: React.FC<{
             </button>
           )}
           {!plain && <h3 className="text-[24px] font-black text-pen-blue mb-4 tracking-tight">{title}</h3>}
-          <div className={plain ? "flex items-center justify-center overflow-hidden rounded-lg max-h-[85vh] aspect-[9/16]" : "space-y-4"}>
+          <div className={plain ? "flex flex-col items-center justify-center overflow-hidden rounded-lg max-h-[85vh] aspect-[9/16]" : "space-y-4"}>
             {children}
           </div>
         </motion.div>
       </div>
+      )}
     </AnimatePresence>,
     document.body
   );

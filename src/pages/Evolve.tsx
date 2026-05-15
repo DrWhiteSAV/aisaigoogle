@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { cn } from '../lib/utils';
 import { Pet, UserProgress } from '../types';
-import { GlassCard, NeonButton, HandwrittenText } from '../components/UI';
+import { GlassCard, NeonButton, HandwrittenText, LogoAnimation } from '../components/UI';
 import { PetEvolutionCard } from '../components/PetEvolutionCard';
 import { motion, AnimatePresence } from 'motion/react';
 import { GitBranch, Zap, Sparkles, AlertCircle, TrendingUp, FlaskConical, Plus, Info, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -94,6 +94,7 @@ export const Evolve: React.FC<{
           skills: [...(pet.skills || []), ...evolutionData.newSkills],
           lore: evolutionData.lore,
           image: updatedImage,
+          imageHistory: [...(pet.imageHistory || [pet.image]), updatedImage],
           statPoints: pet.statPoints + growthPerLevel,
         };
         
@@ -121,6 +122,7 @@ export const Evolve: React.FC<{
     } finally {
       if (!isMajorEvolution) {
         setEvolving(false);
+        navigate(`/pet/${pet.id}`);
       }
     }
   };
@@ -185,7 +187,7 @@ export const Evolve: React.FC<{
               </div>
             </div>
             <div className="text-[10px] font-black text-pen-blue/30 italic">
-               {isMajorEvolution ? "Великая трансформация" : "Стабильный рост"}
+               {pet.level >= MAX_LEVEL ? "Абсолютная Форма" : (isMajorEvolution ? "Великая трансформация" : "Стабильный рост")}
             </div>
          </header>
 
@@ -208,38 +210,43 @@ export const Evolve: React.FC<{
             <div className="text-center space-y-4 max-w-[240px]">
                <div className="space-y-1">
                   <h3 className="text-xl font-black text-pen-blue italic tracking-tighter whitespace-nowrap">
-                    {evolving ? "Идет слияние..." : (isMajorEvolution ? "Готов к Возвышению" : "Накоплен опыт")}
+                    {pet.level >= MAX_LEVEL ? "Развитие завершено" : (evolving ? "Идет слияние..." : (isMajorEvolution ? "Готов к Возвышению" : "Накоплен опыт"))}
                   </h3>
                   <p className="text-[10px] font-black text-pen-blue/40 leading-tight">
-                    {isMajorEvolution 
+                    {pet.level >= MAX_LEVEL 
+                      ? "Этот питомец раскрыл весь свой потенциал и полностью эволюционировал."
+                      : (isMajorEvolution 
                       ? "Сущность достигла предела текущей оболочки" 
-                      : (canLevelUp ? "Достаточно опыта для укрепления формы" : "Продолжайте тренировки для роста")}
+                      : (canLevelUp ? "Достаточно опыта для укрепления формы" : "Продолжайте тренировки для роста"))}
                   </p>
                </div>
 
-               <div className="flex flex-col gap-3 pt-4">
-                  <div className="flex items-center justify-between text-[11px] font-black px-2">
-                    <span className="text-pen-blue/30">СТОИМОСТЬ:</span>
-                    <span className="text-pen-blue">{isMajorEvolution ? "ДАР БОГОВ" : `${costPerLevel} ₽`}</span>
-                  </div>
-                  
-                  <NeonButton 
-                    onClick={handleLevelUp}
-                    disabled={evolving || (!isMajorEvolution && (!canLevelUp || progress.sprouts < costPerLevel))}
-                    className={cn(
-                      "w-fit mx-auto px-8 py-3 text-[20px] font-black tracking-wider",
-                      isMajorEvolution ? "bg-pen-red text-white shadow-xl animate-pulse" : "bg-pen-blue text-white"
-                    )}
-                  >
-                    {evolving ? "Трансмутация..." : (isMajorEvolution ? "Возвыситься" : "Улучшить")}
-                  </NeonButton>
-               </div>
+               {pet.level < MAX_LEVEL && isMajorEvolution && (
+                 <div className="flex flex-col gap-3 pt-4">
+                    <NeonButton 
+                      onClick={handleLevelUp}
+                      disabled={evolving}
+                      className={cn(
+                        "w-fit mx-auto px-8 py-3 text-[20px] font-black tracking-wider",
+                        "bg-pen-red text-white shadow-xl animate-pulse"
+                      )}
+                    >
+                      {evolving ? "Трансмутация..." : "Возвыситься"}
+                    </NeonButton>
+                 </div>
+               )}
             </div>
 
-            {!isMajorEvolution && !canLevelUp && (
-              <div className="flex items-center gap-2 px-4 py-2 bg-black/5 rounded-full">
+            {!isMajorEvolution && !canLevelUp && pet.level < MAX_LEVEL && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-black/5 rounded-full mt-4">
                  <AlertCircle className="h-3 w-3 text-pen-blue/40" />
                  <span className="text-[9px] font-black text-pen-blue/40">Недостаточно опыта</span>
+              </div>
+            )}
+            {!isMajorEvolution && canLevelUp && pet.level < MAX_LEVEL && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-black/5 rounded-full mt-4">
+                 <Sparkles className="h-3 w-3 text-pen-blue/40" />
+                 <span className="text-[9px] font-black text-pen-blue/40">Опыт накоплен, скоро вознесется</span>
               </div>
             )}
          </div>
@@ -327,33 +334,40 @@ export const Evolve: React.FC<{
     );
   }
 
-  const currentSpreadStartIndex = (effectivePageNum - 1) * 4;
-  const leftSidePets = progress.pets.slice(currentSpreadStartIndex, currentSpreadStartIndex + 2);
-  const rightSidePets = progress.pets.slice(currentSpreadStartIndex + 2, currentSpreadStartIndex + 4);
-
   if (side === 'left') {
-    return <div className="p-4 h-full">{renderGallery(leftSidePets)}</div>;
-  }
-
-  if (side === 'right') {
-    // If a pet is selected, show evolution workspace. Otherwise show the next 2 pets.
     return (
-      <div className="p-4 h-full">
-        {currentPetId ? renderEvolution() : renderGallery(rightSidePets)}
+      <div className="p-4 h-full flex flex-col ledger-grid">
+         <header className="flex items-center justify-between border-b-2 border-black/5 pb-2 shrink-0">
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-black text-pen-blue italic tracking-tighter flex items-center gap-2">
+              <GitBranch className="h-4 w-4" />
+              Статус: {pet.name}
+            </h2>
+          </div>
+        </header>
+        <div className="flex-1 flex flex-col items-center justify-center p-4">
+           {/* Force PetEvolutionCard to maintain original bounds with max-widths */}
+           <div className="w-full max-w-[260px] mx-auto">
+             <PetEvolutionCard 
+               pet={pet}
+               isSelected={true}
+               isEvolving={evolving}
+               onSelect={() => {}}
+               onLevelUp={handleLevelUp}
+             />
+           </div>
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className="p-6 max-w-5xl mx-auto space-y-12 pt-12 pb-32 min-h-screen relative">
-       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
-          <div className="lg:col-span-5 hidden lg:block">
-            {renderGallery(leftSidePets)}
-          </div>
-          <div className="lg:col-span-7">
-            {renderEvolution()}
-          </div>
-       </div>
-    </div>
-  );
+  if (side === 'right') {
+    return (
+      <div className="h-full">
+        <LogoAnimation />
+      </div>
+    );
+  }
+
+  return null;
 };

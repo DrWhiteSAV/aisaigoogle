@@ -4,6 +4,7 @@ import { Pet } from '../types';
 import { RARITY_LABELS, RARITY_STYLES } from '../constants/gameData';
 import { ElementSticker, AttributeSticker } from './GameUI';
 import { cn } from '../lib/utils';
+import { calculateCP } from '../lib/gameLogic';
 
 interface GalleryCardProps {
   pet: Pet;
@@ -20,10 +21,13 @@ export const GalleryCard: React.FC<GalleryCardProps> = ({
   onClick,
   isCompact = false
 }) => {
-  const rarityStyle = RARITY_STYLES[pet.rarity] || RARITY_STYLES.normal;
-  const fontSize = isCompact ? "text-[8px]" : "text-[16px]";
-  const nameFontSize = isCompact ? "text-[10px]" : "text-[18px]";
-  const stickerScale = isCompact ? "scale-[0.55]" : "scale-100";
+  const rarityStyle = (pet && pet.rarity && RARITY_STYLES[pet.rarity]) ? RARITY_STYLES[pet.rarity] : RARITY_STYLES.normal;
+  const fontSize = "text-[16px]";
+  const nameFontSize = "text-[16px]";
+  const stickerScale = isCompact ? "scale-[0.8]" : "scale-100";
+  const ageStage = pet?.ageStage || 'F - младенчество';
+  const rankLetter = ageStage.split(' ')[0];
+  const rankName = ageStage.split(' - ')[1] || ageStage;
 
   return (
     <motion.div 
@@ -71,10 +75,10 @@ export const GalleryCard: React.FC<GalleryCardProps> = ({
           "absolute inset-x-0 flex justify-center gap-4 z-40 pointer-events-none px-4",
           isCompact ? "bottom-14 gap-1" : "bottom-20"
         )}>
-           <div className={cn("rotate-[-4deg] origin-center", stickerScale)}>
+           <div className="rotate-[-4deg] origin-center scale-95">
               <ElementSticker element={pet.element} />
            </div>
-           <div className={cn("rotate-[4deg] origin-center", stickerScale)}>
+           <div className="rotate-[4deg] origin-center scale-95">
               <AttributeSticker attribute={pet.attribute} />
            </div>
         </div>
@@ -94,22 +98,19 @@ export const GalleryCard: React.FC<GalleryCardProps> = ({
             <span className={cn("font-black text-pen-blue whitespace-nowrap leading-none shrink-0", fontSize)}>LVL {pet.level}</span>
           </div>
           
-          <div className="flex items-center justify-between font-black text-pen-blue italic leading-tight">
-            <span className={cn("opacity-80", fontSize)}>{pet.ageStage.split(' - ')[1] || pet.ageStage}</span>
+          <div className="flex flex-col items-center justify-center font-black text-pen-blue italic leading-tight text-center w-full">
+            <span className={cn("opacity-80", fontSize)}>
+              {rankName} 
+              <span className="ml-1 text-[#0047ab] italic">{rankLetter}</span>
+            </span>
           </div>
 
+
           {showPrice !== undefined && (
-            <div className={cn("font-black text-pen-blue mt-1.5 italic text-center w-full", isCompact ? "text-[12px]" : "text-[20px]")}>{showPrice} 🌱</div>
+            <div className="font-black text-pen-blue mt-1.5 italic text-center w-full text-[16px]">{showPrice} 🌱</div>
           )}
         </div>
       </div>
     </motion.div>
   );
 };
-
-// Helper inside the file to avoid import cycles if needed, 
-// though we usually import from lib/gameLogic
-function calculateCP(pet: Pet): number {
-  const base = (pet.stats.attack + pet.stats.defense + pet.stats.speed + pet.stats.health / 5);
-  return Math.floor(base * (1 + (pet.level - 1) * 0.1));
-}

@@ -1,13 +1,13 @@
 export type Rarity = 
   | 'normal' 
-  | 'advanced' 
+  | 'advanced'
   | 'rare' 
-  | 'perfect' 
+  | 'perfect'
   | 'epic' 
   | 'legendary' 
   | 'mythical' 
-  | 'eternal' 
-  | 'divine' 
+  | 'eternal'
+  | 'divine'
   | 'transcendent';
 
 export type Element = 'water' | 'fire' | 'air' | 'earth';
@@ -56,6 +56,7 @@ export type SkillType = 'passive' | 'active_buff' | 'active_debuff';
 
 export interface Skill {
   id: string;
+  code: string; // Unique tracking code
   name: string;
   description: string;
   type: SkillType;
@@ -64,6 +65,8 @@ export interface Skill {
   image?: string;
   fallbackEmoji?: string;
   hue?: number;
+  element?: Element;
+  attribute?: Attribute;
 }
 
 export interface UserProfile {
@@ -104,13 +107,14 @@ export interface Pet {
   materials: Record<string, number>;
   ageStage: AgeStage;
   rank: string;
-  potential: number;
   isRankRevealed: boolean;
   statPoints: number;
+  imageHistory?: string[];
 }
 
 export interface InventoryItem {
   id: string;
+  code: string; // Unique tracking code
   name: string;
   type: 'energy' | 'material' | 'food' | 'egg' | 'artifact' | 'skill';
   value: number;
@@ -140,4 +144,11 @@ export interface UserProgress {
   energy: number;
   lastEnergyUpdate: number; // timestamp
   summonerRank: string;
+  marketInventory?: InventoryItem[];
+  totalBattles?: number;
+  wonBattles?: number;
+  lostBattles?: number;
+  totalQuests?: number;
+  successfulQuests?: number;
+  failedQuests?: number;
 }

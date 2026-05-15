@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Pet, Element, Attribute, UserProgress } from '../types';
-import { GlassCard, NeonButton, HandwrittenText } from '../components/UI';
+import { GlassCard, NeonButton, HandwrittenText, LogoAnimation } from '../components/UI';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { Shield, Sword, Brain, Zap, Star, Sparkles, Heart, Activity, Compass, Sprout, Plus, Box, Package, ChevronRight, Zap as EnergyIcon, ShoppingBag } from 'lucide-react';
-import { getPetRankByLevel, calculateCP, getExpNeeded } from '../lib/gameLogic';
+import { getPetRankByLevel, calculateCP, getExpNeeded, getSummonerRank } from '../lib/gameLogic';
 import { ELEMENT_DATA, RARITY_LABELS } from '../constants/gameData';
-import { ElementSticker, InfoModal, TypeChartContent } from '../components/GameUI';
+import { ElementSticker, InfoModal, TypeChartContent, RankInfoModal } from '../components/GameUI';
 
 import { PetCard } from '../components/PetCard';
 
@@ -21,8 +21,10 @@ export const Main: React.FC<{
   const activeId = manualActiveId || paramsId;
   const [timeLeft, setTimeLeft] = useState("");
   const [modalType, setModalType] = useState<{ element?: Element, attribute?: Attribute, rank?: boolean, rarity?: boolean, fullScreenImage?: string, pet?: Pet } | null>(null);
+  const [showRankModal, setShowRankModal] = useState(false);
 
   const petCount = progress.pets.length;
+  const rankInfo = getSummonerRank(progress.pets);
 
   useEffect(() => {
     const updateTimer = () => {
@@ -47,52 +49,56 @@ export const Main: React.FC<{
   return (
     <div className="space-y-12 pb-32 relative">
       {/* Header with Energy & Currency */}
-      <header className="flex flex-col gap-6 border-b-2 border-black/5 pb-10">
-        <div className="flex items-center gap-4">
-          <img 
-            src="https://i.ibb.co/k2PN7Q8y/aisailogo.png" 
-            alt="aiSai" 
-            className="h-16 w-16 object-contain cursor-pointer hover:scale-110 transition-transform mix-blend-multiply" 
-            onClick={() => navigate('/main')}
-          />
+      <header className="flex flex-row justify-between items-start gap-4 border-b-2 border-black/5 pb-6">
+        <div 
+          className="flex items-center gap-4 shrink-0 cursor-pointer hover:scale-105 transition-transform"
+          onClick={() => navigate('/main')}
+        >
+          <div className="h-10 w-10 sm:h-16 sm:w-16 relative">
+            <LogoAnimation 
+              containerClassName="absolute inset-0 mix-blend-multiply"
+              logoClassName="w-full h-full"
+              imgClassName="w-full h-full object-contain filter contrast-125"
+            />
+          </div>
           <div>
-            <h1 className="text-4xl font-black tracking-tighter text-pen-blue leading-none">aiSai</h1>
-            <div className="text-sm font-black text-pen-blue/30 mt-1">Бестиарий: {petCount} сущностей</div>
+            <h1 className="text-2xl sm:text-4xl font-black tracking-tighter text-pen-blue leading-none">aiSai</h1>
+            <div className="text-[10px] sm:text-sm font-black text-pen-blue/30 mt-1">Бестиарий: {petCount} сущ.</div>
           </div>
         </div>
         
-        <div className="flex flex-wrap items-center gap-6">
-          {/* Energy Section */}
-          <div className="flex flex-col gap-1 flex-1 min-w-[120px]">
-             <div className="flex items-center gap-2 text-sm font-black text-pen-blue">
-                <EnergyIcon className="h-4 w-4 fill-pen-blue" />
-                <span>Заряд: {progress.energy}</span>
-                <span className="text-[10px] opacity-40">({timeLeft})</span>
-             </div>
-          </div>
+        <div className="flex flex-col items-end gap-2 shrink-0 pr-2">
+          <div className="flex flex-row items-center gap-2 sm:gap-4 shrink-0 mt-1">
+            {/* Energy Section */}
+            <div className="flex flex-col gap-1 items-end">
+               <div 
+                 onClick={() => navigate('/shop#resources')}
+                 className="cursor-pointer flex items-center gap-1 sm:gap-2 text-[12px] sm:text-sm font-black text-pen-blue bg-white/50 px-2 py-1 rounded-full border border-pen-blue/20 hover:bg-white/80 transition-colors"
+               >
+                  <EnergyIcon className="h-3 w-3 sm:h-4 sm:w-4 fill-pen-blue" />
+                  <span>{progress.energy}</span>
+                  <span className="text-[10px] opacity-40">({timeLeft})</span>
+               </div>
+            </div>
 
-          <div
-            onClick={() => navigate('/topup')}
-            className="group cursor-pointer bg-sticker-blue px-4 py-2 border-2 border-black rotate-1 flex items-center gap-3 text-lg font-black hover:-translate-y-1 transition-all"
-          >
-            <Sprout className="h-5 w-5" />
-            <span>{progress.sprouts.toLocaleString()} 🌱</span>
+            <div
+              onClick={() => navigate('/shop#resources')}
+              className="group cursor-pointer bg-sticker-blue px-2 py-1 sm:px-3 sm:py-2 border-2 border-black rotate-1 flex items-center justify-center text-[12px] sm:text-sm font-black hover:-translate-y-1 transition-all"
+            >
+              <span>{progress.sprouts.toLocaleString()} 🌱</span>
+            </div>
           </div>
+          <button 
+             onClick={() => setShowRankModal(true)}
+             className="text-xs font-black text-pen-blue/40 border-b border-dashed border-pen-blue/40 hover:text-pen-blue transition-colors mt-2"
+          >
+             Ранг: {rankInfo.name}
+          </button>
         </div>
       </header>
 
       <section className="space-y-8">
-        <div className="flex items-center justify-between">
-           <h2 className="text-3xl font-black text-pen-blue">Ваши Сущности</h2>
-           <button 
-             onClick={() => navigate('/shop')}
-             className="text-pen-blue/40 hover:text-pen-blue font-black text-sm transition-colors"
-           >
-             + Магазин
-           </button>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div className="grid grid-cols-2 gap-4 sm:gap-6">
            {progress.pets.map((pet, i) => (
              <motion.div
                key={pet.id}
@@ -100,7 +106,7 @@ export const Main: React.FC<{
                animate={{ opacity: 1, y: 0 }}
                transition={{ delay: i * 0.05 }}
                className={cn(
-                 "transition-all duration-300",
+                 "transition-all duration-300 w-full",
                  activeId === pet.id ? "scale-105 z-20" : "scale-100"
                )}
              >
@@ -148,7 +154,7 @@ export const Main: React.FC<{
              className="max-w-[95%] max-h-[95%] object-contain shadow-2xl rounded-sm"
              referrerPolicy="no-referrer"
            />
-        ) : modalType?.rank ? (
+        ) : (modalType?.rank && modalType?.pet) ? (
           <div className="space-y-4">
              <p className="text-[16px] font-black text-pen-blue leading-relaxed border-b border-black/5 pb-4">
                Ранг Питомца определяется текущим уровнем созревания:
@@ -167,7 +173,7 @@ export const Main: React.FC<{
                   { range: "91-100", code: "Z", label: "абсолютность" }
                 ].map((r, i) => {
                   const [min, max] = r.range.split('-').map(Number);
-                  const isSelected = modalType?.pet && modalType.pet.level >= min && modalType.pet.level <= (max || min);
+                  const isSelected = modalType.pet && modalType.pet.level >= min && modalType.pet.level <= (max || min);
                   return (
                     <div key={i} className={cn(
                       "flex items-center justify-between p-2 border-2 transition-all",
@@ -182,7 +188,7 @@ export const Main: React.FC<{
                 })}
              </div>
           </div>
-        ) : modalType?.rarity ? (
+        ) : (modalType?.rarity && modalType?.pet) ? (
           <div className="space-y-4">
              <p className="text-[16px] font-black text-pen-blue leading-relaxed border-b border-black/5 pb-4">
                 Начальные характеристики и потенциал роста зависят от редкости питомца:
@@ -200,7 +206,7 @@ export const Main: React.FC<{
                   { label: "Божественный", base: 800, growth: 45 },
                   { label: "Трансцендентный", base: 1000, growth: 50 }
                 ].map((r, i) => {
-                  const isSelected = modalType?.pet && RARITY_LABELS[modalType.pet.rarity] === r.label;
+                  const isSelected = modalType.pet && RARITY_LABELS[modalType.pet.rarity] === r.label;
                   return (
                     <div key={i} className={cn(
                       "flex items-center justify-between p-2 border-2 transition-all",
@@ -215,10 +221,54 @@ export const Main: React.FC<{
                 })}
              </div>
           </div>
+        ) : modalType?.rank ? (
+          <div className="space-y-4">
+             <p className="text-[16px] font-black text-pen-blue leading-relaxed border-b border-black/5 pb-4">
+               Ранг Питомца определяется текущим уровнем созревания:
+             </p>
+             <div className="grid grid-cols-1 gap-2 opacity-60">
+                {[
+                  { range: "1-10", label: "младенчество" },
+                  { range: "11-20", label: "детство" },
+                  { range: "21-30", label: "отрочество" },
+                  { range: "31-40", label: "молодость" },
+                  { range: "41-50", label: "взросление" },
+                  { range: "51-60", label: "зрелость" },
+                  { range: "61-70", label: "мудрость" },
+                  { range: "71-80", label: "единство" },
+                  { range: "81-90", label: "пробуждение" },
+                  { range: "91-100", label: "абсолютность" }
+                ].map((r, i) => (
+                  <div key={i} className="flex items-center justify-between p-2 border-2 border-black/10">
+                    <span className="text-sm font-black text-pen-blue">{r.range}</span>
+                    <span className="text-sm font-black text-pen-blue">{r.label}</span>
+                  </div>
+                ))}
+             </div>
+          </div>
+        ) : modalType?.rarity ? (
+          <div className="space-y-4">
+             <p className="text-[16px] font-black text-pen-blue leading-relaxed border-b border-black/5 pb-4">
+                Потенциал роста зависит от редкости:
+             </p>
+             <div className="grid grid-cols-1 gap-2 opacity-60">
+                {Object.values(RARITY_LABELS).map((label, i) => (
+                  <div key={i} className="flex items-center justify-between p-2 border-2 border-black/10">
+                    <span className="text-sm font-black text-pen-blue">{label}</span>
+                  </div>
+                ))}
+             </div>
+          </div>
         ) : (
           <TypeChartContent element={modalType?.element} attribute={modalType?.attribute} />
         )}
       </InfoModal>
+
+      <RankInfoModal 
+        isOpen={showRankModal} 
+        onClose={() => setShowRankModal(false)} 
+        rankInfo={rankInfo} 
+      />
     </div>
   );
 };

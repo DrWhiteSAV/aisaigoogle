@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, createContext, useContext } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { Pet, UserProgress, Skill, PetStats } from '../types';
-import { NeonButton } from '../components/UI';
+import { NeonButton, LogoAnimation } from '../components/UI';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sword, Shield, Zap, Sprout, Flame, Droplets, Wind, Mountain, Star, Sparkles, Timer, Target, Heart, PenLine } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -167,7 +167,7 @@ export const Battle: React.FC<{
       toggleFlipLock={toggleFlipLock}
       battleId={battleId}
     >
-      <BattleContent side={side} />
+      <BattleContent side={side} setProgress={setProgress} />
     </BattleProvider>
   );
 };
@@ -200,6 +200,8 @@ const BattleProvider: React.FC<{
     };
   }, []);
 
+  const initStarted = React.useRef(false);
+  
   const [state, setState] = useState<Omit<BattleState, 'handleAction' | 'playerPet'>>(() => {
     // Check both petId AND battleId to ensure we are looking at the same fight
     if (globalBattleState && globalBattleState.battleId === battleId) {
@@ -236,6 +238,35 @@ const BattleProvider: React.FC<{
       return next;
     });
   }, [playerPet?.id, battleId]);
+
+  useEffect(() => {
+    initStarted.current = false;
+    if (globalBattleState && globalBattleState.battleId === battleId) {
+       setState(globalBattleState.state);
+    } else {
+       setState({
+          enemy: null,
+          battleLog: ['Битва началась!'],
+          hp: { player: 100, enemy: 100 },
+          rage: { player: 0, enemy: 0 },
+          speedGauge: { player: 100, enemy: 100 },
+          turn: 'waiting',
+          lastTurnSide: null,
+          winner: null,
+          rewards: null,
+          defenseBoost: { player: 1, enemy: 1 },
+          isEnemyHit: false,
+          isPlayerHit: false,
+          isPlayerAttacking: false,
+          isEnemyAttacking: false,
+          activeActionEffect: null,
+          showUlt: false,
+          isPlayerRegen: false,
+          isEnemyRegen: false,
+          floatingDamages: []
+       });
+    }
+  }, [battleId]);
 
   useEffect(() => {
     if (globalBattleState && globalBattleState.battleId === battleId && globalBattleState.state === state) {
@@ -698,8 +729,6 @@ const BattleProvider: React.FC<{
     }, 2000);
   };
 
-  const initStarted = React.useRef(false);
-
   // Trigger enemy turn when it's their turn
   useEffect(() => {
     if (state.turn === 'enemy' && !state.winner && state.enemy) {
@@ -753,9 +782,8 @@ const BattleProvider: React.FC<{
           { id: 'ep1', name: 'Дикая Стойкость', description: 'Природная закалка.', type: 'passive', targetStat: 'defense', value: Math.floor(5 + Math.random() * 5) },
           { id: 'ea1', name: 'Ярость Леса', description: 'Дикая атака.', type: 'active_buff', targetStat: 'attack', value: Math.floor(5 + Math.random() * 5) },
           { id: 'ed1', name: 'Жуткий Вой', description: 'Пугает врага.', type: 'active_debuff', targetStat: 'attack', value: Math.floor(15 + Math.random() * 20) }
-        ],
-        potential: Math.floor((playerPet.potential || 80) * (0.9 + Math.random() * 0.2))
-      };
+        ]
+      } as Pet;
 
       const initialHp = getEffectiveStat(playerPet, 'health') || 100;
       
@@ -964,7 +992,7 @@ const BattleCard = React.memo(({ pet, currentHp, maxHp, isPlayer, rage, speedGau
     );
 });
 
-const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
+const BattleContent: React.FC<{ side: 'left' | 'right', setProgress: React.Dispatch<React.SetStateAction<UserProgress>> }> = ({ side, setProgress }) => {
   const context = useContext(BattleContext);
   const navigate = useNavigate();
 
@@ -1115,21 +1143,7 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
     <div className="h-full flex flex-col justify-center px-10 relative bg-[#fdfaf3]/20">
       <AnimatePresence>
         {!winner ? (
-          <motion.div 
-            initial={{ opacity: 0, scale: 1 }} 
-            animate={{ opacity: 1, scale: 1 }} 
-            className="flex flex-col items-center gap-10 text-center pointer-events-none"
-          >
-             <div className="text-8xl font-black text-pen-blue/5 italic tracking-[0.4em] transform -rotate-6 select-none leading-none">
-                Битва в разгаре
-             </div>
-             <motion.div 
-               animate={{ rotate: [0, 360], scale: [1, 1.2, 1] }} 
-               transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-             >
-                <Sword className="w-48 h-48 text-pen-blue/5" />
-             </motion.div>
-          </motion.div>
+          <LogoAnimation />
         ) : (
           <motion.div 
             initial={{ scale: 0.9, rotate: -2, opacity: 0 }}
@@ -1169,6 +1183,13 @@ const BattleContent: React.FC<{ side: 'left' | 'right' }> = ({ side }) => {
 
             <NeonButton 
               onClick={() => {
+                 const playerWon = winner === 'player';
+                 setProgress(prev => ({
+                   ...prev,
+                   totalBattles: (prev.totalBattles || 0) + 1,
+                   wonBattles: playerWon ? (prev.wonBattles || 0) + 1 : (prev.wonBattles || 0),
+                   lostBattles: !playerWon ? (prev.lostBattles || 0) + 1 : (prev.lostBattles || 0),
+                 }));
                  resetBattleState();
                  navigate(`/pet/${playerPet.id}`);
               }}

@@ -39,7 +39,6 @@ export const SHOP_ARTIFACTS: InventoryItem[] = [
     description: `Древний артефакт, дарующий владельцу силу. Увеличивает ${STAT_MAP_RU[item.stat] || item.stat} на ${item.value} ед.`,
     value: price, 
     effect: { stat: item.stat, value: item.value },
-    image: `https://fonts.gstatic.com/s/e/notoemoji/latest/${item.emoji}/512.png`,
     fallbackEmoji: String.fromCodePoint(parseInt(item.emoji, 16))
   } as any; 
 });
@@ -85,7 +84,6 @@ export const SHOP_SKILLS: InventoryItem[] = [
       element: item.element,
       attribute: item.attribute
     },
-    image: `https://fonts.gstatic.com/s/e/notoemoji/latest/${item.emoji}/512.png`,
     fallbackEmoji: String.fromCodePoint(parseInt(item.emoji, 16))
   } as InventoryItem;
 });

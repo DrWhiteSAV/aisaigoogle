@@ -41,12 +41,13 @@ export const PetCard: React.FC<PetCardProps> = ({
 }) => {
   const navigate = useNavigate();
   const cp = calculateCP(pet);
-  const rarityStyle = RARITY_STYLES[pet.rarity];
-  const expNeeded = getExpNeeded(pet.level);
-  const expProgress = (pet.experience / expNeeded) * 100;
-  const rankLetter = pet.ageStage.split(' ')[0];
+  const rarityStyle = RARITY_STYLES[pet?.rarity] || RARITY_STYLES.normal;
+  const expNeeded = getExpNeeded(pet?.level || 1);
+  const expProgress = ((pet?.experience || 0) / expNeeded) * 100;
+  const ageStage = pet?.ageStage || 'F - младенчество';
+  const rankLetter = ageStage.split(' ')[0];
 
-  const potentialRank = getPetRankByLevel(pet.level);
+  const potentialRank = getPetRankByLevel(pet?.level || 1);
   const potentialRankCode = potentialRank.split(' ')[0];
   const currentRankIndex = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'EX', 'UX', 'Z'].indexOf(potentialRankCode);
   const expectedSkills = (currentRankIndex * 2) + 2;
@@ -166,8 +167,8 @@ export const PetCard: React.FC<PetCardProps> = ({
                   className="flex items-center justify-between font-black text-pen-blue italic leading-tight cursor-pointer hover:opacity-60 transition-opacity text-[16px]"
                   onClick={(e) => { e.stopPropagation(); onOpenRankInfo?.(e); }}
                 >
-                  <span className="opacity-80">{pet.ageStage.split(' - ')[1] || pet.ageStage}</span>
-                  <span className="opacity-80">{pet.experience}/{expNeeded} XP</span>
+                  <span className="opacity-80">{ageStage.split(' - ')[1] || ageStage}</span>
+                  <span className="opacity-80">{(pet?.experience || 0)}/{expNeeded} XP</span>
                 </div>
 
                 {/* XP Bar */}

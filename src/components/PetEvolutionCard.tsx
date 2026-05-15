@@ -3,7 +3,7 @@ import { cn } from '../lib/utils';
 import { Pet, Rarity } from '../types';
 import { NeonButton } from './UI';
 import { RARITY_STYLES, RARITY_LABELS } from '../constants/gameData';
-import { getPetRankByLevel } from '../lib/gameLogic';
+import { getPetRankByLevel, getExpNeeded } from '../lib/gameLogic';
 
 interface PetEvolutionCardProps {
   pet: Pet;
@@ -67,19 +67,31 @@ export const PetEvolutionCard: React.FC<PetEvolutionCardProps> = ({
         </div>
       </div>
 
-      {/* Ascend / Upgrade Button */}
+      {/* Ascend Button or Exp Progress */}
       {isSelected && (
         <div className="absolute bottom-2 left-2 right-2 z-20 flex justify-center">
-          <NeonButton 
-            onClick={(e) => { e.stopPropagation(); onLevelUp(e); }}
-            disabled={isEvolving}
-            className={cn(
-              "py-1.5 px-4 text-[20px] font-black shadow-lg border-2 w-fit mx-auto whitespace-nowrap", // Width by font (w-fit)
-              isMajor ? "bg-pen-red text-white border-white/20 animate-pulse" : "bg-pen-blue text-white border-white/20"
-            )}
-          >
-            {isMajor ? "Вознестись" : "Улучшить"}
-          </NeonButton>
+          {isMajor ? (
+            <NeonButton 
+              onClick={(e) => { e.stopPropagation(); onLevelUp(e); }}
+              disabled={isEvolving}
+              className="py-1.5 px-4 text-[20px] font-black shadow-lg border-2 w-fit mx-auto whitespace-nowrap bg-pen-red text-white border-white/20 animate-pulse"
+            >
+              Вознестись
+            </NeonButton>
+          ) : (
+             <div className="bg-white/80 border-2 border-pen-blue px-3 py-1 text-center w-[90%]">
+                <div className="text-[12px] font-black text-pen-blue">Опыт</div>
+                <div className="w-full bg-black/10 h-2 rounded-full mt-1 overflow-hidden">
+                   <div 
+                     className="bg-sticker-blue h-full"
+                     style={{ width: `${Math.min(100, (pet.experience / (getExpNeeded(pet.level) || 1)) * 100)}%` }}
+                   />
+                </div>
+                <div className="text-[10px] font-black text-pen-blue/60 mt-0.5">
+                   {pet.experience} / {getExpNeeded(pet.level)}
+                </div>
+             </div>
+          )}
         </div>
       )}
       

@@ -202,6 +202,19 @@ export function calculateCP(pet: Pet): number {
   return totalEffectiveStats;
 }
 
+export const RANKS_INFO = [
+  { id: 1, name: 'Ученик', req: 'F', limit: 2 },
+  { id: 2, name: 'Мастер', req: 'E', limit: 3 },
+  { id: 3, name: 'Командир', req: 'D', limit: 5 },
+  { id: 4, name: 'Генерал', req: 'C', limit: 7 },
+  { id: 5, name: 'Монарх', req: 'B', limit: 9 },
+  { id: 6, name: 'Император', req: 'A', limit: 11 },
+  { id: 7, name: 'Владыка', req: 'S', limit: 15 },
+  { id: 8, name: 'Идол', req: 'EX', limit: 20 },
+  { id: 9, name: 'Полубог', req: 'UX', limit: 25 },
+  { id: 10, name: 'Божество', req: 'Z', limit: 50 },
+];
+
 export function getSummonerRank(pets: Pet[]): { name: string, limit: number } {
   if (pets.length === 0) return { name: 'Новичок', limit: 1 };
   
@@ -264,3 +277,9 @@ export function updateEnergy(progress: UserProgress): UserProgress {
   }
   return progress;
 }
+
+export const generateUniqueCode = (prefix: string = 'ID', suffix: string = ''): string => {
+  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+  const timestamp = Date.now().toString(36).substring(5).toUpperCase();
+  return `${prefix}-${random}${timestamp}${suffix}`;
+};

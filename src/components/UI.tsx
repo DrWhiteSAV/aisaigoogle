@@ -98,13 +98,14 @@ export const AnimatedEgg: React.FC<{
   hue?: number; 
   className?: string;
   pulseScale?: number;
-}> = ({ hue = 0, className, pulseScale = 1.05 }) => (
+}> = ({ hue = 0, className, pulseScale = 1.15 }) => (
   <motion.div
     animate={{ 
       scale: [1, pulseScale, 1],
+      rotate: [-1, 1, -1]
     }}
     transition={{ 
-      duration: 3, 
+      duration: 1.5, 
       repeat: Infinity, 
       ease: "easeInOut" 
     }}
@@ -137,7 +138,8 @@ export const ItemIcon: React.FC<{
     return <AnimatedEgg hue={hue} className={className} />;
   }
 
-  if (image && !imgError) {
+  // If we have an image and it's not a shop item (implied by removal of image from shop constants), try to show it
+  if (image && !imgError && !image.includes('fonts.gstatic.com')) {
     return (
       <img 
         src={image} 
@@ -151,8 +153,18 @@ export const ItemIcon: React.FC<{
   }
 
   return (
-    <div className={cn("flex items-center justify-center", className)}>
-      <span className="drop-shadow-sm">{emoji}</span>
+    <div className={cn("flex items-center justify-center select-none not-italic", className)}>
+      <span 
+        className="drop-shadow-sm leading-none inline-block italic-fix" 
+        style={{ 
+          fontStyle: 'normal', 
+          fontFamily: '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif',
+          transform: 'none',
+          display: 'inline-block'
+        }}
+      >
+        {emoji}
+      </span>
     </div>
   );
 };
@@ -170,17 +182,17 @@ export const NeonButton: React.FC<{
       onClick={onClick}
       disabled={loading || disabled}
       className={cn(
-        "scribble-border scribble-hover px-8 py-3 font-bold text-pen-blue bg-transparent transition-all duration-300 active:scale-95",
-        "relative overflow-hidden disabled:opacity-50 cursor-pointer w-fit",
+        "scribble-border scribble-hover px-4 py-3 sm:px-6 font-bold text-pen-blue bg-transparent transition-all duration-300 active:scale-95",
+        "relative disabled:opacity-50 cursor-pointer w-fit overflow-visible",
         className
       )}
     >
       {loading ? (
-        <div className="flex items-center justify-center">
+        <div className="flex items-center justify-center relative z-10">
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-pen-blue/30 border-t-pen-blue" />
         </div>
       ) : (
-        <div className="flex items-center justify-center gap-2">
+        <div className="flex items-center justify-center gap-2 relative z-10">
           {children}
         </div>
       )}
@@ -230,5 +242,59 @@ export const HandwrittenText: React.FC<{
         </motion.span>
       )}
     </span>
+  );
+};
+
+export const LogoAnimation: React.FC<{
+  containerClassName?: string;
+  logoClassName?: string;
+  imgClassName?: string;
+}> = ({ 
+  containerClassName = "h-full flex w-full items-center justify-center p-8",
+  logoClassName = "relative w-[70%] max-w-[400px] aspect-square flex items-center justify-center",
+  imgClassName = "w-full h-full object-contain filter contrast-125 -rotate-1"
+}) => {
+  const maskId = React.useId().replace(/:/g, '');
+  
+  return (
+    <div className={containerClassName}>
+      <div className={logoClassName}>
+        <svg width="0" height="0" className="absolute">
+          <defs>
+            <mask id={`stroke-mask-${maskId}`} maskUnits="objectBoundingBox" maskContentUnits="objectBoundingBox">
+              <style>
+                {`
+                  .stroke-anim-${maskId} {
+                    stroke: white;
+                    fill: none;
+                    stroke-width: 0.2;
+                    stroke-linecap: round;
+                    stroke-linejoin: round;
+                    stroke-dasharray: 15;
+                    stroke-dashoffset: 15;
+                    animation: draw-erase-${maskId} 6s infinite ease-in-out;
+                  }
+                  .stroke-1-${maskId} { animation-delay: 0s; }
+                  .stroke-2-${maskId} { animation-delay: 0.3s; }
+                  @keyframes draw-erase-${maskId} {
+                    0%, 15% { stroke-dashoffset: 15; }
+                    40%, 60% { stroke-dashoffset: 0; }
+                    85%, 100% { stroke-dashoffset: -15; }
+                  }
+                `}
+              </style>
+              <path className={`stroke-anim-${maskId} stroke-1-${maskId}`} d="M -0.2,0.1 L 1.2,0.2 L -0.2,0.3 L 1.2,0.4 L -0.2,0.5 L 1.2,0.6 L -0.2,0.7 L 1.2,0.8 L -0.2,0.9 L 1.2,1.0" />
+              <path className={`stroke-anim-${maskId} stroke-2-${maskId}`} d="M 1.2,0.05 L -0.2,0.15 L 1.2,0.25 L -0.2,0.35 L 1.2,0.45 L -0.2,0.55 L 1.2,0.65 L -0.2,0.75 L 1.2,0.85 L -0.2,0.95 L 1.2,1.05" />
+            </mask>
+          </defs>
+        </svg>
+        <img 
+          src="https://i.ibb.co/k2PN7Q8y/aisailogo.png" 
+          alt="AiSai Logo"
+          className={imgClassName}
+          style={{ maskImage: `url(#stroke-mask-${maskId})`, WebkitMaskImage: `url(#stroke-mask-${maskId})` }}
+        />
+      </div>
+    </div>
   );
 };

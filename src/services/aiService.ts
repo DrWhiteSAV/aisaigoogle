@@ -1,11 +1,19 @@
 import { GoogleGenAI } from "@google/genai";
 import { Pet, PetStats, Rarity, Element, Attribute, UserProfile, InventoryItem, Skill, Classification } from "../types";
-import { RARITY_WEIGHTS } from "../lib/gameLogic";
+import { RARITY_WEIGHTS, generateUniqueCode, distributeStats } from "../lib/gameLogic";
 
 // Safe way to access environment variables in Vite/React
 const getApiKey = () => {
   try {
-    return (typeof process !== 'undefined' ? (process.env as any).GEMINI_API_KEY : '') || '';
+    // Priority: process.env.GEMINI_API_KEY (polyfilled by platform)
+    const envKey = (typeof process !== 'undefined' ? (process.env as any).GEMINI_API_KEY : '');
+    if (envKey) return envKey;
+    
+    // Fallback: window.process.env (sometimes polyfilled here)
+    const windowEnvKey = (window as any).process?.env?.GEMINI_API_KEY;
+    if (windowEnvKey) return windowEnvKey;
+
+    return '';
   } catch (e) {
     return '';
   }
@@ -86,15 +94,17 @@ export const generatePetArt = async (pet: Partial<Pet>) => {
     if (!ai) throw new Error("AI not initialized");
     
     // Using image generation model
+    console.log("Starting image generation for:", pet.name);
     const response = await ai.models.generateContent({
       model: IMAGE_MODEL,
-      contents: prompt,
+      contents: { parts: [{ text: prompt }] },
       config: {
         imageConfig: {
           aspectRatio: "9:16"
         }
       }
     });
+    console.log("Image generation response received");
 
     if (response.candidates?.[0]?.content?.parts) {
       for (const part of response.candidates[0].content.parts) {
@@ -144,14 +154,14 @@ export const generateEvolutionUpdate = async (
           "description": "ПОДРОБНОЕ ОПИСАНИЕ (2+ предложения): Как именно питомец делает это с точки зрения биологии.", 
           "type": "passive", 
           "targetStat": "health|attack|defense|speed|magic|regeneration",
-          "emoji": "ОДИН ПОДХОДЯЩИЙ ЭМОДЗИ (анимированный, если возможно)"
+          "emoji": "ОДИН ПОДХОДЯЩИЙ ЭМОДЗИ (напр. 🛡️, 🧬, 🧿, 💎, 🧊 - НЕ ИСПОЛЬЗУЙ 🎐)"
         },
         { 
           "name": "Название активного навыка", 
           "description": "ПОДРОБНОЕ ОПИСАНИЕ (2+ предложения): Как именно питомец использует стихию или крик для влияния на бой.", 
           "type": "active_buff|active_debuff", 
           "targetStat": "health|attack|defense|speed|magic|regeneration",
-          "emoji": "ОДИН ПОДХОДЯЩИЙ ЭМОДЗИ (анимированный, если возможно)"
+          "emoji": "ОДИН ПОДХОДЯЩИЙ ЭМОДЗИ (напр. 🔥, ⚡, 📢, 🌪️, 🌀 - НЕ ИСПОЛЬЗУЙ 💥)"
         }
       ]
     }`;
@@ -174,25 +184,24 @@ export const generateEvolutionUpdate = async (
     let data;
     try {
       data = JSON.parse(cleanAIJson(text));
+      console.log("=== EVOLUTION AI RESPONSE LOG ===");
+      console.log("New Name:", data.newName);
+      console.log("New Skills Count:", data.newSkills?.length);
+      console.log("Updated Lore (preview):", String(data.updatedLore || "").substring(0, 50) + "...");
+      console.log("===============================");
     } catch (e) {
       console.error("Failed to parse AI response as JSON:", text);
       throw new Error("Invalid format from AI");
     }
 
-    const getEmojiUrl = (emoji: string) => {
-      if (!emoji) return undefined;
-      const codePoints = Array.from(emoji).map(c => c.codePointAt(0)?.toString(16)).filter(Boolean);
-      return codePoints.length > 0 ? `https://fonts.gstatic.com/s/e/notoemoji/latest/${codePoints.join('_')}/512.png` : undefined;
-    };
-    
     const newSkills: Skill[] = (data.newSkills || []).map((s: any) => ({
       id: Math.random().toString(36).substr(2, 9),
+      code: generateUniqueCode('SK'),
       name: s.name || "Пробужденная Сила",
       description: s.description || "Новый уровень мастерства.",
       type: s.type || 'passive',
       targetStat: s.targetStat || 'attack',
-      image: getEmojiUrl(s.emoji),
-      fallbackEmoji: s.emoji,
+      fallbackEmoji: s.emoji || (s.type === 'passive' ? '🎐' : '💥'),
       element: s.type !== 'passive' ? pet.element : undefined,
       attribute: s.type === 'passive' ? pet.attribute : undefined,
       value: s.type === 'active_debuff' 
@@ -226,6 +235,7 @@ export const generatePetStatsAndLore = async (
   attribute: Attribute;
 }> => {
   const baseStatsTotal = RARITY_WEIGHTS[forcedRarity].base;
+  const initialStats = distributeStats(baseStatsTotal);
   
   const prompt = `Сгенерируй данные для уникального существа в игре aiSai, которое является истинным отражением личности пользователя.
     
@@ -236,10 +246,19 @@ export const generatePetStatsAndLore = async (
     - Манифест: ${profile.about}
     - Хобби: ${profile.hobbies.join(', ')}
     - Черты души: ${profile.traits.join(', ')}
-    - Потенциал: ${RARITY_WEIGHTS[forcedRarity].label} (${forcedRarity})
+    - Редкость: ${RARITY_WEIGHTS[forcedRarity].label} (${forcedRarity})
+    
+    Распределение характеристик существа (СГЕНЕРИРОВАНО СИСТЕМОЙ):
+    - Атака: ${initialStats.attack}
+    - Защита: ${initialStats.defense}
+    - Здоровье: ${initialStats.health}
+    - Скорость: ${initialStats.speed}
+    - Восстановление: ${initialStats.regeneration}
+    - Магия: ${initialStats.magic}
     
     Задача: Создай ЕДИНСТВЕННОЕ В СВОЕМ РОДЕ существо в стадии МЛАДЕНЧЕСТВА (INFANCY), которое духовно связано с этим человеком.
     Существо должно базироваться на РЕАЛЬНО СУЩЕСТВУЮЩЕМ биологическом виде, но быть ГИБРИДИЗИРОВАННЫМ с фантастическими элементами.
+    Опирайся на его сгенерированные выше характеристики для формирования лора, классификации и навыков.
     
     ВАЖНО: Обеспечь МАКСИМАЛЬНОЕ РАЗНООБРАЗИЕ. Не ограничивайся млекопитающими. Выбирай среди насекомых, глубоководных существ, грибов, растений, редких птиц, рептилий или даже микроорганизмов. Каждое создание должно быть уникальным.
     
@@ -258,64 +277,67 @@ export const generatePetStatsAndLore = async (
         "genus": "Род (напр. Малые панды)",
         "species": "Биологический вид-основа"
       },
-      "stats_distribution": {
-        "attack": 0.1,
-        "defense": 0.2,
-        "health": 0.4,
-        "speed": 0.1,
-        "regeneration": 0.1,
-        "magic": 0.1
-      },
       "skills": [
         { 
           "name": "...", 
-          "description": "Подробное описание (2+ предложения): Как именно питомец использует свою биологию или магию для достижения этого пассивного эффекта.", 
+          "description": "Подробное описание (2+ предложения): Как именно питомец использует свою биологию или магию для достиж... Учитывай сильные характеристики существа.", 
           "type": "passive", 
           "targetStat": "health|attack|defense|speed|magic|regeneration",
-          "emoji": "ОДИН ПОДХОДЯЩИЙ ЭМОДЗИ"
+          "emoji": "ОДИН ПОДХОДЯЩИЙ ЭМОДЗИ (напр. 🛡️, 🧬, 🧿, 💎, 🧊 - НЕ ИСПОЛЬЗУЙ 🎐)"
         },
         { 
           "name": "...", 
-          "description": "Подробное описание (2+ предложения): Как именно питомец концентрирует энергию или использует свое тело для получения бонуса во время атаки.", 
+          "description": "Подробное описание (2+ предложения): Как именно питомец концентрирует энергию... Учитывай сильные характеристики существа.", 
           "type": "active_buff", 
           "targetStat": "attack",
-          "emoji": "ОДИН ПОДХОДЯЩИЙ ЭМОДЗИ"
+          "emoji": "ОДИН ПОДХОДЯЩИЙ ЭМОДЗИ (напр. 🔥, ⚡, 🧬, 🌀 - НЕ ИСПОЛЬЗУЙ 💥)"
         },
         { 
           "name": "...", 
-          "description": "Подробное описание (2+ предложения): Как именно питомец воздействует на противника (крик, запах, свечение) для его ослабления.", 
+          "description": "Подробное описание (2+ предложения): Как именно питомец воздействует на противника... Учитывай сильные характеристики существа.", 
           "type": "active_debuff", 
           "targetStat": "health|attack|defense|speed|magic|regeneration",
-          "emoji": "ОДИН ПОДХОДЯЩИЙ ЭМОДЗИ"
+          "emoji": "ОДИН ПОДХОДЯЩИЙ ЭМОДЗИ (напр. 📢, 🌫️, 🍄, 🥀, 🧿 - НЕ ИСПОЛЬЗУЙ 💥)"
         }
       ],
-      "lore": "легенда появления (акцент на рождении и связи с пользователем)"
+      "lore": "легенда появления (акцент на рождении, связи с пользователем и его сильных характеристиках)"
     }
-
-    Условия для stats_distribution:
-    - Сумма всех значений в stats_distribution должна быть равна 1.0. 
-    - Это определит, на какие характеристики существо опирается биологически.`;
+    
+    Для навыков выбери targetStat с учетом выданных характеристик. Например, если Атака высокая, сделай акцент на атакующих способностях.`;
 
   try {
     const ai = getAI();
     if (!ai) throw new Error("AI not initialized");
+    console.log("Starting stats & lore generation for profile:", profile.name);
     const response = await ai.models.generateContent({
       model: TEXT_MODEL,
-      contents: prompt,
+      contents: { parts: [{ text: prompt }] },
       config: {
         responseMimeType: "application/json",
       }
     });
 
     const text = response.text;
+    console.log("Stats & lore raw response:", text ? (text.substring(0, 100) + '...') : 'EMPTY');
 
     if (!text) throw new Error("Empty response from AI for Stats");
     let parsed;
     try {
-      parsed = JSON.parse(cleanAIJson(text));
+      const cleaned = cleanAIJson(text);
+      if (!cleaned) throw new Error("Could not extract JSON from AI response");
+      parsed = JSON.parse(cleaned);
+      // DETAILED LOGGING & TESTING FOR AI RESPONSE
+      console.log("=== AI GENERATION LOG ===");
+      console.log("Name:", parsed.name);
+      console.log("Element:", parsed.element);
+      console.log("Attribute:", parsed.attribute);
+      console.log("Classification:", JSON.stringify(parsed.classification));
+      console.log("Skills Count:", parsed.skills?.length);
+      console.log("Lore (preview):", String(parsed.lore || "").substring(0, 50) + "...");
+      console.log("=========================");
     } catch (e) {
       console.error("JSON parse failed for stats:", text);
-      throw new Error("Invalid format from AI");
+      throw new Error("Неверный формат данных от ИИ. Попробуйте еще раз.");
     }
 
     const name = parsed.name || "Безымянный Питомец";
@@ -338,6 +360,7 @@ export const generatePetStatsAndLore = async (
 
     const skills: Skill[] = (parsed.skills || []).map((s: any) => ({
       id: Math.random().toString(36).substr(2, 9),
+      code: generateUniqueCode('SK'),
       name: s.name || "Мистический Дар",
       description: s.description || "Древняя сила пробуждается и течет по жилам существа, раскрывая его истинный боевой потенциал.",
       type: s.type || 'passive',
@@ -356,18 +379,7 @@ export const generatePetStatsAndLore = async (
       element,
       attribute,
       classification,
-      stats: {
-        attack: Math.round(baseStatsTotal * (parsed.stats_distribution?.attack || 0.15)),
-        defense: Math.round(baseStatsTotal * (parsed.stats_distribution?.defense || 0.15)),
-        speed: Math.round(baseStatsTotal * (parsed.stats_distribution?.speed || 0.15)),
-        magic: Math.round(baseStatsTotal * (parsed.stats_distribution?.magic || 0.15)),
-        regeneration: Math.round(baseStatsTotal * (parsed.stats_distribution?.regeneration || 0.1)),
-        health: Math.round(baseStatsTotal * (parsed.stats_distribution?.health || 0.3)),
-        maxHealth: Math.round(baseStatsTotal * (parsed.stats_distribution?.health || 0.3)),
-        luck: 5,
-        maxRage: 100,
-        rage: 0
-      },
+      stats: initialStats,
       skills,
       abilities: [],
       lore: parsed.lore || "Легенда еще не написана."
@@ -420,13 +432,17 @@ export const generateQuestBonusItem = async (reward: RewardData): Promise<Invent
       reward.type === 'egg' ? 'Яйцо Питомца, содержащее в себе искру новой жизни.' : 'Особая находка'
     }
     
-    ВАЖНО: Нейросеть генерирует только название (name) и художественное описание (description), объясняющее ОТКУДА взялся этот предмет и как его магические/биологические свойства связаны с его эффектом. Пожалуйста, НЕ ВКЛЮЧАЙ числовые значения и проценты в описание, это сделает приложение само.
+    ВАЖНО: Нейросеть генерирует только название (name) и художественное описание (description), объясняющее ОТКУДА взялся этот предмет и как его магические/биологические свойства связаны с его эффектом. Пожалуйста, НЕ ВКЛЮЧАЙ числовые значения и проценты в описание.
     
-    ДЛЯ СВИтКОВ НАВЫКОВ (skill):
+    ДЛЯ АРТЕФАКТОВ:
+    - emoji: ОДИН ПОДХОДЯЩИЙ ЭМОДЗИ (напр. 💍, 🛡️, 👟, 🔮, 🧬, 🧿)
+    
+    ДЛЯ СВИТКОВ НАВЫКОВ (skill):
+    - emoji: ОДИН ПОДХОДЯЩИЙ ЭМОДЗИ (напр. 📜, 🧬, ⚡, 🔥, 🛡️)
     - Если тип пассивный, добавь поле "attribute": "light|dark|void|time".
     - Если тип активный, добавь поле "element": "fire|water|air|earth".
     
-    Верни JSON с полями: name, description, emoji (один подходящий анимированный эмодзи), и element/attribute (только для навыков). Текст на русском языке.`;
+    Верни JSON с полями: name, description, emoji, и element/attribute (только для навыков). Текст на русском языке.`;
 
   try {
     const ai = getAI();
@@ -443,23 +459,14 @@ export const generateQuestBonusItem = async (reward: RewardData): Promise<Invent
     if (!text) throw new Error("Empty response");
     const data = JSON.parse(cleanAIJson(text));
     
-    // Helper to get Google Noto Emoji URL
-    const getEmojiUrl = (emoji: string) => {
-      if (!emoji) return undefined;
-      if (reward.type === 'egg') return 'https://i.ibb.co/JwYQcc2D/egg.png';
-      
-      const codePoints = Array.from(emoji).map(c => c.codePointAt(0)?.toString(16)).filter(Boolean);
-      // Constructing URL for animated webp. If it fails, the frontend should handle it (e.g. via onError)
-      return codePoints.length > 0 ? `https://fonts.gstatic.com/s/e/notoemoji/latest/${codePoints.join('_')}/512.webp` : undefined;
-    };
-
     return {
       id: Math.random().toString(36).substr(2, 9),
+      code: generateUniqueCode(reward.type === 'egg' ? 'EG' : reward.type === 'artifact' ? 'AR' : 'SK'),
       type: reward.type,
       name: data.name || "Странный объект",
       description: data.description || "Мистический артефакт",
       value: reward.value || 10,
-      image: getEmojiUrl(data.emoji || (reward.type === 'egg' ? '🥚' : '💎')),
+      image: reward.type === 'egg' ? 'https://i.ibb.co/JwYQcc2D/egg.png' : undefined,
       effect: reward.stat ? { stat: reward.stat, value: reward.value || 1 } : undefined,
       skillData: reward.type === 'skill' ? {
         type: reward.skillType!,
@@ -475,11 +482,12 @@ export const generateQuestBonusItem = async (reward: RewardData): Promise<Invent
   } catch (e) {
     return {
       id: 'fallback-' + Date.now(),
+      code: generateUniqueCode(reward.type === 'egg' ? 'EG' : reward.type === 'artifact' ? 'AR' : 'SK'),
       type: reward.type,
       name: reward.type === 'artifact' ? 'Древний Тотем' : 'Мистический Сгусток',
       description: 'Обладает скрытой силой.',
       value: reward.value || 10,
-      image: reward.type === 'egg' ? 'https://i.ibb.co/JwYQcc2D/egg.png' : 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f48e/512.webp',
+      image: reward.type === 'egg' ? 'https://i.ibb.co/JwYQcc2D/egg.png' : undefined,
       hue: reward.type === 'egg' ? Math.floor(Math.random() * 360) : undefined,
       effect: reward.stat ? { stat: reward.stat, value: reward.value || 1 } : undefined,
       skillData: reward.type === 'skill' ? {
@@ -530,7 +538,7 @@ export const generateQuest = async (
     
     ИНФОРМАЦИЯ О ГЕРОЯХ:
     Призыватель: Имя: ${profile.name}, Пол: ${profile.gender === 'male' ? 'Мужской' : 'Женский'}, Город: ${profile.city}, Манифест: ${profile.about}, Возраст: ${profile.age}.
-    Питомец: Имя: ${pet.name}, Стихия: ${pet.element}, Атрибут: ${pet.attribute}, Ранг: ${pet.rank}, Потенциал: ${pet.potential}, Уровень: ${pet.level}.
+    Питомец: Имя: ${pet.name}, Стихия: ${pet.element}, Атрибут: ${pet.attribute}, Ранг: ${pet.rank}, Редкость: ${pet.rarity}, Уровень: ${pet.level}.
     Классификация питомца: Тип: ${pet.classification.type}, Класс: ${pet.classification.class}, Семейство: ${pet.classification.family}, Отряд: ${pet.classification.order}, Род: ${pet.classification.genus}, Вид: ${pet.classification.species}.
     Лор питомца: ${pet.lore}.
     Навыки питомца: ${pet.skills.map(s => `${s.name} (${s.description})`).join(', ')}.
@@ -587,7 +595,12 @@ export const generateQuest = async (
     const text = response.text;
     if (!text) return null;
     try {
-      return JSON.parse(cleanAIJson(text)) as QuestTree;
+      const parsed = JSON.parse(cleanAIJson(text)) as QuestTree;
+      console.log("=== QUEST AI RESPONSE LOG ===");
+      console.log("Quest Title:", parsed.title);
+      console.log("Scenes count:", Object.keys(parsed.scenes || {}).length);
+      console.log("===============================");
+      return parsed;
     } catch (e) {
       console.error("Quest tree parse failed:", text);
       return null;

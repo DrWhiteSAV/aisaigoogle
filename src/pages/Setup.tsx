@@ -127,7 +127,7 @@ const EditModal: React.FC<EditModalProps> = ({
                 </div>
                 
                 <div className="pt-4 border-t-2 border-black/5 flex justify-between items-center bg-[#f2ede0]">
-                  <span className="text-sm font-black text-pen-blue/40">Выбрано: {currentList.length}/{limit}</span>
+                  <span className="text-sm font-black text-pen-blue">Выбрано: {currentList.length}/{limit}</span>
                   <button 
                     onClick={onClose}
                     className="px-8 py-3 bg-pen-blue text-white font-black hover:brightness-110 border-2 border-pen-blue"
@@ -196,6 +196,7 @@ export const Setup: React.FC<{
   setExternalError?: (error: string | null) => void;
   toggleFlipLock?: (id: string, locked: boolean) => void;
   onStartSummon?: () => void;
+  hideAction?: boolean;
 }> = ({ 
   onComplete, 
   profile,
@@ -210,7 +211,8 @@ export const Setup: React.FC<{
   setExternalLoading,
   setExternalError,
   toggleFlipLock,
-  onStartSummon
+  onStartSummon,
+  hideAction
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -260,7 +262,11 @@ export const Setup: React.FC<{
   useEffect(() => {
     if (pet && side === 'right') {
       onComplete(pet);
-      navigate(`/pet/${pet.id}`);
+      // Add a small delay to allow state to settle before navigation
+      const timer = setTimeout(() => {
+        navigate(`/pet/${pet.id}`);
+      }, 100);
+      return () => clearTimeout(timer);
     }
   }, [pet, side, onComplete, navigate]);
 
@@ -383,7 +389,7 @@ export const Setup: React.FC<{
         <h2 className="text-3xl font-black text-pen-blue leading-tight">
           {side === 'left' ? (isMarketSummon ? 'Высиживание...' : 'Призыв...') : (isMarketSummon ? 'Вылупление...' : 'Пробуждение...')}
         </h2>
-        <p className="text-pen-blue/40 font-black text-xs tracking-wide">
+        <p className="text-pen-blue font-black text-xs tracking-wide">
           {side === 'left' ? 'Энергетическая инкубация' : 'Материлизация сущности'}
         </p>
         
@@ -396,7 +402,7 @@ export const Setup: React.FC<{
               transition={{ duration: 1, ease: "linear" }}
             />
           </div>
-          <div className="mt-2 text-[10px] font-black text-pen-blue/40">
+          <div className="mt-2 text-[10px] font-black text-pen-blue">
             ОСТАЛОСЬ: {countdown}с
           </div>
         </div>
@@ -431,7 +437,7 @@ export const Setup: React.FC<{
       </div>
       <div className="space-y-2">
         <h2 className="text-xl font-black text-pen-blue">{isMarketSummon ? 'Подготовка к инкубации' : 'Ожидание Инициации'}</h2>
-        <p className="text-[12px] font-black text-pen-blue/40 leading-relaxed">
+        <p className="text-[12px] font-black text-pen-blue leading-relaxed">
           {isMarketSummon ? 'Настройте будущую сущность и разбейте скорлупу' : 'Завершите заполнение анкеты на левой странице и нажмите «Призвать сущность»'}
         </p>
       </div>
@@ -447,7 +453,7 @@ export const Setup: React.FC<{
         <h2 className="text-2xl font-black text-pen-blue leading-tight italic">
           {isMarketSummon ? 'Скорлупа разбита!' : 'Связь установлена'}
         </h2>
-        <p className="text-[10px] font-black text-pen-blue/40 italic tracking-[0.2em] animate-pulse">
+        <p className="text-[10px] font-black text-pen-blue italic tracking-[0.2em] animate-pulse">
           {isMarketSummon ? 'Новый питомец готов...' : 'Перенос данных в бестиарий...'}
         </p>
       </div>
@@ -455,7 +461,7 @@ export const Setup: React.FC<{
   );
 
   return (
-    <div className="h-full flex flex-col p-6 pt-[10px] space-y-4 overflow-hidden relative">
+    <div className={cn("flex flex-col relative", hideAction ? "h-auto" : "h-full p-6 pt-[10px] space-y-4 overflow-hidden")}>
       <EditModal 
         editingField={editingField}
         modalValue={modalValue}
@@ -475,13 +481,15 @@ export const Setup: React.FC<{
         </div>
       )}
       {currentStep === 1 && (
-        <div className="space-y-4 flex-1 flex flex-col overflow-hidden">
-          <h2 className="text-4xl font-black text-pen-blue mb-4">
-            {isMarketSummon ? 'ДНК Яйца' : 'Анкета'}
-          </h2>
-          <div className="space-y-5 flex-1 overflow-y-auto no-scrollbar pr-1">
+        <div className={cn("space-y-4 flex flex-col", !hideAction && "flex-1 overflow-hidden")}>
+          {!hideAction && (
+            <h2 className="text-4xl font-black text-pen-blue mb-4">
+              {isMarketSummon ? 'ДНК Яйца' : 'Анкета'}
+            </h2>
+          )}
+          <div className={cn("space-y-5 pr-1", !hideAction && "flex-1 overflow-y-auto no-scrollbar")}>
             <div className="space-y-1">
-              <label className="text-sm font-black text-pen-blue/40">Имя Питомца</label>
+              <label className="text-sm font-black text-pen-blue">Имя Призывателя</label>
               <button 
                 onClick={() => openEditModal('name', profile.name)}
                 className="w-full text-left bg-transparent border-b-2 border-black/10 py-1 text-2xl font-black text-pen-blue focus:border-pen-blue outline-none transition-all min-h-[2.5rem]"
@@ -492,7 +500,7 @@ export const Setup: React.FC<{
             
             <div className="grid grid-cols-2 gap-4">
                <div className="space-y-1">
-                  <label className="text-sm font-black text-pen-blue/40 block italic">Возраст</label>
+                  <label className="text-sm font-black text-pen-blue block italic">Возраст</label>
                   <button 
                      onClick={() => openEditModal('age', profile.age.toString())}
                      className="w-full bg-white/40 border-2 border-pen-blue/10 p-2 text-xl font-black text-pen-blue hover:border-pen-blue outline-none transition-all text-left"
@@ -501,7 +509,7 @@ export const Setup: React.FC<{
                   </button>
                </div>
                <div className="space-y-1">
-                  <label className="text-sm font-black text-pen-blue/40 block italic">Регион</label>
+                  <label className="text-sm font-black text-pen-blue block italic">Регион</label>
                   <button 
                     onClick={() => openEditModal('city', profile.city)}
                     className="w-full text-left bg-transparent border-b-2 border-black/10 py-1 text-xl font-black text-pen-blue focus:border-pen-blue outline-none transition-all placeholder:text-black/5"
@@ -512,7 +520,7 @@ export const Setup: React.FC<{
             </div>
 
              <div className="space-y-1">
-                <label className="text-sm font-black text-pen-blue/40 block italic">Пол</label>
+                <label className="text-sm font-black text-pen-blue block italic">Пол</label>
                 <div className="flex gap-2">
                    <button 
                      onClick={() => setProfile({...profile, gender: 'male'})}
@@ -532,7 +540,7 @@ export const Setup: React.FC<{
              </div>
 
             <div className="space-y-1">
-               <label className="text-sm font-black text-pen-blue/40 block italic">О себе</label>
+               <label className="text-sm font-black text-pen-blue block italic">О себе</label>
                <button 
                   onClick={() => openEditModal('about', profile.about)}
                   className="w-full text-left bg-white/20 border-2 border-black/5 p-3 text-base font-black text-pen-blue focus:border-pen-blue/20 outline-none transition-all resize-none placeholder:text-black/5 leading-relaxed min-h-[5rem]"
@@ -541,18 +549,20 @@ export const Setup: React.FC<{
                </button>
             </div>
 
-            <div className="pt-2 flex justify-center">
-              <NeonButton 
-                onClick={handleNext} 
-                disabled={!isStep1Valid}
-                className={cn(
-                  "py-5 text-lg font-black transition-all border-2 border-black px-10",
-                  !isStep1Valid ? "opacity-20 grayscale cursor-not-allowed text-black/10" : "bg-sticker-yellow"
-                )}
-              >
-                Начать
-              </NeonButton>
-            </div>
+            {!hideAction && (
+              <div className="pt-2 flex justify-center">
+                <NeonButton 
+                  onClick={handleNext} 
+                  disabled={!isStep1Valid}
+                  className={cn(
+                    "py-5 text-lg font-black transition-all border-2 border-black px-10",
+                    !isStep1Valid ? "opacity-20 grayscale cursor-not-allowed text-black/10" : "bg-sticker-yellow"
+                  )}
+                >
+                  Начать
+                </NeonButton>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -564,7 +574,7 @@ export const Setup: React.FC<{
           <div className="flex-1 space-y-6 overflow-y-auto no-scrollbar pr-1 py-1">
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <span className="text-sm font-black text-pen-blue/40">Увлечения</span>
+                <span className="text-sm font-black text-pen-blue">Увлечения</span>
                 <span className="text-[10px] font-black text-pen-blue/25">{profile.hobbies.length}/8</span>
               </div>
               <div className="flex flex-wrap gap-1.5 p-3 bg-white/10 border-2 border-dashed border-pen-blue/10 min-h-[60px]">
@@ -578,7 +588,7 @@ export const Setup: React.FC<{
               </div>
               <button 
                 onClick={() => openEditModal('hobby')}
-                className="w-full py-2 border-2 border-pen-blue/20 text-[10px] font-black text-pen-blue/40 hover:bg-pen-blue/5 transition-all flex items-center justify-center gap-1"
+                className="w-full py-2 border-2 border-pen-blue/20 text-[10px] font-black text-pen-blue hover:bg-pen-blue/5 transition-all flex items-center justify-center gap-1"
               >
                 <Plus className="h-3 w-3" /> Выбрать увлечения
               </button>
@@ -586,7 +596,7 @@ export const Setup: React.FC<{
 
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <span className="text-sm font-black text-pen-blue/40">Черты Души</span>
+                <span className="text-sm font-black text-pen-blue">Черты Души</span>
                 <span className="text-[10px] font-black text-pen-blue/25">{profile.traits.length}/8</span>
               </div>
               <div className="flex flex-wrap gap-1.5 p-3 bg-white/10 border-2 border-dashed border-pen-blue/10 min-h-[60px]">
@@ -600,27 +610,29 @@ export const Setup: React.FC<{
               </div>
               <button 
                 onClick={() => openEditModal('trait')}
-                className="w-full py-2 border-2 border-pen-blue/20 text-[10px] font-black text-pen-blue/40 hover:bg-pen-blue/5 transition-all flex items-center justify-center gap-1"
+                className="w-full py-2 border-2 border-pen-blue/20 text-[10px] font-black text-pen-blue hover:bg-pen-blue/5 transition-all flex items-center justify-center gap-1"
               >
                 <Plus className="h-3 w-3" /> Выбрать теги
               </button>
             </div>
 
-            <div className="pt-4 flex flex-col items-center">
-              <NeonButton 
-                onClick={handleNext} 
-                disabled={!isStep2Valid}
-                className={cn(
-                  "py-6 text-xl font-black transition-all border-2 border-black px-12",
-                  !isStep2Valid ? "opacity-20 grayscale cursor-not-allowed text-black/10" : "bg-sticker-yellow"
-                )}
-              >
-                {isMarketSummon ? 'Вылупить Яйцо' : 'Призвать сущность'}
-              </NeonButton>
-              <p className="mt-4 text-[12px] font-black text-pen-blue/30 tracking-wide">
-                {isStep2Valid ? (isMarketSummon ? 'Яйцо готово' : 'Форма готова к призыву') : 'Выберите увлечения и черты души'}
-              </p>
-            </div>
+            {!hideAction && (
+              <div className="pt-4 flex flex-col items-center">
+                <NeonButton 
+                  onClick={handleNext} 
+                  disabled={!isStep2Valid}
+                  className={cn(
+                    "py-6 text-xl font-black transition-all border-2 border-black px-12",
+                    !isStep2Valid ? "opacity-20 grayscale cursor-not-allowed text-black/10" : "bg-sticker-yellow"
+                  )}
+                >
+                  {isMarketSummon ? 'Вылупить Яйцо' : 'Призвать сущность'}
+                </NeonButton>
+                <p className="mt-4 text-[12px] font-black text-pen-blue/30 tracking-wide">
+                  {isStep2Valid ? (isMarketSummon ? 'Яйцо готово' : 'Форма готова к призыву') : 'Выберите увлечения и черты души'}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}
