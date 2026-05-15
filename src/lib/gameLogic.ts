@@ -17,7 +17,7 @@ export const RARITY_WEIGHTS: Record<Rarity, { weight: number, base: number, grow
   normal: { weight: 32, base: 20, growth: 5, label: 'Обычный' },
   advanced: { weight: 20, base: 50, growth: 10, label: 'Продвинутый' },
   rare: { weight: 15, base: 100, growth: 15, label: 'Редкий' },
-  perfect: { weight: 10, base: 200, growth: 20, label: 'Идеальный' },
+  perfect: { weight: 10, base: 200, growth: 20, label: 'Совершенный' },
   epic: { weight: 8, base: 300, growth: 25, label: 'Эпический' },
   legendary: { weight: 5, base: 400, growth: 30, label: 'Легендарный' },
   mythical: { weight: 4, base: 500, growth: 35, label: 'Мифический' },

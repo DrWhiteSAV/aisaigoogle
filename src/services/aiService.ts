@@ -80,10 +80,32 @@ const cleanAIJson = (str: string) => {
 };
 
 export const generatePetArt = async (pet: Partial<Pet>) => {
-  const isInfant = !pet.ageStage || pet.ageStage === 'F - младенчество';
-  const prompt = `A hand-drawn BLUE PEN SKETCH of a mythical creature in its ${isInfant ? 'INFANCY/BABY/NEWBORN' : 'ADULT/EVOLVED'} stage. 
-                  SUBJECT: ${isInfant ? 'Newborn' : 'Evolved'} ${pet.rarity} ${pet.element} ${pet.attribute} creature, biology based on ${pet.classification?.species}.
-                  DETAILS: ${isInfant ? 'Small, cute but wild, youthful features, hatching from egg or just born.' : 'Powerful, majestic, fully developed features.'}
+  let visualAge = 'adult';
+  let details = 'Powerful, majestic, fully developed features.';
+  
+  if (!pet.ageStage || pet.ageStage.startsWith('F')) {
+    visualAge = 'NEWBORN / INFANT / HATCHLING';
+    details = 'Small, cute, helpless but wild, youthful features, hatching from egg or just born, mostly head.';
+  } else if (pet.ageStage.startsWith('E')) {
+    visualAge = 'CHILD / TODDLER / CUB';
+    details = 'Cute, playful, curious child. Slightly bigger than infant, still very youthful and undeveloped, rounded features.';
+  } else if (pet.ageStage.startsWith('D')) {
+    visualAge = 'TEENAGER / ADOLESCENT';
+    details = 'Lanky, growing teenager. Features becoming sharper, awkward but energetic, partial adult traits appearing.';
+  } else if (pet.ageStage.startsWith('C') || pet.ageStage.startsWith('B')) {
+    visualAge = 'YOUNG ADULT / PRIME';
+    details = 'Athletic, capable young adult. Features are fully formed and strong, shedding all childish roundness.';
+  } else if (pet.ageStage.startsWith('A')) {
+    visualAge = 'MATURE ADULT';
+    details = 'Mature, powerful, imposing adult. Thick, muscular, experienced warrior with scars or marks.';
+  } else {
+    visualAge = 'ELDER / ANCIENT / DIVINE';
+    details = 'Ancient, wise, transcendent being. Epic, majestic, godly, glowing with power and extreme detail.';
+  }
+
+  const prompt = `A hand-drawn BLUE PEN SKETCH of a mythical creature in its ${visualAge} stage. 
+                  SUBJECT: ${visualAge} stage ${pet.rarity} ${pet.element} ${pet.attribute} creature, biology based on ${pet.classification?.species}.
+                  DETAILS: ${details}
                   ART STYLE: Scribbled ballpoint pen illustration, blue ink drawing only, with hatching and cross-hatching shadows.
                   ENVIRONMENT: Centered on white GRID GRAPH PAPER.
                   FORMAT: Vertical portrait 9:16 aspect ratio.
@@ -127,7 +149,14 @@ export const generateEvolutionUpdate = async (
   pet: Pet,
   newRank: string
 ): Promise<{ newName: string; abilities: string[]; lore: string; newSkills: Skill[] }> => {
-  const prompt = `Питомец ${pet.name} эволюционировал до ранга ${newRank}!
+  const RANKS = ['F - младенчество', 'E - детство', 'D - отрочество', 'C - молодость', 'B - взросление', 'A - зрелость', 'S - мудрость', 'EX - единство', 'UX - пробуждение', 'Z - абсолютность'];
+  const nextRanks = RANKS.slice(RANKS.indexOf((newRank || 'E - детство').replace(/элита|легенда|миф|божество/g, match => ({ 'элита': 'мудрость', 'легенда': 'единство', 'миф': 'пробуждение', 'божество': 'абсолютность' }[match] as string)) ) + 1).join(' -> ');
+
+  const prompt = `Питомец ${pet.name} перешел на новый этап развития! 
+    Было: ${pet.ageStage}
+    Стало: ${newRank}
+    (Возможные следующие ранги в будущем: ${nextRanks || 'отсутствуют, это почти финальная форма'})
+
     Текущая информация:
     - Имя: ${pet.name}
     - Биологическая классификация: ${pet.classification.genus} ${pet.classification.species} (${pet.classification.family})
@@ -137,12 +166,13 @@ export const generateEvolutionUpdate = async (
     - Текущая легенда: ${pet.lore}
     
     Сгенерируй (строго без КАПСЛОКА, только прописные и строчные буквы):
-    1. Новое эпичное имя (newName), которое отражает его новую форму и силу (может быть развитием старого имени).
+    1. Новое эпичное имя (newName), которое отражает его новую форму, взросление и силу (логичное взросление: от простого детского до более величественного взрослого, сохраняя связь со старым).
     2. Новую уникальную способность, которая добавляется к текущему списку.
-    3. Обновленную легенду.
-    4. ДВА новых навыка: 
+    3. Обновленную легенду: опиши сам факт взросления и перехода из ${pet.ageStage} в форму ${newRank}. Как он изменился внешне и ментально, опираясь на свою классификацию.
+    4. ТРИ новых навыка: 
        - Один ПАССИВНЫЙ (passive) - влияет на любой из статов (health, attack, defense, speed, magic, regeneration).
-       - Один АКТИВНЫЙ (случайно active_buff ИЛИ active_debuff).
+       - Один БАФФ (active_buff) - усиливает питомца.
+       - Один ДЕБАФФ (active_debuff) - ослабляет противника.
     
     Верни JSON объект на русском языке:
     {
@@ -154,14 +184,21 @@ export const generateEvolutionUpdate = async (
           "description": "ПОДРОБНОЕ ОПИСАНИЕ (2+ предложения): Как именно питомец делает это с точки зрения биологии.", 
           "type": "passive", 
           "targetStat": "health|attack|defense|speed|magic|regeneration",
-          "emoji": "ОДИН ПОДХОДЯЩИЙ ЭМОДЗИ (напр. 🛡️, 🧬, 🧿, 💎, 🧊 - НЕ ИСПОЛЬЗУЙ 🎐)"
+          "emoji": "ОДИН ПОДХОДЯЩИЙ ЭМОДЗИ"
         },
         { 
           "name": "Название активного навыка", 
-          "description": "ПОДРОБНОЕ ОПИСАНИЕ (2+ предложения): Как именно питомец использует стихию или крик для влияния на бой.", 
-          "type": "active_buff|active_debuff", 
+          "description": "ПОДРОБНОЕ ОПИСАНИЕ (2+ предложения): Как именно питомец использует стихию для баффа.", 
+          "type": "active_buff", 
           "targetStat": "health|attack|defense|speed|magic|regeneration",
-          "emoji": "ОДИН ПОДХОДЯЩИЙ ЭМОДЗИ (напр. 🔥, ⚡, 📢, 🌪️, 🌀 - НЕ ИСПОЛЬЗУЙ 💥)"
+          "emoji": "ОДИН ПОДХОДЯЩИЙ ЭМОДЗИ"
+        },
+        { 
+          "name": "Название дебаффа", 
+          "description": "ПОДРОБНОЕ ОПИСАНИЕ (2+ предложения): Как именно питомец воздействует на врага.", 
+          "type": "active_debuff", 
+          "targetStat": "health|attack|defense|speed|magic|regeneration",
+          "emoji": "ОДИН ПОДХОДЯЩИЙ ЭМОДЗИ"
         }
       ]
     }`;
@@ -183,7 +220,9 @@ export const generateEvolutionUpdate = async (
     
     let data;
     try {
-      data = JSON.parse(cleanAIJson(text));
+      const clean = cleanAIJson(text);
+      console.log("Evolution JSON Cleaned:", clean);
+      data = JSON.parse(clean);
       console.log("=== EVOLUTION AI RESPONSE LOG ===");
       console.log("New Name:", data.newName);
       console.log("New Skills Count:", data.newSkills?.length);
@@ -191,7 +230,7 @@ export const generateEvolutionUpdate = async (
       console.log("===============================");
     } catch (e) {
       console.error("Failed to parse AI response as JSON:", text);
-      throw new Error("Invalid format from AI");
+      throw new Error(`Внутренняя ошибка нейросети (неверный формат): ${text.substring(0, 100)}...`);
     }
 
     const newSkills: Skill[] = (data.newSkills || []).map((s: any) => ({

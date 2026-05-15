@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserProgress, Pet } from '../types';
 import { cn } from '../lib/utils';
 import { Image as ImageIcon, ChevronRight, ArrowRight, ArrowLeft } from 'lucide-react';
 import { GalleryCard } from '../components/GalleryCard';
-import { motion } from 'motion/react';
+import { InfoModal } from '../components/GameUI';
+import { motion, AnimatePresence } from 'motion/react';
 
 export const Gallery: React.FC<{ progress: UserProgress; side?: 'left' | 'right'; manualId?: string }> = ({ progress, side = 'left', manualId }) => {
   const navigate = useNavigate();
+  const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
   const pets = progress.pets || [];
   
   const petIndex = pets.findIndex(p => p.id === manualId);
@@ -50,60 +52,75 @@ export const Gallery: React.FC<{ progress: UserProgress; side?: 'left' | 'right'
         <div className="flex-1 min-h-0 bg-white/10 border-2 border-black/5 rounded-sm p-3 overflow-hidden ml-2 mb-4">
           <div className="overflow-y-auto h-full pr-1 no-scrollbar">
             <div className="flex flex-col gap-4">
+                {hasNext ? (
+                  <div onClick={() => {
+                    const nextPet = pets[petIndex + 1];
+                    if (nextPet) navigate(`/gallery/${nextPet.id}`);
+                  }} className="flex items-center justify-between p-3 bg-pen-blue/5 border border-pen-blue/10 rounded-sm cursor-pointer group hover:bg-pen-blue/10 transition-colors shrink-0">
+                    <span className="text-[14px] font-black text-pen-blue">Следующая сущность</span>
+                    <motion.div 
+                      animate={{ x: [0, 5, 0] }} 
+                      transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                      className="w-6 h-6 rounded-full border border-pen-blue flex items-center justify-center text-pen-blue group-hover:bg-pen-blue group-hover:text-white transition-colors"
+                    >
+                       <ArrowRight className="w-3 h-3" />
+                    </motion.div>
+                  </div>
+                ) : (pets.length > 1 ? (
+                  <div onClick={() => navigate(`/gallery/${pets[0].id}`)} className="flex items-center justify-between p-3 bg-pen-blue/5 border border-pen-blue/10 rounded-sm cursor-pointer group hover:bg-pen-blue/10 transition-colors shrink-0">
+                    <span className="text-[14px] font-black text-pen-blue">К первой сущности</span>
+                    <motion.div 
+                      animate={{ x: [0, -5, 0] }} 
+                      transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                      className="w-6 h-6 rounded-full border border-pen-blue flex items-center justify-center text-pen-blue group-hover:bg-pen-blue group-hover:text-white transition-colors"
+                    >
+                       <ArrowLeft className="w-3 h-3" />
+                    </motion.div>
+                  </div>
+                ) : null)}
+
                <div className="w-full">
-                 
-                 <div className="mb-6 max-w-[280px] mx-auto">
-                    <GalleryCard 
-                      pet={pet} 
-                      isCompact={false}
-                    />
+                 <div className="grid grid-cols-2 gap-3 pb-6">
+                    {(pet.imageHistory && pet.imageHistory.length > 0 ? pet.imageHistory : [pet.image]).map((img, i) => {
+                      const RANKS = ['F - младенчество', 'E - детство', 'D - отрочество', 'C - молодость', 'B - взросление', 'A - зрелость', 'S - мудрость', 'EX - единство', 'UX - пробуждение', 'Z - абсолютность'];
+                      const stage = RANKS[i] || 'Загадочный Этап';
+                      const historicalName = (pet.nameHistory && pet.nameHistory[i]) ? pet.nameHistory[i] : (i === 0 && pet.nameHistory ? pet.nameHistory[0] : pet.name);
+                      const historicalPet = { ...pet, image: img, ageStage: stage, name: historicalName };
+                      return (
+                        <div key={i} className="relative group">
+                          <GalleryCard 
+                            pet={historicalPet} 
+                            isCompact={true} 
+                            hideStats={true} 
+                            onOpenImage={() => setFullScreenImage(historicalPet.image)}
+                          />
+                        </div>
+                      );
+                    })}
                  </div>
-                 
-                 {pet.imageHistory && pet.imageHistory.length > 1 && (
-                    <div className="mt-4">
-                      <div className="text-[12px] font-black text-pen-blue/60 italic mb-2 tracking-widest text-center">Хроника:</div>
-                      <div className="grid grid-cols-2 gap-2">
-                        {pet.imageHistory.slice(0, 4).map((img, i) => (
-                           <div key={i} className="aspect-square border-2 border-black/5 p-1 bg-white relative group">
-                             <img src={img} alt="evolution history" className="w-full h-full object-cover" />
-                             <div className="absolute inset-0 bg-black/5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                               <span className="font-mono text-xs text-white max-w-full truncate px-1 drop-shadow-md">ЭТАП {i + 1}</span>
-                             </div>
-                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                </div>
-               {hasNext ? (
-                 <div onClick={() => {
-                   const nextPet = pets[petIndex + 1];
-                   if (nextPet) navigate(`/gallery/${nextPet.id}`);
-                 }} className="mt-2 flex items-center justify-between p-3 bg-pen-blue/5 border border-pen-blue/10 rounded-sm cursor-pointer group hover:bg-pen-blue/10 transition-colors">
-                   <span className="text-[14px] font-black text-pen-blue">Следующая сущность</span>
-                   <motion.div 
-                     animate={{ x: [0, 5, 0] }} 
-                     transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-                     className="w-6 h-6 rounded-full border border-pen-blue flex items-center justify-center text-pen-blue group-hover:bg-pen-blue group-hover:text-white transition-colors"
-                   >
-                      <ArrowRight className="w-3 h-3" />
-                   </motion.div>
-                 </div>
-               ) : (pets.length > 1 && (
-                 <div onClick={() => navigate(`/gallery/${pets[0].id}`)} className="mt-2 flex items-center justify-between p-3 bg-pen-blue/5 border border-pen-blue/10 rounded-sm cursor-pointer group hover:bg-pen-blue/10 transition-colors">
-                   <span className="text-[14px] font-black text-pen-blue">К первой сущности</span>
-                   <motion.div 
-                     animate={{ x: [0, -5, 0] }} 
-                     transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-                     className="w-6 h-6 rounded-full border border-pen-blue flex items-center justify-center text-pen-blue group-hover:bg-pen-blue group-hover:text-white transition-colors"
-                   >
-                      <ArrowLeft className="w-3 h-3" />
-                   </motion.div>
-                 </div>
-               ))}
             </div>
           </div>
         </div>
+
+        <InfoModal 
+          isOpen={!!fullScreenImage} 
+          onClose={() => setFullScreenImage(null)}
+          title="Просмотр"
+          showClose={true}
+          plain={true}
+        >
+          {fullScreenImage && (
+             <motion.img 
+               initial={{ scale: 0.9, opacity: 0 }}
+               animate={{ scale: 1, opacity: 1 }}
+               src={fullScreenImage} 
+               alt="Pet zoom" 
+               className="max-w-[95%] max-h-[95%] object-contain shadow-2xl rounded-sm"
+               referrerPolicy="no-referrer"
+             />
+          )}
+        </InfoModal>
       </div>
     );
   }

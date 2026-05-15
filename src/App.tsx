@@ -975,7 +975,28 @@ export default function App() {
                   type: "Неизвестно", class: "Неизвестно", order: "Неизвестно", 
                   family: "Неизвестно", genus: "Неизвестно", species: "Неизвестно" 
                 },
-                ageStage: p.ageStage && p.ageStage.includes(' - ') ? p.ageStage : getPetRankByLevel(p.level || 1),
+                ageStage: (() => {
+                  let actualAgeStage = p.ageStage && p.ageStage.includes(' - ') ? p.ageStage : 'F - младенчество';
+                  
+                  // The ultimate source of truth for rank is how many times they evolved,
+                  // which directly corresponds to imageHistory length.
+                  // 1 image = Rank F, 2 images = Rank E, 3 images = D, etc.
+                  const historyLen = p.imageHistory?.length || 1;
+                  const expectedIndex = Math.max(0, historyLen - 1);
+                  
+                  const ranks = ['F - младенчество', 'E - детство', 'D - отрочество', 'C - молодость', 'B - взросление', 'A - зрелость', 'S - элита', 'EX - легенда', 'UX - миф', 'Z - божество'];
+                  
+                  const currentCode = actualAgeStage.split(' ')[0];
+                  const stageToIndex: Record<string, number> = { 'F': 0, 'E': 1, 'D': 2, 'C': 3, 'B': 4, 'A': 5, 'S': 6, 'EX': 7, 'UX': 8, 'Z': 9 };
+                  const currentIndex = stageToIndex[currentCode] || 0;
+                  
+                  // Force correct rank if it mismatches the evolution history
+                  if (currentIndex !== expectedIndex && expectedIndex < ranks.length) {
+                     actualAgeStage = ranks[expectedIndex];
+                  }
+                  
+                  return actualAgeStage;
+                })(),
                 skills: rawSkills.map((s: any, idx: number) => {
                   let emoji = s.fallbackEmoji || s.emoji;
                   if (emoji === '🎐' || s.name.includes('Грудь') || s.name.includes('Стойкость')) emoji = '🛡️';
@@ -1052,7 +1073,7 @@ export default function App() {
       return {
         ...prev,
         pets: [...prev.pets, pet],
-        activePetId: prev.activePetId || pet.id,
+        activePetId: pet.id,
       };
     });
   }, []);

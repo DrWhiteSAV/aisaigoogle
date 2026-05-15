@@ -76,7 +76,7 @@ export const PetEvolutionCard: React.FC<PetEvolutionCardProps> = ({
               disabled={isEvolving}
               className="py-1.5 px-4 text-[20px] font-black shadow-lg border-2 w-fit mx-auto whitespace-nowrap bg-pen-red text-white border-white/20 animate-pulse"
             >
-              Вознестись
+              {isEvolving ? "Рисуется..." : "Вознестись"}
             </NeonButton>
           ) : (
              <div className="bg-white/80 border-2 border-pen-blue px-3 py-1 text-center w-[90%]">

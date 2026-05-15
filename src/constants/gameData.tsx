@@ -103,7 +103,7 @@ export const RARITY_LABELS: Record<Rarity, string> = {
   normal: 'Обычный',
   advanced: 'Продвинутый',
   rare: 'Редкий',
-  perfect: 'Идеальный',
+  perfect: 'Совершенный',
   epic: 'Эпический',
   legendary: 'Легендарный',
   mythical: 'Мифический',

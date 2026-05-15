@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Pet } from '../types';
 import { RARITY_LABELS, RARITY_STYLES } from '../constants/gameData';
 import { ElementSticker, AttributeSticker } from './GameUI';
+import { Maximize2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { calculateCP } from '../lib/gameLogic';
 
@@ -11,7 +12,9 @@ interface GalleryCardProps {
   showPrice?: number;
   className?: string;
   onClick?: () => void;
+  onOpenImage?: (e: React.MouseEvent) => void;
   isCompact?: boolean;
+  hideStats?: boolean;
 }
 
 export const GalleryCard: React.FC<GalleryCardProps> = ({ 
@@ -19,7 +22,9 @@ export const GalleryCard: React.FC<GalleryCardProps> = ({
   showPrice, 
   className = "",
   onClick,
-  isCompact = false
+  onOpenImage,
+  isCompact = false,
+  hideStats = false
 }) => {
   const rarityStyle = (pet && pet.rarity && RARITY_STYLES[pet.rarity]) ? RARITY_STYLES[pet.rarity] : RARITY_STYLES.normal;
   const fontSize = "text-[16px]";
@@ -36,15 +41,17 @@ export const GalleryCard: React.FC<GalleryCardProps> = ({
       onClick={onClick}
     >
       {/* CP Badge */}
-      <div 
-        className={cn(
-          "absolute z-[60] bg-sticker-yellow border-2 rotate-3",
-          isCompact ? "top-0.5 right-0.5 px-1 py-0 border-thin" : "top-1 right-1 px-2 py-0.5"
-        )}
-        style={{ borderColor: rarityStyle.color }}
-      >
-        <span className={cn("font-black", fontSize)}>{calculateCP(pet)}</span>
-      </div>
+      {!hideStats && (
+        <div 
+          className={cn(
+            "absolute z-[60] bg-sticker-yellow border-2 rotate-3",
+            isCompact ? "top-0.5 right-0.5 px-1 py-0 border-thin" : "top-1 right-1 px-2 py-0.5"
+          )}
+          style={{ borderColor: rarityStyle.color }}
+        >
+          <span className={cn("font-black", fontSize)}>{calculateCP(pet)}</span>
+        </div>
+      )}
 
       {/* Rarity Tag */}
       <div 
@@ -91,11 +98,13 @@ export const GalleryCard: React.FC<GalleryCardProps> = ({
            {/* Gradient background with better visibility */}
           <div className="absolute inset-0 bg-gradient-to-t from-white via-white/80 to-transparent z-[-1] pointer-events-none" />
           
-          <div className="flex justify-between items-start gap-1 mb-0.5">
+          <div className={cn("flex items-start gap-1 mb-0.5", hideStats ? "justify-center text-center" : "justify-between")}>
             <h3 className={cn("font-black text-pen-blue leading-[1.1] text-balance", nameFontSize)}>
               {pet.name}
             </h3>
-            <span className={cn("font-black text-pen-blue whitespace-nowrap leading-none shrink-0", fontSize)}>LVL {pet.level}</span>
+            {!hideStats && (
+              <span className={cn("font-black text-pen-blue whitespace-nowrap leading-none shrink-0", fontSize)}>LVL {pet.level}</span>
+            )}
           </div>
           
           <div className="flex flex-col items-center justify-center font-black text-pen-blue italic leading-tight text-center w-full">
@@ -111,6 +120,18 @@ export const GalleryCard: React.FC<GalleryCardProps> = ({
           )}
         </div>
       </div>
+      
+      {/* Top Right Zoom Button */}
+      {onOpenImage && (
+        <button 
+          onClick={(e) => { e.stopPropagation(); onOpenImage(e); }}
+          className="absolute top-[-14px] right-2 z-50 p-1.5 bg-sticker-yellow border-2 rounded-full text-pen-blue hover:bg-white hover:scale-110 transition-all rotate-[-3deg] active:scale-95"
+          style={{ borderColor: rarityStyle.color }}
+          title="Просмотр"
+        >
+          <Maximize2 className="h-4 w-4" />
+        </button>
+      )}
     </motion.div>
   );
 };

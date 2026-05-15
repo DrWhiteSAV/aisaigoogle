@@ -110,6 +110,7 @@ export interface Pet {
   isRankRevealed: boolean;
   statPoints: number;
   imageHistory?: string[];
+  nameHistory?: string[];
 }
 
 export interface InventoryItem {

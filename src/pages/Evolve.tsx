@@ -33,6 +33,16 @@ export const Evolve: React.FC<{
 
   const [evolving, setEvolving] = useState(false);
   const [evolutionResult, setEvolutionResult] = useState<Pet | null>(null);
+  const [timer, setTimer] = useState(100);
+  const [oldPet, setOldPet] = useState<Pet | null>(null);
+
+  React.useEffect(() => {
+    let interval: any;
+    if (evolving && !evolutionResult && timer > 0) {
+      interval = setInterval(() => setTimer(t => t - 1), 1000);
+    }
+    return () => clearInterval(interval);
+  }, [evolving, evolutionResult, timer]);
 
   React.useEffect(() => {
     if (toggleFlipLock) {
@@ -73,11 +83,15 @@ export const Evolve: React.FC<{
   const isMajorEvolution = potentialRankCode !== currentRankCode || (pet && pet.level >= 11 && currentSkillsCount < expectedSkills);
 
   const handleLevelUp = async () => {
-    if (!pet || pet.level >= MAX_LEVEL) return;
-    if (pet.experience < expNeeded) return;
-    if (progress.sprouts < costPerLevel && !isMajorEvolution) return;
+    if (!pet) return;
+    if (!isMajorEvolution && pet.level >= MAX_LEVEL) return;
+    if (!isMajorEvolution && pet.experience < expNeeded) return;
+    if (!isMajorEvolution && progress.sprouts < costPerLevel) return;
 
     setEvolving(true);
+    setTimer(100);
+    setEvolutionResult(null);
+    setOldPet(pet);
     
     try {
       let updatedPet: Pet;
@@ -95,6 +109,7 @@ export const Evolve: React.FC<{
           lore: evolutionData.lore,
           image: updatedImage,
           imageHistory: [...(pet.imageHistory || [pet.image]), updatedImage],
+          nameHistory: [...(pet.nameHistory || [pet.name]), evolutionData.newName],
           statPoints: pet.statPoints + growthPerLevel,
         };
         
@@ -107,7 +122,6 @@ export const Evolve: React.FC<{
           ...pet,
           level: nextLevel,
           experience: pet.experience - expNeeded,
-          ageStage: nextStage,
           statPoints: pet.statPoints + growthPerLevel,
         };
       }
@@ -117,8 +131,15 @@ export const Evolve: React.FC<{
         sprouts: prev.sprouts - (isMajorEvolution ? 0 : costPerLevel),
         pets: prev.pets.map(p => p.id === pet.id ? updatedPet : p)
       }));
-    } catch (e) {
-      console.error("Evolution failed", e);
+    } catch (e: any) {
+      console.error("Evolution failed. Error details:", {
+         error: e,
+         message: e?.message,
+         petId: pet.id,
+         level: pet.level,
+         isMajorEvolution
+      });
+      alert(`Ошибка вознесения: ${e?.message || String(e)}`);
     } finally {
       if (!isMajorEvolution) {
         setEvolving(false);
@@ -260,68 +281,154 @@ export const Evolve: React.FC<{
     );
   };
 
+  // --- NEW FULL SCREEN LOADING MODAL ---
+  if (evolving && !evolutionResult && isMajorEvolution) {
+    return (
+      <div className="fixed inset-0 z-[600] bg-white flex flex-col items-center justify-center p-6 sm:p-12 ledger-grid">
+         <div className="space-y-8 text-center max-w-md w-full">
+            <h2 className="text-4xl font-black text-pen-blue italic tracking-tighter">Трансмутация...</h2>
+            
+            <div className="relative aspect-square max-w-[240px] mx-auto flex items-center justify-center">
+               <div className="absolute inset-0 bg-pen-blue/10 rounded-full blur-3xl animate-pulse" />
+               <motion.div 
+                 animate={{ scale: [0.95, 1.05, 0.95], opacity: [0.7, 1, 0.7] }}
+                 transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                 className="relative z-10"
+               >
+                 {pet?.image ? (
+                    <div className="w-32 h-32 sm:w-48 sm:h-48 rounded overflow-hidden border-2 border-pen-blue/40 bg-white">
+                      <img src={pet.image} className="w-full h-full object-cover mix-blend-multiply" referrerPolicy="no-referrer" />
+                    </div>
+                 ) : (
+                    <GitBranch className="h-24 w-24 text-pen-blue/60 relative z-10" />
+                 )}
+               </motion.div>
+               
+               <motion.div 
+                 animate={{ rotate: 360 }}
+                 transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                 className="absolute inset-0 border-4 border-dashed border-pen-blue/40 rounded-full"
+               />
+               <motion.div 
+                 animate={{ rotate: -360 }}
+                 transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+                 className="absolute inset-[10%] border-4 border-dotted border-sticker-pink/50 rounded-full"
+               />
+            </div>
+
+            {timer > 0 ? (
+              <GlassCard color="blue" rotation={-1} className="p-6">
+                 <div className="text-sm font-black text-pen-blue/80 italic leading-relaxed">
+                    Эфир формирует новую оболочку... ({timer}s)
+                 </div>
+                 <div className="text-[10px] font-black text-sticker-pink mt-2 animate-pulse uppercase tracking-[0.2em]">
+                   Ожидание нестабильностей
+                 </div>
+              </GlassCard>
+            ) : (
+              <div className="space-y-4">
+                <GlassCard color="pink" rotation={1} className="p-4 bg-red-50">
+                  <div className="text-sm font-black text-red-900 border-2 border-red-500/50 p-2 text-center bg-white">
+                    Ответ от эфира задерживается...
+                  </div>
+                </GlassCard>
+                <NeonButton onClick={async () => {
+                   setEvolving(false);
+                   setEvolutionResult(null);
+                }} color="blue" className="w-full text-center">
+                  Отменить
+                </NeonButton>
+              </div>
+            )}
+         </div>
+      </div>
+    );
+  }
+
   if (evolutionResult) {
     return (
       <div className="fixed inset-0 z-[600] bg-white flex flex-col items-center justify-center p-6 sm:p-12 overflow-y-auto ledger-grid">
          <motion.div 
            initial={{ opacity: 0, scale: 0.9 }}
            animate={{ opacity: 1, scale: 1 }}
-           className="w-full max-w-5xl space-y-12"
+           className="w-full max-w-5xl space-y-6"
          >
-            <div className="text-center space-y-4">
+            <div className="text-center space-y-1 relative z-10 pt-1">
+               <h2 className="text-[24px] font-black text-pen-blue tracking-tighter leading-none mt-[5px]">
+                  {oldPet?.name || pet.name} <span className="text-pen-blue/20 mx-1">→</span> {evolutionResult.name}
+               </h2>
                <motion.div 
                  initial={{ y: 20, opacity: 0 }}
                  animate={{ y: 0, opacity: 1 }}
-                 className="text-sticker-pink font-black text-xl tracking-[0.3em] italic"
+                 className="text-sticker-pink font-black text-[12px] tracking-[0.3em] italic uppercase pt-0.5"
                >
-                 Эволюция завершена!
+                 Новая форма
                </motion.div>
-               <h2 className="text-6xl font-black text-pen-blue tracking-tighter">
-                  {pet.name} <span className="text-pen-blue/20">→</span> {evolutionResult.name}
-               </h2>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-               <div className="space-y-4 text-center">
-                  <div className="text-[10px] font-black text-pen-blue/30 tracking-widest">Прошлое</div>
-                  <div className="relative aspect-[9/16] max-h-[400px] mx-auto border-2 border-dashed border-black/10 rounded-sm overflow-hidden grayscale opacity-50">
-                     <img src={pet.image} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+            <div className="flex flex-row justify-center gap-4 sm:gap-8 items-end max-w-3xl mx-auto -mt-2">
+               <div className="space-y-2 text-center w-[120px] sm:w-[180px]">
+                  <div className="text-[9px] font-black text-pen-blue/30 tracking-widest uppercase">Прошлое</div>
+                  <div className="relative aspect-[9/16] w-full mx-auto border-2 border-dashed border-black/10 rounded-sm overflow-hidden grayscale opacity-50 bg-white">
+                     <img src={oldPet?.image || (pet.imageHistory ? pet.imageHistory[pet.imageHistory.length - 2] : pet.image)} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   </div>
-                  <div className="font-black text-pen-blue/40">{pet.ageStage}</div>
+                  <div className="font-black text-pen-blue/40 text-[10px] sm:text-xs">{oldPet?.ageStage || pet.ageStage}</div>
                </div>
 
-               <div className="space-y-4 text-center">
-                  <div className="text-[10px] font-black text-sticker-pink tracking-widest animate-pulse">Новая Форма</div>
+               <div className="space-y-2 text-center w-[140px] sm:w-[200px]">
                   <motion.div 
                     initial={{ x: 50, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
                     transition={{ delay: 0.3 }}
-                    className="relative aspect-[9/16] max-h-[400px] mx-auto border-4 border-pen-blue rounded-sm overflow-hidden shadow-[20px_20px_0_rgba(0,71,171,0.1)]"
+                    className="relative aspect-[9/16] w-full mx-auto border-4 border-pen-blue rounded-sm overflow-hidden shadow-md bg-white"
                   >
                      <img src={evolutionResult.image} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   </motion.div>
-                  <div className="font-black text-pen-blue">{evolutionResult.ageStage}</div>
+                  <div className="font-black text-pen-blue text-xs sm:text-sm">{evolutionResult.ageStage}</div>
                </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-               <GlassCard color="blue" rotation={-1} className="p-6">
-                  <h4 className="text-sm font-black text-pen-blue/40 mb-2">Новая Легенда</h4>
-                  <p className="text-sm font-black text-pen-blue leading-relaxed italic">
-                    "{evolutionResult.lore}"
-                  </p>
-               </GlassCard>
-               <GlassCard color="pink" rotation={1} className="p-6">
-                  <h4 className="text-sm font-black text-pen-blue/40 mb-2">Полученные Навыки</h4>
-                  <div className="space-y-2">
-                     {(evolutionResult.skills || []).slice(-2).map((s: any, i: number) => (
-                       <div key={i} className="bg-white/50 p-2 border-2 border-black/5 rounded-sm">
-                          <div className="text-xs font-black text-pen-blue">{s.name}</div>
-                          <div className="text-[10px] font-black text-pen-blue/40">{s.description}</div>
-                       </div>
-                     ))}
-                  </div>
-               </GlassCard>
+            <div className="w-[90%] mx-auto mt-4 px-1">
+               <div className="text-center mb-1">
+                 <h3 className="text-[14px] font-black text-[#0047ab]/40 uppercase tracking-wider">Новые Навыки</h3>
+               </div>
+               <div className="grid grid-cols-3 gap-2">
+                 {(evolutionResult.skills || []).slice(-3).map((s: any, i: number) => {
+                   const colors: ("white" | "yellow" | "blue" | "pink")[] = ["yellow", "blue", "pink", "white"];
+                   const cardColor = colors[i % colors.length];
+                   return (
+                      <GlassCard 
+                         key={i}
+                         color={cardColor}
+                         className={cn(
+                           "border border-pen-blue/20 rounded-sm flex flex-col p-1 relative h-[65px] justify-end",
+                           cardColor === 'yellow' ? 'bg-sticker-yellow/80 hover:bg-sticker-yellow' : 
+                           cardColor === 'blue' ? 'bg-sticker-blue/80 hover:bg-sticker-blue' : 
+                           cardColor === 'pink' ? 'bg-sticker-pink/80 hover:bg-sticker-pink' : 'bg-white hover:bg-gray-50'
+                         )}
+                      >
+                         <div className="absolute left-1/2 -top-4 -translate-x-1/2 pointer-events-none z-0">
+                            <div className="text-3xl object-contain z-0 relative drop-shadow-md">{s.emoji || '✨'}</div>
+                         </div>
+                         <div className="w-full flex flex-col items-center justify-end z-20 relative pb-0.5">
+                            <div className="text-[12px] font-black text-[#0047ab] leading-[1.1] italic max-w-full px-0.5 whitespace-normal break-words drop-shadow-md relative z-20 text-center">{s.name}</div>
+                            <div className="text-[10px] font-black bg-white/80 border border-[#0047ab]/10 relative z-20 whitespace-nowrap text-[#0047ab] rounded-full px-1 mt-0.5 leading-tight">
+                              {s.value || Math.floor(Math.random() * 15) + 5}% • {s.type === 'passive' ? 'Пассив' : s.type === 'active_buff' ? 'Бафф' : 'Дебафф'}
+                            </div>
+                         </div>
+                      </GlassCard>
+                   );
+                 })}
+               </div>
+            </div>
+
+            <div className="w-[90%] mx-auto mt-4 px-1">
+               <div className="text-center mb-1">
+                 <h3 className="text-[14px] font-thin text-[#0047ab] tracking-wider">Новая Легенда</h3>
+               </div>
+               <p className="text-[14px] font-thin text-pen-blue leading-relaxed text-center w-full">
+                 "{evolutionResult.lore}"
+               </p>
             </div>
 
             <div className="flex justify-center pt-8">
