@@ -276,6 +276,9 @@ export const generatePetStatsAndLore = async (
   const baseStatsTotal = RARITY_WEIGHTS[forcedRarity].base;
   const initialStats = distributeStats(baseStatsTotal);
   
+  const randomElement = ['water', 'fire', 'air', 'earth'][Math.floor(Math.random() * 4)] as Element;
+  const randomAttribute = ['light', 'dark', 'void', 'time'][Math.floor(Math.random() * 4)] as Attribute;
+  
   const prompt = `Сгенерируй данные для уникального существа в игре aiSai, которое является истинным отражением личности пользователя.
     
     Данные пользователя:
@@ -295,7 +298,10 @@ export const generatePetStatsAndLore = async (
     - Восстановление: ${initialStats.regeneration}
     - Магия: ${initialStats.magic}
     
-    Задача: Создай ЕДИНСТВЕННОЕ В СВОЕМ РОДЕ существо в стадии МЛАДЕНЧЕСТВА (INFANCY), которое духовно связано с этим человеком.
+    Стихия (ЗАДАНА СИСТЕМОЙ): ${randomElement}
+    Атрибут (ЗАДАН СИСТЕМОЙ): ${randomAttribute}
+    
+    Задача: Создай ЕДИНСТВЕННОЕ В СВОЕМ РОДЕ существо в стадии МЛАДЕНЧЕСТВА (INFANCY), которое духовно связано с этим человеком, а также воплощает свою стихию (${randomElement}) и атрибут (${randomAttribute}).
     Существо должно базироваться на РЕАЛЬНО СУЩЕСТВУЮЩЕМ биологическом виде, но быть ГИБРИДИЗИРОВАННЫМ с фантастическими элементами.
     Опирайся на его сгенерированные выше характеристики для формирования лора, классификации и навыков.
     
@@ -306,8 +312,6 @@ export const generatePetStatsAndLore = async (
     Верни JSON (ВСЕ ТЕКСТОВЫЕ ПОЛЯ ДОЛЖНЫ БЫТЬ НА РУССКОМ ЯЗЫКЕ, БЕЗ КАПСЛОКА):
     {
       "name": "Эпичное имя на русском",
-      "element": "water|fire|air|earth",
-      "attribute": "light|dark|void|time",
       "classification": {
         "type": "Тип (напр. Хордовые)",
         "class": "Класс (напр. Млекопитающие)",
@@ -380,8 +384,8 @@ export const generatePetStatsAndLore = async (
     }
 
     const name = parsed.name || "Безымянный Питомец";
-    const element = (parsed.element || "water") as Element;
-    const attribute = (parsed.attribute || "void") as Attribute;
+    const element = randomElement;
+    const attribute = randomAttribute;
     const classification = parsed.classification || {
         type: "Неизвестно",
         class: "Неизвестно",
@@ -464,6 +468,9 @@ export const preRollQuestReward = (pet: Pet): RewardData | null => {
 };
 
 export const generateQuestBonusItem = async (reward: RewardData): Promise<InventoryItem> => {
+  const customElement = ['water', 'fire', 'air', 'earth'][Math.floor(Math.random() * 4)];
+  const customAttribute = ['light', 'dark', 'void', 'time'][Math.floor(Math.random() * 4)];
+  
   const prompt = `Сгенерируй название и атмосферное описание предмета для игры aiSai. СТРОГО БЕЗ КАПСЛОКА.
     ТИП ПРЕДМЕТА: ${
       reward.type === 'artifact' ? `Артефакт, увеличивающий характеристику ${reward.stat} на ${reward.value} ед.` : 
@@ -478,10 +485,15 @@ export const generateQuestBonusItem = async (reward: RewardData): Promise<Invent
     
     ДЛЯ СВИТКОВ НАВЫКОВ (skill):
     - emoji: ОДИН ПОДХОДЯЩИЙ ЭМОДЗИ (напр. 📜, 🧬, ⚡, 🔥, 🛡️)
-    - Если тип пассивный, добавь поле "attribute": "light|dark|void|time".
-    - Если тип активный, добавь поле "element": "fire|water|air|earth".
+    ${
+      reward.type === 'skill' 
+        ? reward.skillType === 'passive' 
+          ? `- Атрибут этого навыка - ${customAttribute}. Отрази это в названии/описании.` 
+          : `- Стихия этого навыка - ${customElement}. Отрази это в названии/описании.`
+        : ''
+    }
     
-    Верни JSON с полями: name, description, emoji, и element/attribute (только для навыков). Текст на русском языке.`;
+    Верни JSON с полями: name, description, emoji. Текст на русском языке.`;
 
   try {
     const ai = getAI();
@@ -511,8 +523,8 @@ export const generateQuestBonusItem = async (reward: RewardData): Promise<Invent
         type: reward.skillType!,
         targetStat: reward.targetStat!,
         value: reward.value!,
-        element: reward.skillType !== 'passive' ? (data.element || 'fire') : undefined,
-        attribute: reward.skillType === 'passive' ? (data.attribute || 'void') : undefined
+        element: reward.skillType !== 'passive' ? (customElement as any) : undefined,
+        attribute: reward.skillType === 'passive' ? (customAttribute as any) : undefined
       } : undefined,
       hue: reward.type === 'egg' ? Math.floor(Math.random() * 360) : undefined,
       // Pass the raw emoji as fallback
