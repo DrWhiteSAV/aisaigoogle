@@ -110,7 +110,6 @@ export const Evolve: React.FC<{
           image: updatedImage,
           imageHistory: [...(pet.imageHistory || [pet.image]), updatedImage],
           nameHistory: [...(pet.nameHistory || [pet.name]), evolutionData.newName],
-          statPoints: pet.statPoints + growthPerLevel,
         };
         
         setEvolutionResult(updatedPet);
@@ -284,7 +283,7 @@ export const Evolve: React.FC<{
   // --- NEW FULL SCREEN LOADING MODAL ---
   if (evolving && !evolutionResult && isMajorEvolution) {
     return (
-      <div className="fixed inset-0 z-[600] bg-white flex flex-col items-center justify-center p-6 sm:p-12 ledger-grid">
+      <div className="fixed inset-0 z-[600] bg-transparent backdrop-blur-sm flex flex-col items-center justify-center p-6 sm:p-12">
          <div className="space-y-8 text-center max-w-md w-full">
             <h2 className="text-4xl font-black text-pen-blue italic tracking-tighter">Трансмутация...</h2>
             
@@ -296,7 +295,7 @@ export const Evolve: React.FC<{
                  className="relative z-10"
                >
                  {pet?.image ? (
-                    <div className="w-32 h-32 sm:w-48 sm:h-48 rounded overflow-hidden border-2 border-pen-blue/40 bg-white">
+                    <div className="w-32 h-32 sm:w-48 sm:h-48 rounded overflow-hidden border-2 border-pen-blue/40 bg-transparent">
                       <img src={pet.image} className="w-full h-full object-cover mix-blend-multiply" referrerPolicy="no-referrer" />
                     </div>
                  ) : (
@@ -306,14 +305,42 @@ export const Evolve: React.FC<{
                
                <motion.div 
                  animate={{ rotate: 360 }}
-                 transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-                 className="absolute inset-0 border-4 border-dashed border-pen-blue/40 rounded-full"
-               />
+                 transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+                 className="absolute inset-[-10%] flex items-center justify-center pointer-events-none opacity-60"
+               >
+                 <svg viewBox="0 0 200 200" className="w-full h-full text-pen-blue" style={{ transformOrigin: 'center' }}>
+                   <circle cx="100" cy="100" r="95" fill="none" stroke="currentColor" strokeWidth="1" strokeDasharray="4 8" />
+                   <circle cx="100" cy="100" r="85" fill="none" stroke="currentColor" strokeWidth="0.5" />
+                   {Array.from({ length: 8 }).map((_, i) => {
+                     const angle = (i * 45) * Math.PI / 180;
+                     const x1 = 100 + Math.cos(angle) * 85;
+                     const y1 = 100 + Math.sin(angle) * 85;
+                     const x2 = 100 + Math.cos(angle) * 95;
+                     const y2 = 100 + Math.sin(angle) * 95;
+                     return (
+                       <g key={`rune-${i}`}>
+                         <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="currentColor" strokeWidth="1.5" />
+                         <circle cx={x2} cy={y2} r="2" fill="currentColor" />
+                       </g>
+                     );
+                   })}
+                   <path d="M 100 5 L 105 15 L 95 15 Z" fill="currentColor" />
+                   <path d="M 100 195 L 95 185 L 105 185 Z" fill="currentColor" />
+                   <path d="M 5 100 L 15 95 L 15 105 Z" fill="currentColor" />
+                   <path d="M 195 100 L 185 105 L 185 95 Z" fill="currentColor" />
+                 </svg>
+               </motion.div>
                <motion.div 
                  animate={{ rotate: -360 }}
-                 transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-                 className="absolute inset-[10%] border-4 border-dotted border-sticker-pink/50 rounded-full"
-               />
+                 transition={{ duration: 16, repeat: Infinity, ease: "linear" }}
+                 className="absolute inset-[0%] flex items-center justify-center pointer-events-none opacity-40 text-[#0047ab]"
+               >
+                 <svg viewBox="0 0 200 200" className="w-full h-full" style={{ transformOrigin: 'center' }}>
+                   <circle cx="100" cy="100" r="75" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="1 10" />
+                   <polygon points="100,20 175,145 25,145" fill="none" stroke="currentColor" strokeWidth="0.5" />
+                   <polygon points="100,180 25,55 175,55" fill="none" stroke="currentColor" strokeWidth="0.5" />
+                 </svg>
+               </motion.div>
             </div>
 
             {timer > 0 ? (
@@ -321,8 +348,8 @@ export const Evolve: React.FC<{
                  <div className="text-sm font-black text-pen-blue/80 italic leading-relaxed">
                     Эфир формирует новую оболочку... ({timer}s)
                  </div>
-                 <div className="text-[10px] font-black text-sticker-pink mt-2 animate-pulse uppercase tracking-[0.2em]">
-                   Ожидание нестабильностей
+                 <div className="text-[14px] font-black text-pen-blue mt-2 animate-pulse tracking-wide">
+                   Ожидание Великой Эволюции
                  </div>
               </GlassCard>
             ) : (
@@ -347,44 +374,43 @@ export const Evolve: React.FC<{
 
   if (evolutionResult) {
     return (
-      <div className="fixed inset-0 z-[600] bg-white flex flex-col items-center justify-center p-6 sm:p-12 overflow-y-auto ledger-grid">
-         <motion.div 
+      <div className="fixed inset-0 z-[600] bg-transparent backdrop-blur-sm flex flex-col items-center justify-center p-6 sm:p-12 overflow-y-auto">
+          <motion.div 
            initial={{ opacity: 0, scale: 0.9 }}
            animate={{ opacity: 1, scale: 1 }}
-           className="w-full max-w-5xl space-y-6"
+           className="w-full max-w-5xl space-y-4"
          >
             <div className="text-center space-y-1 relative z-10 pt-1">
-               <h2 className="text-[24px] font-black text-pen-blue tracking-tighter leading-none mt-[5px]">
-                  {oldPet?.name || pet.name} <span className="text-pen-blue/20 mx-1">→</span> {evolutionResult.name}
-               </h2>
                <motion.div 
                  initial={{ y: 20, opacity: 0 }}
                  animate={{ y: 0, opacity: 1 }}
-                 className="text-sticker-pink font-black text-[12px] tracking-[0.3em] italic uppercase pt-0.5"
+                 className="text-[#0047ab] font-black text-[18px] tracking-[0.2em] italic uppercase"
                >
                  Новая форма
                </motion.div>
             </div>
 
-            <div className="flex flex-row justify-center gap-4 sm:gap-8 items-end max-w-3xl mx-auto -mt-2">
-               <div className="space-y-2 text-center w-[120px] sm:w-[180px]">
-                  <div className="text-[9px] font-black text-pen-blue/30 tracking-widest uppercase">Прошлое</div>
-                  <div className="relative aspect-[9/16] w-full mx-auto border-2 border-dashed border-black/10 rounded-sm overflow-hidden grayscale opacity-50 bg-white">
+            <div className="flex flex-row justify-center gap-4 sm:gap-8 items-end max-w-3xl mx-auto">
+               <div className="space-y-1 pb-2 text-center w-[120px] sm:w-[160px]">
+                  <div className="text-[9px] font-black text-pen-blue/40 tracking-widest uppercase">Прошлое</div>
+                  <div className="relative aspect-[9/16] w-full mx-auto border-2 border-dashed border-black/10 rounded-sm overflow-hidden grayscale opacity-50 bg-transparent">
                      <img src={oldPet?.image || (pet.imageHistory ? pet.imageHistory[pet.imageHistory.length - 2] : pet.image)} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   </div>
-                  <div className="font-black text-pen-blue/40 text-[10px] sm:text-xs">{oldPet?.ageStage || pet.ageStage}</div>
+                  <div className="font-black text-pen-blue/60 text-[10px] sm:text-xs truncate">{oldPet?.name || pet.name}</div>
+                  <div className="font-black text-pen-blue/40 text-[9px] sm:text-[10px] truncate">{oldPet?.ageStage || pet.ageStage}</div>
                </div>
 
-               <div className="space-y-2 text-center w-[140px] sm:w-[200px]">
+               <div className="space-y-1 text-center w-[140px] sm:w-[180px]">
                   <motion.div 
                     initial={{ x: 50, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
                     transition={{ delay: 0.3 }}
-                    className="relative aspect-[9/16] w-full mx-auto border-4 border-pen-blue rounded-sm overflow-hidden shadow-md bg-white"
+                    className="relative aspect-[9/16] w-full mx-auto border-4 border-pen-blue rounded-sm overflow-hidden shadow-lg bg-transparent"
                   >
                      <img src={evolutionResult.image} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   </motion.div>
-                  <div className="font-black text-pen-blue text-xs sm:text-sm">{evolutionResult.ageStage}</div>
+                  <div className="font-black text-[#0047ab] text-[12px] sm:text-sm truncate drop-shadow-sm">{evolutionResult.name || evolutionResult.newName}</div>
+                  <div className="font-black text-pen-blue/80 text-[10px] sm:text-xs truncate">{evolutionResult.ageStage}</div>
                </div>
             </div>
 

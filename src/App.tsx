@@ -18,6 +18,7 @@ import { PetDetail } from './pages/PetDetail';
 import { Profile } from './pages/Profile';
 import { TopUp } from './pages/TopUp';
 import { Navbar } from './components/Navbar';
+import { GlobalBookTransition } from './components/BookTransition';
 import { NeonButton, LogoAnimation } from './components/UI';
 import { InfoModal } from './components/GameUI';
 import { cn } from './lib/utils';
@@ -847,6 +848,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
 
   return (
     <div className="flex h-screen w-full items-center justify-center bg-transparent relative selection:bg-sticker-blue/30 overflow-hidden">
+      <GlobalBookTransition currentBook={currentBook} />
       <div className="absolute inset-0 bg-black/5 -z-10" />
       {showNav && <Navbar sprouts={progress.sprouts} />}
       <div className="w-full h-full flex items-center justify-center overflow-hidden p-4 sm:p-8">
@@ -891,7 +893,6 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
             disableFlipByClick={true}
           >
             {getBookPages()}
-
           </HTMLFlipBook>
         </div>
       </div>

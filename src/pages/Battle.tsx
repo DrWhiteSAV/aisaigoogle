@@ -471,7 +471,7 @@ const BattleProvider: React.FC<{
       emojiStr = e === 'fire' ? '🔥' : e === 'water' ? '💧' : e === 'earth' ? '⛰️' : e === 'air' ? '🌪️' : '✨';
     }
 
-    syncState({ turn: 'enemy', isEnemyAttacking: true, showUlt: useUlt, activeActionEffect: { type: actionType, isPlayer: false, emoji: emojiStr } });
+    syncState({ turn: 'waiting', isEnemyAttacking: true, showUlt: useUlt, activeActionEffect: { type: actionType, isPlayer: false, emoji: emojiStr } });
     await new Promise(r => setTimeout(r, 600));
 
     let buffMult = 1.0;
@@ -681,7 +681,7 @@ const BattleProvider: React.FC<{
 
     let buffMult = 1.0;
     let skillLog = '';
-    if (type !== 'regen' && activeSkill) {
+    if (activeSkill) {
       const activeBuff = activeSkill;
       buffMult = 1.0 + (activeBuff.value / 100);
       skillLog = ` [Навык ${getEmojiStr(activeBuff)} ${activeBuff.name}: +${activeBuff.value}%]`;
@@ -1089,12 +1089,12 @@ const BattleContent: React.FC<{ side: 'left' | 'right', setProgress: React.Dispa
             )}
           </AnimatePresence>
 
-          <div className="absolute top-20 left-[5%] w-[44.5%] flex justify-start z-30">
-             <BattleCard pet={playerPet} currentHp={hp.player} maxHp={getEffectiveStat(playerPet, 'health')} isPlayer={true} rage={rage} speedGauge={speedGauge} opponent={enemy} sideDebuffs={debuffs.player} isHit={isPlayerHit} isAttacking={isPlayerAttacking} />
+          <div className="absolute top-20 right-[5%] w-[44.5%] flex justify-end z-10">
+             <BattleCard pet={enemy} currentHp={hp.enemy} maxHp={getEffectiveStat(enemy, 'health')} isPlayer={false} rage={rage} speedGauge={speedGauge} opponent={playerPet} sideDebuffs={debuffs.enemy} isHit={isEnemyHit} isAttacking={isEnemyAttacking} />
           </div>
 
-          <div className="absolute bottom-20 right-[5%] w-[44.5%] flex justify-end z-10">
-             <BattleCard pet={enemy} currentHp={hp.enemy} maxHp={getEffectiveStat(enemy, 'health')} isPlayer={false} rage={rage} speedGauge={speedGauge} opponent={playerPet} sideDebuffs={debuffs.enemy} isHit={isEnemyHit} isAttacking={isEnemyAttacking} />
+          <div className="absolute bottom-20 left-[5%] w-[44.5%] flex justify-start z-30">
+             <BattleCard pet={playerPet} currentHp={hp.player} maxHp={getEffectiveStat(playerPet, 'health')} isPlayer={true} rage={rage} speedGauge={speedGauge} opponent={enemy} sideDebuffs={debuffs.player} isHit={isPlayerHit} isAttacking={isPlayerAttacking} />
           </div>
 
           <div className="absolute top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-[60] flex flex-col gap-3 scale-[0.8]">

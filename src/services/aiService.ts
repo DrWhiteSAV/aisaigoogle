@@ -171,8 +171,8 @@ export const generateEvolutionUpdate = async (
     3. Обновленную легенду: опиши сам факт взросления и перехода из ${pet.ageStage} в форму ${newRank}. Как он изменился внешне и ментально, опираясь на свою классификацию.
     4. ТРИ новых навыка: 
        - Один ПАССИВНЫЙ (passive) - влияет на любой из статов (health, attack, defense, speed, magic, regeneration).
-       - Один БАФФ (active_buff) - усиливает питомца.
-       - Один ДЕБАФФ (active_debuff) - ослабляет противника.
+       - Один БАФФ (active_buff) - БОЕВОЙ БАФФ НА АТАКУ. Усиливает СТРОГО attack питомца.
+       - Один ДЕБАФФ (active_debuff) - ослабляет противника (влияет на любой стат).
     
     Верни JSON объект на русском языке:
     {
@@ -188,9 +188,9 @@ export const generateEvolutionUpdate = async (
         },
         { 
           "name": "Название активного навыка", 
-          "description": "ПОДРОБНОЕ ОПИСАНИЕ (2+ предложения): Как именно питомец использует стихию для баффа.", 
+          "description": "ПОДРОБНОЕ ОПИСАНИЕ (2+ предложения): Как именно питомец использует стихию для баффа атаки.", 
           "type": "active_buff", 
-          "targetStat": "health|attack|defense|speed|magic|regeneration",
+          "targetStat": "attack",
           "emoji": "ОДИН ПОДХОДЯЩИЙ ЭМОДЗИ"
         },
         { 
@@ -454,7 +454,7 @@ export const preRollQuestReward = (pet: Pet): RewardData | null => {
     // 10% Skill
     const skillTypes: RewardData['skillType'][] = ['passive', 'active_buff', 'active_debuff'];
     const skillType = skillTypes[Math.floor(Math.random() * skillTypes.length)];
-    const targetStat = stats[Math.floor(Math.random() * stats.length)];
+    const targetStat = skillType === 'active_buff' ? 'attack' : stats[Math.floor(Math.random() * Math.max(1, stats.length))];
     const value = Math.floor(Math.random() * 15) + 5; // 5-20% boost
     return { type: 'skill', skillType, targetStat, value };
   }
@@ -571,8 +571,8 @@ export const generateQuest = async (
     ПРАВИЛА ДЛЯ ПРЕДМЕТОВ:
     - Все названия и тексты должны быть на русском без КАПСЛОКА.
     - Пассивные навыки: +1-10% к статам, связаны с Атрибутами (Свет, Тьма, Время, Пустота).
-    - Активные баффы: +1-10% к атаке, связаны со Стихиями (Огонь, Вода, Земля, Воздух).
-    - Активные дебаффы: -10-50% от стата соперника, связаны со стихией.
+    - Активные баффы: +1-10% к атаке (СТРОГО attack), связаны со Стихиями (Огонь, Вода, Земля, Воздух).
+    - Активные дебаффы: -10-50% от стата соперника (любой стат), связаны со стихией.
     - Доступные статы: Атака, Защита, Здоровье, Скорость, Магия, Регенерация.
     
     ИНФОРМАЦИЯ О ГЕРОЯХ:
