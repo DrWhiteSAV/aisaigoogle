@@ -4,7 +4,7 @@ import { Pet, UserProgress, Skill, PetStats } from '../types';
 import { NeonButton, LogoAnimation } from '../components/UI';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sword, Shield, Zap, Sprout, Flame, Droplets, Wind, Mountain, Star, Sparkles, Timer, Target, Heart, PenLine } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, renderWithEmojis } from '../lib/utils';
 import { ElementSticker, AttributeSticker } from '../components/GameUI';
 import { getElementAdvantageMultiplier, getAttributeDefenseMultiplier, calculateCP, getBattleRewards, checkLevelUp, getEffectiveStat, getPassiveBonus } from '../lib/gameLogic';
 
@@ -14,15 +14,16 @@ const Typewriter: React.FC<{ text: string; delay?: number; className?: string }>
   useEffect(() => {
     setDisplayedText("");
     let i = 0;
+    const chars = Array.from(text);
     const timer = setInterval(() => {
-      setDisplayedText(text.slice(0, i + 1));
+      setDisplayedText(chars.slice(0, i + 1).join(''));
       i++;
-      if (i >= text.length) clearInterval(timer);
+      if (i >= chars.length) clearInterval(timer);
     }, delay);
     return () => clearInterval(timer);
   }, [text, delay]);
 
-  return <span className={className}>{displayedText}</span>;
+  return <span className={className}>{renderWithEmojis(displayedText)}</span>;
 };
 
 interface FloatingDamage {
@@ -33,6 +34,17 @@ interface FloatingDamage {
   y: number;
   type: 'damage' | 'heal' | 'ult';
 }
+
+const getEmojiStr = (skill: any) => {
+  const str = skill?.fallbackEmoji || skill?.emoji;
+  if (!str) return '';
+  if (str.length > 2 && /^[0-9a-fA-F]+$/.test(str)) {
+     try {
+       return String.fromCodePoint(parseInt(str, 16));
+     } catch(e) { return str; }
+  }
+  return str;
+};
 
 interface BattleState {
   enemy: Pet | null;
@@ -49,7 +61,7 @@ interface BattleState {
   isPlayerHit: boolean;
   isPlayerAttacking: boolean;
   isEnemyAttacking: boolean;
-  activeActionEffect: { type: 'attack' | 'ult' | 'regen', isPlayer: boolean } | null;
+  activeActionEffect: { type: 'attack' | 'ult' | 'regen', isPlayer: boolean, emoji?: string } | null;
   showUlt: boolean;
   isPlayerRegen: boolean;
   isEnemyRegen: boolean;
@@ -66,11 +78,11 @@ const BattleContext = createContext<BattleState | null>(null);
 
 const DamageNumber: React.FC<{ damage: FloatingDamage }> = ({ damage }) => (
   <motion.div
-    initial={{ opacity: 0, y: damage.y, x: damage.x, scale: 0.5 }}
-    animate={{ opacity: [0, 1, 1, 0], y: damage.y - 100, scale: [0.5, 1.5, 1.2, 1] }}
+    initial={{ opacity: 0, y: 0, x: damage.x, scale: 0.5 }}
+    animate={{ opacity: [0, 1, 1, 0], y: -100, scale: [0.5, 1.5, 1.2, 1] }}
     transition={{ duration: 1, ease: "easeOut" }}
     className={cn(
-      "absolute z-[400] font-black text-3xl italic pointer-events-none drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)]",
+      "absolute z-[400] font-black text-4xl italic pointer-events-none drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
       damage.type === 'heal' ? "text-green-500" : damage.type === 'ult' ? "text-sticker-yellow" : "text-pen-red"
     )}
   >
@@ -126,15 +138,12 @@ const UltAnimation: React.FC<{ element: string }> = ({ element }) => {
 
       <motion.div
         initial={{ scale: 0, rotate: -30, y: 100, opacity: 0 }}
-        animate={{ scale: [0, 1.2, 1], rotate: [0, 10, 0], y: 0, opacity: 1 }}
+        animate={{ scale: 1, rotate: 0, y: 0, opacity: 1 }}
         transition={{ type: "spring", damping: 12 }}
-        className="relative z-10 bg-white border-[12px] border-pen-blue p-16"
+        className="relative z-10 flex items-center justify-center pointer-events-none"
       >
-        <span className="text-8xl font-black text-pen-blue italic tracking-tighter block text-center min-w-[600px]">
-          {element === 'fire' && "Пылающий гнев!"}
-          {element === 'water' && "Водный поток!"}
-          {element === 'air' && "Ураганный удар!"}
-          {element === 'earth' && "Сейсмический разлом!"}
+        <span className="not-italic text-[15rem] drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)]" style={{ fontStyle: 'normal', transform: 'none' }}>
+          {element === 'fire' ? '🔥' : element === 'water' ? '💧' : element === 'earth' ? '⛰️' : element === 'air' ? '🌪️' : '✨'}
         </span>
       </motion.div>
     </motion.div>
@@ -201,6 +210,7 @@ const BattleProvider: React.FC<{
   }, []);
 
   const initStarted = React.useRef(false);
+  const actionLock = React.useRef(false);
   
   const [state, setState] = useState<Omit<BattleState, 'handleAction' | 'playerPet'>>(() => {
     // Check both petId AND battleId to ensure we are looking at the same fight
@@ -375,25 +385,11 @@ const BattleProvider: React.FC<{
     let currentP = prev.speedGauge.player;
     let currentE = prev.speedGauge.enemy;
 
-    const EPSILON = 0.1;
-
-    // 1. Если кто-то уже готов (100+), выбираем его.
-    if (currentP >= 100 - EPSILON || currentE >= 100 - EPSILON) {
-      let turn: 'player' | 'enemy' = 'player';
-      if (currentP >= 100 - EPSILON && currentE >= 100 - EPSILON) {
-        // Если перебор почти одинаковый (допуск 2.0 ед.), используем строгое чередование
-        if (Math.abs(currentP - currentE) > 2.0) { 
-          turn = currentP > currentE ? 'player' : 'enemy';
-        } else {
-          turn = prev.lastTurnSide === 'player' ? 'enemy' : 'player';
-        }
-      } else {
-        turn = currentP >= 100 - EPSILON ? 'player' : 'enemy';
-      }
+    if (currentP >= 100 || currentE >= 100) {
+      const turn = currentP >= currentE ? 'player' : 'enemy';
       return { ...prev, turn };
     }
 
-    // 2. Иначе наращиваем шкалы.
     const pSpeed = Math.max(1, getVal(playerPet, 'speed', 'player', prev.debuffs));
     const eSpeed = Math.max(1, getVal(prev.enemy, 'speed', 'enemy', prev.debuffs));
     
@@ -401,25 +397,21 @@ const BattleProvider: React.FC<{
     const pGainPerStep = (pSpeed / sum) * 100;
     const eGainPerStep = (eSpeed / sum) * 100;
 
-    // Считаем сколько "шагов" нужно до ближайшего 100
-    const stepsToP = (100 - currentP) / pGainPerStep;
-    const stepsToE = (100 - currentE) / eGainPerStep;
-    const minSteps = Math.max(0.01, Math.min(stepsToP, stepsToE));
-    
-    // Продвигаем шкалы и округляем для стабильности
-    const nextP = Math.round((Math.min(200, currentP + pGainPerStep * minSteps)) * 10) / 10;
-    const nextE = Math.round((Math.min(200, currentE + eGainPerStep * minSteps)) * 10) / 10;
-
-    let nextTurn: 'player' | 'enemy' = 'player';
-    if (nextP >= 100 - EPSILON && nextE >= 100 - EPSILON) {
-      nextTurn = prev.lastTurnSide === 'player' ? 'enemy' : 'player';
-    } else {
-      nextTurn = nextP >= 100 - EPSILON ? 'player' : 'enemy';
+    // Наращиваем шкалу пока кто-то не достигнет 100
+    while (currentP < 100 && currentE < 100) {
+      currentP += pGainPerStep;
+      currentE += eGainPerStep;
     }
+    
+    // Округляем до десятых
+    currentP = Math.round(currentP * 10) / 10;
+    currentE = Math.round(currentE * 10) / 10;
+
+    const nextTurn = currentP >= currentE ? 'player' : 'enemy';
 
     return {
       ...prev,
-      speedGauge: { player: nextP, enemy: nextE },
+      speedGauge: { player: currentP, enemy: currentE },
       turn: nextTurn
     };
   }, [playerPet, getVal]);
@@ -458,38 +450,46 @@ const BattleProvider: React.FC<{
   const performEnemyTurn = useCallback(async (currentEnemy: Pet, currentHp: any, currentRage: any) => {
     if (state.winner || !currentEnemy || !playerPet) return;
 
-    // Turn Start: Card Enlarge
-    syncState({ turn: 'enemy', isEnemyAttacking: true });
-    await new Promise(r => setTimeout(r, 600));
-
     const enemyIsLow = currentHp.enemy < ((getEffectiveStat(currentEnemy, 'health') || 100) * 0.3);
     const shouldRegen = enemyIsLow && Math.random() > 0.4 && (getEffectiveStat(currentEnemy, 'regeneration') > 0);
     const useUlt = !shouldRegen && currentRage.enemy >= 100;
-
     const actionType = shouldRegen ? 'regen' : (useUlt ? 'ult' : 'attack');
-    
-    let activeBuff: Skill | null = null;
+
+    let activeSkill: any = null;
+    let emojiStr: string | undefined = undefined;
+
+    if (actionType === 'regen') {
+      const debuffs = (currentEnemy.skills || []).filter(s => s.type === 'active_debuff');
+      if (debuffs.length > 0) activeSkill = debuffs[Math.floor(Math.random() * debuffs.length)];
+      emojiStr = getEmojiStr(activeSkill);
+    } else if (actionType === 'attack') {
+      const buffs = (currentEnemy.skills || []).filter(s => s.type === 'active_buff');
+      if (buffs.length > 0) activeSkill = buffs[Math.floor(Math.random() * buffs.length)];
+      emojiStr = getEmojiStr(activeSkill);
+    } else if (actionType === 'ult') {
+      const e = currentEnemy.element;
+      emojiStr = e === 'fire' ? '🔥' : e === 'water' ? '💧' : e === 'earth' ? '⛰️' : e === 'air' ? '🌪️' : '✨';
+    }
+
+    syncState({ turn: 'enemy', isEnemyAttacking: true, showUlt: useUlt, activeActionEffect: { type: actionType, isPlayer: false, emoji: emojiStr } });
+    await new Promise(r => setTimeout(r, 600));
+
     let buffMult = 1.0;
     let skillLog = '';
     
-    if (actionType !== 'regen') {
-      const buffs = (currentEnemy.skills || []).filter(s => s.type === 'active_buff');
-      if (buffs.length > 0) {
-        activeBuff = buffs[Math.floor(Math.random() * buffs.length)];
-        buffMult = 1.0 + (activeBuff.value / 100);
-        skillLog = ` [Навык: ${activeBuff.name} +${activeBuff.value}%]`;
-      }
+    if (actionType !== 'regen' && activeSkill) {
+      buffMult = 1.0 + (activeSkill.value / 100);
+      skillLog = ` [Навык ${getEmojiStr(activeSkill)} ${activeSkill.name}: +${activeSkill.value}%]`;
     }
 
     if (shouldRegen) {
         let debuffLog = '';
-        const debuffs = (currentEnemy.skills || []).filter(s => s.type === 'active_debuff');
         let newDebuffs = { ...state.debuffs };
-        if (debuffs.length > 0) {
-          const activeDebuff = debuffs[Math.floor(Math.random() * debuffs.length)];
+        if (activeSkill) {
+          const activeDebuff = activeSkill;
           const debuffValue = Math.floor(getEffectiveStat(playerPet, activeDebuff.targetStat) * (activeDebuff.value / 100));
           newDebuffs.player = { ...newDebuffs.player, [activeDebuff.targetStat]: (newDebuffs.player[activeDebuff.targetStat] || 0) + debuffValue };
-          debuffLog = ` [${activeDebuff.name}: -${activeDebuff.value}% ${activeDebuff.targetStat}]`;
+          debuffLog = ` [Навык ${getEmojiStr(activeDebuff)} ${activeDebuff.name}: -${activeDebuff.value}% ${activeDebuff.targetStat}]`;
         }
 
         const regenStat = getVal(currentEnemy, 'regeneration', 'enemy', state.debuffs);
@@ -517,12 +517,17 @@ const BattleProvider: React.FC<{
           };
           return updateSpeedAndDecideTurn(intermediate);
         });
+
+        setTimeout(() => {
+          syncState({ isEnemyAttacking: false, activeActionEffect: null, showUlt: false });
+        }, 600);
+
         return;
     }
 
     const { total, attack, defense, magic } = calculateDamageDetailed(currentEnemy, playerPet, useUlt, state.defenseBoost.player, 'enemy', buffMult, state.debuffs);
     const log = useUlt 
-      ? `[Враг] ${currentEnemy.name} (УЛЬТА): Нанесено ${total} Ур (Атк+Маг: ${attack + magic}, Защ: ${defense})${skillLog}`
+      ? `[Враг] ${emojiStr} ${currentEnemy.name} (УЛЬТА): Нанесено ${total} Ур (Атк+Маг: ${attack + magic}, Защ: ${defense})${skillLog}`
       : `[Враг] ${currentEnemy.name}: Удар на ${total} Ур (Атк: ${attack}, Защ: ${defense})${skillLog}`;
 
     const currentPlayerHp = Math.max(0, currentHp.player - total);
@@ -537,8 +542,8 @@ const BattleProvider: React.FC<{
       id: damageId,
       value: total,
       isPlayer: true,
-      x: -50 + Math.random() * 100, // randomized around center
-      y: 100 + Math.random() * 50,
+      x: -30 + Math.random() * 60,
+      y: 0,
       type: actionType === 'ult' ? 'ult' : 'damage'
     };
 
@@ -575,7 +580,7 @@ const BattleProvider: React.FC<{
 
     // Reset hit effects and remove damage numbers after delay
     setTimeout(() => {
-      syncState({ isPlayerHit: false, isEnemyAttacking: false });
+      syncState({ isPlayerHit: false, isEnemyAttacking: false, activeActionEffect: null, showUlt: false });
     }, 500);
 
     setTimeout(() => {
@@ -587,20 +592,39 @@ const BattleProvider: React.FC<{
   }, [state.winner, playerPet, calculateDamageDetailed, syncState, state.debuffs]);
 
   const handleAction = async (type: 'attack' | 'ult' | 'regen') => {
-    if (state.turn !== 'player' || state.winner || !state.enemy || !playerPet) return;
+    if (state.turn !== 'player' || state.winner || !state.enemy || !playerPet || actionLock.current) return;
+    actionLock.current = true;
 
-    console.log(`[Battle] Player action: ${type}`);
-    syncState({ turn: 'waiting' });
+    try {
+      console.log(`[Battle] Player action: ${type}`);
+    
+    let activeSkill: any = null;
+    let emojiStr: string | undefined = undefined;
+    
+    if (type === 'attack') {
+      const buffs = (playerPet.skills || []).filter(s => s.type === 'active_buff');
+      if (buffs.length > 0) activeSkill = buffs[Math.floor(Math.random() * buffs.length)];
+      emojiStr = getEmojiStr(activeSkill);
+    } else if (type === 'regen') {
+      const debuffs = (playerPet.skills || []).filter(s => s.type === 'active_debuff');
+      if (debuffs.length > 0) activeSkill = debuffs[Math.floor(Math.random() * debuffs.length)];
+      emojiStr = getEmojiStr(activeSkill);
+    } else if (type === 'ult') {
+      const e = playerPet.element;
+      emojiStr = e === 'fire' ? '🔥' : e === 'water' ? '💧' : e === 'earth' ? '⛰️' : e === 'air' ? '🌪️' : '✨';
+    }
+
+    syncState({ turn: 'waiting', isPlayerAttacking: true, showUlt: type === 'ult', activeActionEffect: { type, isPlayer: true, emoji: emojiStr } });
+    await new Promise(r => setTimeout(r, 600));
 
     if (type === 'regen') {
       let debuffLog = '';
-      const debuffs = (playerPet.skills || []).filter(s => s.type === 'active_debuff');
       let newDebuffs = { ...state.debuffs };
-      if (debuffs.length > 0) {
-        const activeDebuff = debuffs[Math.floor(Math.random() * debuffs.length)];
+      if (activeSkill) {
+        const activeDebuff = activeSkill;
         const debuffValue = Math.floor(getEffectiveStat(state.enemy, activeDebuff.targetStat) * (activeDebuff.value / 100));
         newDebuffs.enemy = { ...newDebuffs.enemy, [activeDebuff.targetStat]: (newDebuffs.enemy[activeDebuff.targetStat] || 0) + debuffValue };
-        debuffLog = ` [Навык ${activeDebuff.name}: -${activeDebuff.value}% ${activeDebuff.targetStat}]`;
+        debuffLog = ` [Навык ${getEmojiStr(activeDebuff)} ${activeDebuff.name}: -${activeDebuff.value}% ${activeDebuff.targetStat}]`;
       }
 
       const regenStat = getVal(playerPet, 'regeneration', 'player', state.debuffs);
@@ -614,8 +638,8 @@ const BattleProvider: React.FC<{
         id: damageId,
         value: finalRegen,
         isPlayer: true,
-        x: -50 + Math.random() * 100,
-        y: 100 + Math.random() * 50,
+        x: -30 + Math.random() * 60,
+        y: 0,
         type: 'heal'
       };
 
@@ -641,23 +665,26 @@ const BattleProvider: React.FC<{
       });
 
       setTimeout(() => {
+        syncState({ isPlayerAttacking: false, activeActionEffect: null, showUlt: false });
+      }, 600);
+
+      setTimeout(() => {
         syncState(prev => ({
           ...prev,
           floatingDamages: prev.floatingDamages.filter(d => d.id !== damageId)
         }));
+        actionLock.current = false;
       }, 2000);
 
       return;
     }
 
-    let activeBuff: Skill | null = null;
     let buffMult = 1.0;
     let skillLog = '';
-    const buffs = (playerPet.skills || []).filter(s => s.type === 'active_buff');
-    if (buffs.length > 0) {
-      activeBuff = buffs[Math.floor(Math.random() * buffs.length)];
+    if (type !== 'regen' && activeSkill) {
+      const activeBuff = activeSkill;
       buffMult = 1.0 + (activeBuff.value / 100);
-      skillLog = ` [Навык: ${activeBuff.name} +${activeBuff.value}%]`;
+      skillLog = ` [Навык ${getEmojiStr(activeBuff)} ${activeBuff.name}: +${activeBuff.value}%]`;
     }
 
     const { total, attack, defense, magic } = calculateDamageDetailed(playerPet, state.enemy, type === 'ult', state.defenseBoost.enemy, 'player', buffMult, state.debuffs);
@@ -666,7 +693,7 @@ const BattleProvider: React.FC<{
     if (type === 'attack') {
       log = `${playerPet.name} ударил на ${total} Ур (Атк: ${attack}, Защ: ${defense})${skillLog}`;
     } else if (type === 'ult') {
-      log = `⚡️ УЛЬТА ${playerPet.name}: ${total} Ур (Атк+Маг: ${attack + magic}, Защ врага: ${defense})${skillLog}`;
+      log = `${emojiStr} УЛЬТА ${playerPet.name}: ${total} Ур (Атк+Маг: ${attack + magic}, Защ врага: ${defense})${skillLog}`;
     }
 
     const currentEnemyHp = Math.max(0, state.hp.enemy - total);
@@ -677,8 +704,8 @@ const BattleProvider: React.FC<{
       id: damageId,
       value: total,
       isPlayer: false,
-      x: -50 + Math.random() * 100,
-      y: 100 + Math.random() * 50,
+      x: -30 + Math.random() * 60,
+      y: 0,
       type: type === 'ult' ? 'ult' : 'damage'
     };
 
@@ -726,7 +753,14 @@ const BattleProvider: React.FC<{
         ...prev,
         floatingDamages: prev.floatingDamages.filter(d => d.id !== damageId)
       }));
+      actionLock.current = false;
     }, 2000);
+
+    } catch (err) {
+      console.error('[Battle] Error during handleAction:', err);
+      actionLock.current = false;
+      syncState({ isPlayerAttacking: false, activeActionEffect: null, showUlt: false });
+    }
   };
 
   // Trigger enemy turn when it's their turn
@@ -824,7 +858,7 @@ const BattleProvider: React.FC<{
   return <BattleContext.Provider value={value}>{children}</BattleContext.Provider>;
 };
 
-const BattleCard = React.memo(({ pet, currentHp, maxHp, isPlayer, rage, speedGauge, opponent, sideDebuffs, isHit }: { 
+const BattleCard = React.memo(({ pet, currentHp, maxHp, isPlayer, rage, speedGauge, opponent, sideDebuffs, isHit, isAttacking }: { 
   pet: Pet, 
   currentHp: number, 
   maxHp: number, 
@@ -833,7 +867,8 @@ const BattleCard = React.memo(({ pet, currentHp, maxHp, isPlayer, rage, speedGau
   speedGauge: { player: number, enemy: number }, 
   opponent: Pet,
   sideDebuffs: Partial<Record<keyof PetStats, number>>,
-  isHit?: boolean
+  isHit?: boolean,
+  isAttacking?: boolean
 }) => {
     const cp = calculateCP(pet);
 
@@ -861,15 +896,21 @@ const BattleCard = React.memo(({ pet, currentHp, maxHp, isPlayer, rage, speedGau
     return (
       <motion.div 
         initial={{ rotate: isPlayer ? -1.5 : 1.5 }}
-        animate={isHit ? { 
+        animate={isAttacking ? {
+          scale: [1, 1.4, 1],
+          y: [0, -30, 0],
+          rotate: isPlayer ? [-1.5, 0, -1.5] : [1.5, 0, 1.5],
+          zIndex: [10, 50, 10]
+        } : isHit ? { 
           x: [0, -10, 10, -10, 10, 0],
           rotate: isPlayer ? [-1.5, -5, 5, -5, 5, -1.5] : [1.5, 5, -5, 5, -5, 1.5]
         } : { 
           rotate: isPlayer ? -1.5 : 1.5 
         }}
-        transition={isHit ? { duration: 0.4 } : { type: "spring", damping: 30, stiffness: 400 }}
+        transition={isAttacking ? { duration: 0.6 } : isHit ? { duration: 0.4 } : { type: "spring", damping: 30, stiffness: 400 }}
         className={cn(
-          "relative w-full aspect-[3/4.8] bg-white border-2 border-pen-blue flex flex-col select-none rounded-sm"
+          "relative w-full aspect-[3/4.8] bg-white border-2 border-pen-blue flex flex-col select-none rounded-sm",
+          isAttacking ? "z-50" : "z-10"
         )}
       >
         {/* Stat Icons - Positioned on the border away from center, moved up */}
@@ -975,17 +1016,22 @@ const BattleCard = React.memo(({ pet, currentHp, maxHp, isPlayer, rage, speedGau
         </div>
 
         {/* Speed bar */}
-        <div className="h-3 bg-black/5 w-full overflow-hidden relative border-t border-black/5">
+        <div className="h-4 bg-black/5 w-full overflow-hidden relative border-t border-black/5">
            <motion.div 
              className="h-full bg-green-500" 
              animate={{ width: `${Math.min(100, isPlayer ? speedGauge.player : speedGauge.enemy)}%` }} 
              transition={{ duration: 0.3 }}
            />
            <div className={cn(
-             "absolute inset-0 flex items-center justify-center text-[8px] font-black pointer-events-none",
+             "absolute inset-0 flex items-center justify-center text-[9px] font-black pointer-events-none",
              (isPlayer ? speedGauge.player : speedGauge.enemy) > 50 ? "text-white" : "text-pen-blue"
            )}>
               Скорость: {Math.floor(isPlayer ? speedGauge.player : speedGauge.enemy)}%
+              {Math.floor((isPlayer ? speedGauge.player : speedGauge.enemy) / 100) >= 1 && (
+                <span className="ml-1 flex items-center gap-0.5">
+                  | Ходов: {Math.floor((isPlayer ? speedGauge.player : speedGauge.enemy) / 100)} <Zap className="w-2.5 h-2.5 fill-current inline-block pb-[1px]" />
+                </span>
+              )}
            </div>
         </div>
       </motion.div>
@@ -1010,7 +1056,7 @@ const BattleContent: React.FC<{ side: 'left' | 'right', setProgress: React.Dispa
     return (
       <div className="h-full flex flex-col pt-4 pb-8 px-4 relative overflow-hidden ledger-grid">
         <AnimatePresence>
-          {showUlt && <UltAnimation element={playerPet.element} />}
+          {showUlt && <UltAnimation element={activeActionEffect?.isPlayer === false && enemy ? enemy.element : playerPet.element} />}
           {floatingDamages.map(d => (
             <DamageNumber key={d.id} damage={d} />
           ))}
@@ -1022,24 +1068,33 @@ const BattleContent: React.FC<{ side: 'left' | 'right', setProgress: React.Dispa
               <motion.div 
                  initial={{ scale: 0, opacity: 0 }}
                  animate={{ scale: 1, opacity: 1 }}
-                 exit={{ scale: 2, opacity: 0 }}
+                 exit={{ scale: 0.5, opacity: 0 }}
+                 transition={{ duration: 0.3 }}
                  className="absolute inset-x-0 top-1/2 -translate-y-1/2 z-[300] flex items-center justify-center pointer-events-none"
               >
-                 <div className="bg-white border-[10px] border-pen-blue p-8 rounded-full overflow-hidden">
-                    {activeActionEffect.type === 'attack' && <Sword className="w-32 h-32 text-pen-blue" strokeWidth={3} />}
-                    {activeActionEffect.type === 'regen' && <Heart className="w-32 h-32 text-pen-red fill-current" />}
-                    {activeActionEffect.type === 'ult' && <Zap className="w-32 h-32 text-sticker-yellow fill-current" strokeWidth={3} />}
+                 <div className="p-8 flex items-center justify-center">
+                  {activeActionEffect.emoji ? (
+                    <div className="w-48 h-48 flex items-center justify-center text-[10rem] select-none not-italic font-sans" style={{ fontStyle: 'normal', transform: 'none' }}>
+                      {activeActionEffect.emoji}
+                    </div>
+                  ) : (
+                    <>
+                      {activeActionEffect.type === 'attack' && <Sword className="w-48 h-48 text-pen-blue" strokeWidth={3} />}
+                      {activeActionEffect.type === 'regen' && <Heart className="w-48 h-48 text-pen-red fill-current" />}
+                      {activeActionEffect.type === 'ult' && <Zap className="w-48 h-48 text-sticker-yellow fill-current" strokeWidth={3} />}
+                    </>
+                  )}
                  </div>
               </motion.div>
             )}
           </AnimatePresence>
 
           <div className="absolute top-20 left-[5%] w-[44.5%] flex justify-start z-30">
-             <BattleCard pet={playerPet} currentHp={hp.player} maxHp={getEffectiveStat(playerPet, 'health')} isPlayer={true} rage={rage} speedGauge={speedGauge} opponent={enemy} sideDebuffs={debuffs.player} isHit={isPlayerHit} />
+             <BattleCard pet={playerPet} currentHp={hp.player} maxHp={getEffectiveStat(playerPet, 'health')} isPlayer={true} rage={rage} speedGauge={speedGauge} opponent={enemy} sideDebuffs={debuffs.player} isHit={isPlayerHit} isAttacking={isPlayerAttacking} />
           </div>
 
           <div className="absolute bottom-20 right-[5%] w-[44.5%] flex justify-end z-10">
-             <BattleCard pet={enemy} currentHp={hp.enemy} maxHp={getEffectiveStat(enemy, 'health')} isPlayer={false} rage={rage} speedGauge={speedGauge} opponent={playerPet} sideDebuffs={debuffs.enemy} isHit={isEnemyHit} />
+             <BattleCard pet={enemy} currentHp={hp.enemy} maxHp={getEffectiveStat(enemy, 'health')} isPlayer={false} rage={rage} speedGauge={speedGauge} opponent={playerPet} sideDebuffs={debuffs.enemy} isHit={isEnemyHit} isAttacking={isEnemyAttacking} />
           </div>
 
           <div className="absolute top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-[60] flex flex-col gap-3 scale-[0.8]">
@@ -1130,7 +1185,7 @@ const BattleContent: React.FC<{ side: 'left' | 'right', setProgress: React.Dispa
                    animate={{ opacity: 1, x: 0 }}
                    className="text-[12px] font-black italic py-1 leading-[1.2] text-pen-blue"
                 >
-                  {i === 0 ? <Typewriter text={log} delay={20} className="text-pen-blue" /> : log}
+                  {i === 0 ? <Typewriter text={log} delay={20} className="text-pen-blue" /> : renderWithEmojis(log)}
                 </motion.div>
               ))}
            </div>

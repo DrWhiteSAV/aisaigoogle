@@ -634,7 +634,7 @@ export const Market: React.FC<{ progress: UserProgress; setProgress: React.Dispa
                                    : (AFFINITY_MAP_RU[skill.element || ''] || skill.element)}
                                </div>
                              </div>
-                             <div className="text-[18px] font-black text-pen-blue mt-2 italic">{calculateSellPrice(skill)} 🌱</div>
+                             <div className="text-[18px] font-black text-pen-blue mt-2 italic">{calculateSellPrice(skill)} <span className="not-italic inline-block" style={{ fontStyle: 'normal', transform: 'none' }}>🌱</span></div>
                            </div>
                         </div>
                       </GlassCard>
