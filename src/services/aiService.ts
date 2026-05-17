@@ -276,8 +276,14 @@ export const generatePetStatsAndLore = async (
   const baseStatsTotal = RARITY_WEIGHTS[forcedRarity].base;
   const initialStats = distributeStats(baseStatsTotal);
   
-  const randomElement = ['water', 'fire', 'air', 'earth'][Math.floor(Math.random() * 4)] as Element;
-  const randomAttribute = ['light', 'dark', 'void', 'time'][Math.floor(Math.random() * 4)] as Attribute;
+  const getRandomItem = <T>(arr: T[]): T => {
+    const array = new Uint32Array(1);
+    crypto.getRandomValues(array);
+    return arr[array[0] % arr.length];
+  };
+
+  const randomElement = getRandomItem<Element>(['water', 'fire', 'air', 'earth']);
+  const randomAttribute = getRandomItem<Attribute>(['light', 'dark', 'void', 'time']);
   
   const prompt = `Сгенерируй данные для уникального существа в игре aiSai, которое является истинным отражением личности пользователя.
     
@@ -468,8 +474,14 @@ export const preRollQuestReward = (pet: Pet): RewardData | null => {
 };
 
 export const generateQuestBonusItem = async (reward: RewardData): Promise<InventoryItem> => {
-  const customElement = ['water', 'fire', 'air', 'earth'][Math.floor(Math.random() * 4)];
-  const customAttribute = ['light', 'dark', 'void', 'time'][Math.floor(Math.random() * 4)];
+  const getRandomItem = <T>(arr: T[]): T => {
+    const array = new Uint32Array(1);
+    crypto.getRandomValues(array);
+    return arr[array[0] % arr.length];
+  };
+
+  const customElement = getRandomItem(['water', 'fire', 'air', 'earth']);
+  const customAttribute = getRandomItem(['light', 'dark', 'void', 'time']);
   
   const prompt = `Сгенерируй название и атмосферное описание предмета для игры aiSai. СТРОГО БЕЗ КАПСЛОКА.
     ТИП ПРЕДМЕТА: ${
