@@ -1,45 +1,46 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { NeonButton, HandwrittenText, LogoAnimation } from '../components/UI';
+import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { Plus } from 'lucide-react';
 
-export const Welcome: React.FC<{ onSetup?: () => void; side?: 'left' | 'right' }> = ({ onSetup, side = 'left' }) => {
+export const Welcome: React.FC<{ onSetup?: () => void; side?: 'left' | 'right'; isMobileBook?: boolean }> = ({ onSetup, side = 'left', isMobileBook }) => {
   const navigate = useNavigate();
   
   return (
-    <div className="relative flex flex-col items-center justify-center h-full text-center p-8 space-y-4">
-      <div className="w-[70%] max-w-[400px] aspect-square relative">
+    <div className={cn("relative flex flex-col items-center justify-center text-center", isMobileBook ? "px-4 space-y-0 h-auto min-h-full" : "h-full p-8 space-y-4")}>
+      <div className={cn("aspect-square relative flex-shrink-0", isMobileBook ? "w-[50%] sm:max-w-[250px] my-0" : "w-[70%] max-w-[400px]")}>
         <LogoAnimation 
-          containerClassName="absolute inset-0 mix-blend-multiply"
-          logoClassName="w-full h-full"
-          imgClassName="w-full h-full object-contain filter contrast-125"
+          containerClassName="absolute inset-0 mix-blend-multiply flex items-center justify-center"
+          logoClassName={cn("w-full h-full", isMobileBook && "max-h-[140px]")}
+          imgClassName="w-full h-full object-contain filter contrast-125 select-none pointer-events-none"
         />
       </div>
       
-      <div className="space-y-1 mt-4">
+      <div className={cn(isMobileBook ? "space-y-0 mt-0" : "space-y-1 mt-4")}>
         <p className="text-xl sm:text-2xl font-medium text-pen-blue tracking-wide font-hand">
           Цифровой Бестиарий
         </p>
       </div>
 
-      <div className="max-w-[280px] text-lg sm:text-xl text-pen-blue/40 leading-relaxed font-black border-t border-black/5 pt-2">
+      <div className={cn("max-w-[280px] text-lg sm:text-xl text-pen-blue/40 font-black border-t border-black/5", isMobileBook ? "pt-1 leading-tight" : "pt-2 leading-relaxed")}>
         <HandwrittenText 
           text="Инициализируйте протокол слияния для проявления вашей первой цифровой сущности." 
           speed={40}
         />
       </div>
 
-      <div className="pt-2 flex flex-col items-center gap-4">
+      <div className={cn("flex flex-col items-center", isMobileBook ? "pt-1 gap-1" : "pt-2 gap-4")}>
         <NeonButton 
           onClick={onSetup}
-          className="bg-sticker-yellow font-black px-12 py-4 border-2 border-black rotate-2 hover:rotate-1 transition-all"
+          className={cn("bg-sticker-yellow font-black border-2 border-black rotate-2 hover:rotate-1 transition-all", isMobileBook ? "px-6 py-0 min-h-[30px] text-sm mt-1 mb-1" : "px-12 py-4")}
         >
           Начать
         </NeonButton>
-        <div className="opacity-20 mt-2">
-          <div className="w-12 h-0.5 bg-pen-blue mx-auto mb-2" />
-          <p className="text-[12px] font-black tracking-wide text-pen-blue">протокол 0.1.а</p>
+        <div className={cn("opacity-20", isMobileBook ? "mt-0" : "mt-2")}>
+          <div className={cn("bg-pen-blue mx-auto", isMobileBook ? "w-8 h-[1px] mb-0.5" : "w-12 h-0.5 mb-2")} />
+          <p className="text-[10px] sm:text-[12px] font-black tracking-wide text-pen-blue">протокол 0.1.а</p>
         </div>
       </div>
     </div>

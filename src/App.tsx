@@ -159,8 +159,8 @@ const Page = React.forwardRef<HTMLDivElement, { children: React.ReactNode; side?
         </>
       )}
       
-      {/* Wrapping layer for the 2% scrollbar offset */}
-      <div className="absolute top-[10px] bottom-0 left-0 right-[2%]">
+      {/* Wrapping layer for the scrollbar offset */}
+      <div className={cn("absolute top-[10px] bottom-0 left-0", side === 'mobile' ? "right-0" : "right-[2%]")}>
         <div 
           ref={scrollRef}
           onScroll={(e) => {
@@ -173,7 +173,8 @@ const Page = React.forwardRef<HTMLDivElement, { children: React.ReactNode; side?
             }
           }}
           className={cn(
-            "pl-[5%] pr-[3%] pb-8 h-full overflow-y-auto custom-scrollbar relative z-10 w-full"
+            "pt-4 pb-8 h-full overflow-y-auto custom-scrollbar relative z-10 w-full",
+            side === 'mobile' ? "px-6" : "px-[5%]"
           )}
         >
           {children}
@@ -518,6 +519,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
   }, [location.pathname, progress.pets.length, isOnboarding]);
 
   const isPortrait = windowSize.width < 1024;
+  const isVertical = windowSize.height >= windowSize.width;
 
   const handleStartSummon = async () => {
     if (isSummoning) return;
@@ -628,8 +630,6 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
 
   if (isPortrait) {
     if (currentBook === 'welcome') {
-      const isVertical = windowSize.height >= windowSize.width;
-
       const handleMobileFlip = (e: any) => {
         const idx = e.data;
         let targetPath = '';
@@ -656,13 +656,15 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
         }
       };
 
-      const flipBookWidth = isVertical ? windowSize.width : Math.floor(windowSize.width / 2);
-      const flipBookHeight = windowSize.height;
+      const paddingX = Math.floor(windowSize.width * 0.05);
+      const paddingY = Math.floor(windowSize.height * 0.05);
+      const flipBookWidth = isVertical ? windowSize.width : Math.floor((windowSize.width - (paddingX * 2)) / 2);
+      const flipBookHeight = isVertical ? windowSize.height : windowSize.height - (paddingY * 2);
 
       return (
         <div className="flex items-center justify-center bg-transparent relative selection:bg-sticker-blue/30 overflow-hidden fixed inset-0 welcome-mobile-typography" style={{ width: windowSize.width, height: windowSize.height }}>
           <GlobalBookTransition currentBook={currentBook} />
-          <div className="absolute inset-0 bg-[#f2ede0] -z-10" />
+          <div className="absolute inset-0 bg-transparent -z-10" />
           
           <HTMLFlipBook 
              key={`flipbook-mobile-welcome-${isVertical ? 'portrait' : 'landscape'}`}
@@ -686,16 +688,16 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
              startPage={location.pathname === '/setup' ? (isVertical ? 1 : 0) : 0}
              showPageCorners={false}
              disableFlipByClick={true}
-             swipeDistance={isVertical ? 30 : 50}
+             swipeDistance={isVertical ? Math.floor(windowSize.width / 2) : 50}
              flippingTime={isVertical ? 600 : 900}
           >
             {isVertical ? [
-               <Page key="wv1" side="mobile" className="w-full h-full"><Welcome onSetup={doMobileNav} /></Page>,
+               <Page key="wv1" side="mobile" className="w-full h-full"><Welcome onSetup={doMobileNav} isMobileBook /></Page>,
                <Page key="wv2" side="mobile" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={1} toggleFlipLock={() => {}} isMobileBook mNavigate={doMobileNav} /></Page>,
                <Page key="wv3" side="mobile" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={2} toggleFlipLock={() => {}} onStartSummon={() => { handleStartSummon(); doMobileNav(); }} isMobileBook mNavigate={doMobileNav} /></Page>,
                <Page key="wv4" side="mobile" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handlePetSummonComplete} step={3} externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} toggleFlipLock={() => {}} isMobileBook mNavigate={doMobileNav} /></Page>
             ] : [
-               <Page key="wl1" side="left" className="w-full h-full"><Welcome onSetup={doMobileNav} /></Page>,
+               <Page key="wl1" side="left" className="w-full h-full"><Welcome onSetup={doMobileNav} isMobileBook /></Page>,
                <Page key="wl2" side="right" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={1} toggleFlipLock={() => {}} isMobileBook mNavigate={doMobileNav} /></Page>,
                <Page key="wl3" side="left" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={2} toggleFlipLock={() => {}} onStartSummon={() => { handleStartSummon(); doMobileNav(); }} isMobileBook mNavigate={doMobileNav} /></Page>,
                <Page key="wl4" side="right" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handlePetSummonComplete} step={3} externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} toggleFlipLock={() => {}} isMobileBook mNavigate={doMobileNav} /></Page>
@@ -850,8 +852,10 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
     }
   };
 
-  const flipBookWidth = Math.floor(Math.min(720, (windowSize.width - (windowSize.width < 1280 ? 40 : 120)) / 2));
-  const flipBookHeight = Math.floor(Math.min(900, windowSize.height - 40));
+  const paddingX = Math.floor(windowSize.width * 0.05);
+  const paddingY = Math.floor(windowSize.height * 0.05);
+  const flipBookWidth = isVertical ? Math.floor(Math.min(720, windowSize.width - (paddingX * 2))) : Math.floor(Math.min(720, (windowSize.width - (paddingX * 2)) / 2));
+  const flipBookHeight = Math.floor(Math.min(900, windowSize.height - (paddingY * 2)));
   const showNav = hasPets && !isOnboarding;
 
   const currentPath = location.pathname;
@@ -942,7 +946,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
       <GlobalBookTransition currentBook={currentBook} />
       <div className="absolute inset-0 bg-black/5 -z-10" />
       {showNav && <Navbar sprouts={progress.sprouts} />}
-      <div className="w-full h-full flex items-center justify-center overflow-hidden p-4 sm:p-8">
+      <div className="w-full h-full flex items-center justify-center overflow-hidden">
         <div 
           className={cn(
             "relative flex items-center justify-center transition-all duration-500 ease-in-out",
@@ -974,10 +978,11 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
             onFlip={onFlip}
             startPage={getPageFromPath(location.pathname)}
             drawShadow={true}
-            flippingTime={900}
+            flippingTime={isVertical ? 600 : 900}
             useMouseEvents={isFlipEnabled}
             clickEventForward={true}
-            usePortrait={false}
+            usePortrait={isVertical}
+            swipeDistance={isVertical ? Math.max(30, Math.floor(windowSize.width / 2)) : 50}
             startZIndex={0}
             autoSize={true}
             showPageCorners={true}

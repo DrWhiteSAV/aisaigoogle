@@ -15,19 +15,34 @@ export const RankInfoModal: React.FC<{
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-[5%]" onClick={onClose}>
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="absolute inset-0 bg-[#f2ede0] w-full h-full cursor-pointer"
+          />
           <motion.div 
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="relative max-w-md w-full max-h-[80vh] overflow-y-auto no-scrollbar bg-[#f2ede0] ledger-grid border-4 border-pen-blue p-6 text-left space-y-4 shadow-xl"
+            className="relative pointer-events-auto z-10 w-full h-full max-h-full bg-[#f2ede0] ledger-grid display-flex flex-col overflow-hidden border-2 border-pen-blue p-6 text-left"
             onClick={e => e.stopPropagation()}
+            style={{ 
+              color: 'var(--color-pen-blue)', 
+              fontWeight: 100, 
+              fontSize: '12px',
+              fontStyle: 'normal'
+            }}
           >
-            <div className="flex justify-between items-center border-b-2 border-pen-blue/20 pb-2 mb-4">
-               <h2 className="text-[20px] font-black text-pen-blue">Ранг Призывателя</h2>
-               <button onClick={onClose} className="flex items-center justify-center text-pen-blue text-[50px] leading-none hover:rotate-90 transition-transform origin-center">&times;</button>
+            <div className="absolute top-2 right-2 flex gap-1 z-50">
+              <button onClick={onClose} className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-black/5 text-pen-blue font-black transition-all">✕</button>
             </div>
-            <div className="space-y-2">
+            <div className="flex justify-between items-center border-b-2 border-pen-blue/20 pb-2 mb-4 shrink-0">
+               <h2 className="text-[20px] font-black text-pen-blue">Ранг Призывателя</h2>
+            </div>
+            <div className="space-y-2 flex-1 overflow-y-auto custom-scrollbar">
                {RANKS_INFO.map(rank => {
                   const isCurrent = rank.name === rankInfo.name;
                   return (
