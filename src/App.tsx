@@ -108,7 +108,7 @@ import HTMLFlipBook from 'react-pageflip';
 
 const pageScrollData = new Map<string, number>();
 
-const Page = React.forwardRef<HTMLDivElement, { children: React.ReactNode; side?: 'left' | 'right'; id?: string }>(({ children, side, id }, ref) => {
+const Page = React.forwardRef<HTMLDivElement, { children: React.ReactNode; side?: 'left' | 'right' | 'mobile'; id?: string; className?: string }>(({ children, side, id, className }, ref) => {
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const isRestoring = React.useRef(false);
   
@@ -135,39 +135,49 @@ const Page = React.forwardRef<HTMLDivElement, { children: React.ReactNode; side?
 
   return (
     <div className={cn(
-      "bg-[#f2ede0] ledger-grid shadow-none relative h-full",
-      side === 'left' ? "border-r border-black/[0.03]" : "border-l border-black/[0.03]"
+      "bg-[#f2ede0] ledger-grid relative h-full",
+      side === 'left' ? "border-r border-black/[0.03]" : side === 'right' ? "border-l border-black/[0.03]" : "",
+      className
     )} ref={ref}>
-      <div className={cn(
-        "absolute top-0 bottom-0 w-24 pointer-events-none z-20",
-        side === 'left' 
-          ? "right-0 bg-gradient-to-l from-black/[0.08] via-black/[0.02] to-transparent" 
-          : "left-0 bg-gradient-to-r from-black/[0.08] via-black/[0.02] to-transparent"
-      )} />
+      {side !== 'mobile' && (
+        <>
+          <div className={cn(
+            "absolute top-0 bottom-0 w-24 pointer-events-none z-20",
+            side === 'left' 
+              ? "right-0 bg-gradient-to-l from-black/[0.08] via-black/[0.02] to-transparent" 
+              : "left-0 bg-gradient-to-r from-black/[0.08] via-black/[0.02] to-transparent"
+          )} />
+          
+          <div className={cn(
+            "absolute top-0 bottom-0 w-[1px] bg-red-400/[0.15] pointer-events-none z-20",
+            side === 'left' ? "right-12" : "left-12"
+          )} />
+          <div className={cn(
+            "absolute top-0 bottom-0 w-[1px] bg-red-400/[0.05] pointer-events-none z-20",
+            side === 'left' ? "right-14" : "left-14"
+          )} />
+        </>
+      )}
       
-      <div className={cn(
-        "absolute top-0 bottom-0 w-[1px] bg-red-400/[0.15] pointer-events-none z-20",
-        side === 'left' ? "right-12" : "left-12"
-      )} />
-      <div className={cn(
-        "absolute top-0 bottom-0 w-[1px] bg-red-400/[0.05] pointer-events-none z-20",
-        side === 'left' ? "right-14" : "left-14"
-      )} />
-      
-      <div 
-        ref={scrollRef}
-        onScroll={(e) => {
-          if (id && !isRestoring.current) {
-             const target = e.currentTarget;
-             // Don't save 0 if the container suddenly became unscrollable (meaning it's hiding/unmounting)
-             if (target.scrollHeight > target.clientHeight) {
-                pageScrollData.set(id, target.scrollTop);
-             }
-          }
-        }}
-        className="p-6 sm:p-8 pt-[10px] h-full overflow-y-auto no-scrollbar relative z-10"
-      >
-        {children}
+      {/* Wrapping layer for the 2% scrollbar offset */}
+      <div className="absolute top-[10px] bottom-0 left-0 right-[2%]">
+        <div 
+          ref={scrollRef}
+          onScroll={(e) => {
+            if (id && !isRestoring.current) {
+               const target = e.currentTarget;
+               // Don't save 0 if the container suddenly became unscrollable (meaning it's hiding/unmounting)
+               if (target.scrollHeight > target.clientHeight) {
+                  pageScrollData.set(id, target.scrollTop);
+               }
+            }
+          }}
+          className={cn(
+            "pl-[5%] pr-[3%] pb-8 h-full overflow-y-auto custom-scrollbar relative z-10 w-full"
+          )}
+        >
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -482,6 +492,9 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
   const syncTargetRef = React.useRef<number | null>(null);
 
   useEffect(() => {
+    const isPortraitEffect = window.innerWidth < 1024;
+    if (isPortraitEffect && getBookFromPath(location.pathname) === 'welcome') return;
+
     const targetPage = getPageFromPath(location.pathname);
     if (syncTargetRef.current === targetPage) return;
     syncTargetRef.current = targetPage;
@@ -614,6 +627,84 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
   }, [isPortrait, currentBook]);
 
   if (isPortrait) {
+    if (currentBook === 'welcome') {
+      const isVertical = windowSize.height >= windowSize.width;
+
+      const handleMobileFlip = (e: any) => {
+        const idx = e.data;
+        let targetPath = '';
+        if (isVertical) {
+          if (idx === 0) targetPath = '/start';
+          else if (idx > 0) targetPath = '/setup';
+        } else {
+          if (idx === 0) targetPath = '/start';
+          else if (idx > 1) targetPath = '/setup';
+        }
+
+        const mappedTarget = isVertical ? (idx === 0 ? 0 : 2) : (idx === 0 ? 0 : 2);
+        syncTargetRef.current = mappedTarget;
+        
+        if (targetPath && location.pathname !== targetPath) {
+          navigate(targetPath, { replace: true });
+        }
+      };
+
+      const doMobileNav = () => {
+        if (flipBookRef.current) {
+          const pageFlip = (flipBookRef.current as any).pageFlip();
+          if (pageFlip) pageFlip.flipNext();
+        }
+      };
+
+      const flipBookWidth = isVertical ? windowSize.width : Math.floor(windowSize.width / 2);
+      const flipBookHeight = windowSize.height;
+
+      return (
+        <div className="flex items-center justify-center bg-transparent relative selection:bg-sticker-blue/30 overflow-hidden fixed inset-0 welcome-mobile-typography" style={{ width: windowSize.width, height: windowSize.height }}>
+          <GlobalBookTransition currentBook={currentBook} />
+          <div className="absolute inset-0 bg-[#f2ede0] -z-10" />
+          
+          <HTMLFlipBook 
+             key={`flipbook-mobile-welcome-${isVertical ? 'portrait' : 'landscape'}`}
+             width={flipBookWidth} 
+             height={flipBookHeight}
+             size="stretch"
+             minWidth={100}
+             minHeight={100}
+             maxWidth={flipBookWidth}
+             maxHeight={flipBookHeight}
+             maxShadowOpacity={0.0}
+             showCover={isVertical ? true : false}
+             mobileScrollSupport={true}
+             ref={flipBookRef}
+             className="flipbook-root touch-none"
+             onFlip={handleMobileFlip}
+             useMouseEvents={true}
+             clickEventForward={true}
+             usePortrait={isVertical}
+             startZIndex={0}
+             startPage={location.pathname === '/setup' ? (isVertical ? 1 : 0) : 0}
+             showPageCorners={false}
+             disableFlipByClick={true}
+             swipeDistance={isVertical ? 30 : 50}
+             flippingTime={isVertical ? 600 : 900}
+          >
+            {isVertical ? [
+               <Page key="wv1" side="mobile" className="w-full h-full"><Welcome onSetup={doMobileNav} /></Page>,
+               <Page key="wv2" side="mobile" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={1} toggleFlipLock={() => {}} isMobileBook mNavigate={doMobileNav} /></Page>,
+               <Page key="wv3" side="mobile" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={2} toggleFlipLock={() => {}} onStartSummon={() => { handleStartSummon(); doMobileNav(); }} isMobileBook mNavigate={doMobileNav} /></Page>,
+               <Page key="wv4" side="mobile" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handlePetSummonComplete} step={3} externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} toggleFlipLock={() => {}} isMobileBook mNavigate={doMobileNav} /></Page>
+            ] : [
+               <Page key="wl1" side="left" className="w-full h-full"><Welcome onSetup={doMobileNav} /></Page>,
+               <Page key="wl2" side="right" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={1} toggleFlipLock={() => {}} isMobileBook mNavigate={doMobileNav} /></Page>,
+               <Page key="wl3" side="left" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={2} toggleFlipLock={() => {}} onStartSummon={() => { handleStartSummon(); doMobileNav(); }} isMobileBook mNavigate={doMobileNav} /></Page>,
+               <Page key="wl4" side="right" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handlePetSummonComplete} step={3} externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} toggleFlipLock={() => {}} isMobileBook mNavigate={doMobileNav} /></Page>
+            ]}
+          </HTMLFlipBook>
+        </div>
+      );
+    }
+
     const showNav = hasPets && !isOnboarding;
     const sortedPaths = Object.keys(bookPages).sort((a, b) => b.length - a.length);
     const matchedPath = sortedPaths.find(p => location.pathname.startsWith(p));

@@ -197,6 +197,8 @@ export const Setup: React.FC<{
   toggleFlipLock?: (id: string, locked: boolean) => void;
   onStartSummon?: () => void;
   hideAction?: boolean;
+  isMobileBook?: boolean;
+  mNavigate?: () => void;
 }> = ({ 
   onComplete, 
   profile,
@@ -212,7 +214,9 @@ export const Setup: React.FC<{
   setExternalError,
   toggleFlipLock,
   onStartSummon,
-  hideAction
+  hideAction,
+  isMobileBook,
+  mNavigate
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -221,12 +225,12 @@ export const Setup: React.FC<{
 
   // Auto-start summoning if requested via state
   useEffect(() => {
-    if (location.state?.autoSummon && onStartSummon) {
+    if (location.state?.autoSummon && onStartSummon && !isMobileBook) {
       onStartSummon();
       // Clear state to avoid re-triggering
       navigate(location.pathname, { replace: true, state: {} });
     }
-  }, [location.state, onStartSummon, navigate, location.pathname]);
+  }, [location.state, onStartSummon, navigate, location.pathname, isMobileBook]);
 
   const [localLoading, setLocalLoading] = useState(false);
   const [localPet, setLocalPet] = useState<Pet | null>(null);
@@ -364,7 +368,10 @@ export const Setup: React.FC<{
 
   const handleNext = () => {
     if (loading) return;
-    if (currentStep === 1 && isStep1Valid) navigate('/setup');
+    if (currentStep === 1 && isStep1Valid) {
+      if (isMobileBook && mNavigate) mNavigate();
+      else navigate('/setup');
+    }
     if (currentStep === 2 && isStep2Valid) {
       if (onStartSummon) {
         onStartSummon();
