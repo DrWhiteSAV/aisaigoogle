@@ -5,15 +5,18 @@ import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { Plus } from 'lucide-react';
 
-export const Welcome: React.FC<{ onSetup?: () => void; side?: 'left' | 'right'; isMobileBook?: boolean }> = ({ onSetup, side = 'left', isMobileBook }) => {
+export const Welcome: React.FC<{ onSetup?: () => void; side?: 'left' | 'right'; isMobileBook?: boolean; isVertical?: boolean }> = ({ onSetup, side = 'left', isMobileBook, isVertical }) => {
   const navigate = useNavigate();
   
+  // Decide logo styling based on mobile book constraints combined with vertical layout
+  const isMobileVertical = isMobileBook && isVertical;
+
   return (
     <div className={cn("relative flex flex-col items-center justify-center text-center", isMobileBook ? "px-4 space-y-0 h-auto min-h-full" : "h-full p-8 space-y-4")}>
-      <div className={cn("aspect-square relative flex-shrink-0", isMobileBook ? "w-[50%] sm:max-w-[250px] my-0" : "w-[70%] max-w-[400px]")}>
+      <div className={cn("aspect-square relative flex-shrink-0", isMobileBook ? (isMobileVertical ? "w-[100%] sm:max-w-[400px] my-0" : "w-[50%] sm:max-w-[250px] my-0") : "w-[70%] max-w-[400px]")}>
         <LogoAnimation 
           containerClassName="absolute inset-0 mix-blend-multiply flex items-center justify-center"
-          logoClassName={cn("w-full h-full", isMobileBook && "max-h-[140px]")}
+          logoClassName={cn("w-full h-full", isMobileBook ? (isMobileVertical ? "max-h-[280px]" : "max-h-[140px]") : "")}
           imgClassName="w-full h-full object-contain filter contrast-125 select-none pointer-events-none"
         />
       </div>

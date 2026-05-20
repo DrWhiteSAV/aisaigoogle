@@ -63,7 +63,12 @@ export const Main: React.FC<{
           </div>
           <div>
             <h1 className="text-2xl sm:text-4xl font-black tracking-tighter text-pen-blue leading-none">aiSai</h1>
-            <div className="text-[10px] sm:text-sm font-black text-pen-blue/30 mt-1">Бестиарий: {petCount} сущ.</div>
+            <div 
+              className="text-[10px] sm:text-sm font-black text-pen-blue/30 mt-1"
+              style={{ color: '#0047ab' }}
+            >
+              Бестиарий: {petCount} сущ.
+            </div>
           </div>
         </div>
         
@@ -91,6 +96,7 @@ export const Main: React.FC<{
           <button 
              onClick={() => setShowRankModal(true)}
              className="text-xs font-black text-pen-blue/40 border-b border-dashed border-pen-blue/40 hover:text-pen-blue transition-colors mt-2"
+             style={{ marginBottom: '0px', paddingRight: '41px', color: '#0047ab' }}
           >
              Ранг: {rankInfo.name}
           </button>
@@ -98,7 +104,7 @@ export const Main: React.FC<{
       </header>
 
       <section className="space-y-8">
-        <div className="grid grid-cols-2 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
            {[...progress.pets].reverse().sort((a, b) => {
              if (a.id === activeId) return -1;
              if (b.id === activeId) return 1;
@@ -113,6 +119,7 @@ export const Main: React.FC<{
                  "transition-all duration-300 w-full",
                  activeId === pet.id ? "scale-105 z-20" : "scale-100"
                )}
+               style={i === 20 ? { color: '#0047ab', paddingRight: '0px' } : undefined}
              >
                <PetCard 
                  pet={pet} 

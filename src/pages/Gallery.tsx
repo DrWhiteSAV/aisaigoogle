@@ -80,7 +80,7 @@ export const Gallery: React.FC<{ progress: UserProgress; side?: 'left' | 'right'
                 ) : null)}
 
                <div className="w-full">
-                 <div className="grid grid-cols-2 gap-3 pb-6">
+                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 pb-6">
                     {(pet.imageHistory && pet.imageHistory.length > 0 ? pet.imageHistory : [pet.image]).map((img, i) => {
                       const RANKS = ['F - младенчество', 'E - детство', 'D - отрочество', 'C - молодость', 'B - взросление', 'A - зрелость', 'S - мудрость', 'EX - единство', 'UX - пробуждение', 'Z - абсолютность'];
                       const stage = RANKS[i] || 'Загадочный Этап';

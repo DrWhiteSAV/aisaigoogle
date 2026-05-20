@@ -173,7 +173,7 @@ export const Evolve: React.FC<{
       </header>
 
        <div className="flex-1 overflow-visible">
-          <div className="grid grid-cols-2 gap-x-3 h-full">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-3 h-full">
              {sidePets.map((p) => (
                <PetEvolutionCard 
                  key={p.id}

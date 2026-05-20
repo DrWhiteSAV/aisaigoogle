@@ -1174,14 +1174,14 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
       case 'welcome':
         if (isVertical) {
           return [
-             <Page key="wv1" side="mobile" className="w-full h-full"><Welcome onSetup={doMobileNav} isMobileBook={isMobileBook} /></Page>,
+             <Page key="wv1" side="mobile" className="w-full h-full"><Welcome onSetup={doMobileNav} isMobileBook={isMobileBook} isVertical={isVertical} /></Page>,
              <Page key="wv2" side="mobile" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={1} toggleFlipLock={() => {}} isMobileBook={isMobileBook} mNavigate={doMobileNav} /></Page>,
              <Page key="wv3" side="mobile" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={2} toggleFlipLock={() => {}} onStartSummon={() => { handleStartSummon(); doMobileNav(); }} isMobileBook={isMobileBook} mNavigate={doMobileNav} /></Page>,
              <Page key="wv4" side="mobile" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handlePetSummonComplete} step={3} externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} toggleFlipLock={() => {}} isMobileBook={isMobileBook} mNavigate={doMobileNav} /></Page>
           ];
         } else {
           return [
-             <Page key="wl1" side="left" className="w-full h-full"><Welcome onSetup={doMobileNav} isMobileBook={isMobileBook} /></Page>,
+             <Page key="wl1" side="left" className="w-full h-full"><Welcome onSetup={doMobileNav} isMobileBook={isMobileBook} isVertical={isVertical} /></Page>,
              <Page key="wl2" side="right" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={1} toggleFlipLock={() => {}} isMobileBook={isMobileBook} mNavigate={doMobileNav} /></Page>,
              <Page key="wl3" side="left" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={2} toggleFlipLock={() => {}} onStartSummon={() => { handleStartSummon(); }} isMobileBook={isMobileBook} mNavigate={doMobileNav} /></Page>,
              <Page key="wl4" side="right" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handlePetSummonComplete} step={3} externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} toggleFlipLock={() => {}} isMobileBook={isMobileBook} mNavigate={doMobileNav} /></Page>
@@ -1298,7 +1298,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
     <div className="flex h-screen w-full items-center justify-center bg-transparent relative selection:bg-sticker-blue/30 overflow-hidden">
       <GlobalBookTransition currentBook={currentBook} />
       <div className="absolute inset-0 bg-black/5 -z-10" />
-      {showNav && <Navbar sprouts={progress.sprouts} />}
+      {showNav && <Navbar sprouts={progress.sprouts} isMobileBook={isMobileBook} isVertical={isVertical} />}
       <div className="w-full h-full flex items-center justify-center overflow-hidden">
         <div 
           className={cn(
@@ -1320,7 +1320,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
             width={flipBookWidth} 
             height={flipBookHeight}
             size="stretch"
-            minWidth={isVertical ? 720 : 315}
+            minWidth={isVertical ? (isMobileBook ? 315 : 500) : 315}
             minHeight={100}
             maxShadowOpacity={0.2}
             showCover={false}

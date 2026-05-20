@@ -184,15 +184,7 @@ export const PetCard: React.FC<PetCardProps> = ({
                   <div className="text-[16px] font-black text-pen-blue mt-1 italic text-center w-full">{showPrice} 🌱</div>
                 )}
 
-                {showDetails && !hideDetailsText && (
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); onClick?.(); }}
-                    className="w-full mt-1 pt-1 border-t border-dashed border-black/10 flex items-center justify-between hover:text-pen-blue transition-colors text-pen-blue/40"
-                  >
-                    <span className="text-[16px] font-black tracking-widest">Подробнее</span>
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                )}
+                {/* Removed "Подробнее" button for less UI noise */}
               </div>
             </div>
           </div>
