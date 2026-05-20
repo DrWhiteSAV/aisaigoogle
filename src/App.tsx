@@ -1340,7 +1340,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
             autoSize={true}
             showPageCorners={true}
             disableFlipByClick={true}
-            renderOnlyPageLengthChange={true}
+            renderOnlyPageLengthChange={false}
           >
             {getBookPages()}
           </HTMLFlipBook>
