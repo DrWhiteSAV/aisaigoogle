@@ -615,7 +615,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
               
               if (isPortraitMode) {
                 const isRightCorner = n.x > rect.width - s || n.x >= rect.width - 15;
-                const isLeftCorner = (n.x >= i && n.x < i + s) || n.x <= i + 15;
+                const isLeftCorner = false; // In portrait mode, the left side is the spine. Disable the hover folding corner on the left.
                 return isRightCorner || isLeftCorner;
               } else {
                 return n.x < s || n.x > rect.width - s;
@@ -641,7 +641,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
                     : null;
 
                   // Determine active page based on progress
-                  const showDest = progress >= 50;
+                  const showDest = progress >= 1.11; // Instantly flip reverse and backing pages at 2 degrees out of 180 (progress >= 1.11%)
                   
                   // Hide temporary copy of the one we are not using
                   if (showDest && destPage) {
@@ -746,7 +746,11 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
             const patchedGetBottomPage = function(direction: any) {
               const current = this.currentSpreadIndex;
               if (this.render.getOrientation() === 'portrait') {
-                return direction === 0 ? this.pages[current + 1] : this.pages[current];
+                if (direction === 0) {
+                  return (current + 1 < this.pages.length) ? this.pages[current + 1] : null;
+                } else {
+                  return (current - 1 >= 0) ? this.pages[current - 1] : null;
+                }
               } else {
                 const spread = direction === 0 ? this.getSpread()[current + 1] : this.getSpread()[current - 1];
                 if (spread.length === 1) return this.pages[spread[0]];
