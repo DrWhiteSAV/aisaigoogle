@@ -441,6 +441,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
 
   const isPortrait = windowSize.width < 1024;
   const isVertical = windowSize.height >= windowSize.width;
+  const isMobileBook = windowSize.width < 768;
 
   React.useEffect(() => {
     let intervalId: any;
@@ -640,16 +641,33 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
                     ? collection.getPage(destination) 
                     : null;
 
-                  // Determine active page based on progress
-                  const showDest = progress >= 1.11; // Instantly flip reverse and backing pages at 2 degrees out of 180 (progress >= 1.11%)
-                  
-                  // Hide temporary copy of the one we are not using
-                  if (showDest && destPage) {
-                    if (startPage) startPage.hideTemporaryCopy();
-                    this.flippingPage = destPage.newTemporaryCopy();
+                  if (dir === 0) {
+                    // Forward flip: bottom underlay page is the destination page (next page)
+                    this.bottomPage = destPage;
+
+                    // flippingPage starts as startPage (current page) and flips to destPage at > 1.11% progress
+                    const showDest = progress >= 1.11;
+                    if (showDest && destPage) {
+                      if (startPage) startPage.hideTemporaryCopy();
+                      this.flippingPage = destPage.newTemporaryCopy();
+                    } else {
+                      if (destPage) destPage.hideTemporaryCopy();
+                      if (startPage) this.flippingPage = startPage.newTemporaryCopy();
+                    }
                   } else {
-                    if (destPage) destPage.hideTemporaryCopy();
-                    if (startPage) this.flippingPage = startPage.newTemporaryCopy();
+                    // Backward flip: bottom underlay page is the destination page (previous page)
+                    this.bottomPage = destPage;
+
+                    // flippingPage is always destPage (previous page)
+                    // This ensures the current page remains visible on the right side, while both the folding leaf and background reveal the previous page.
+                    const showDest = true;
+                    if (showDest && destPage) {
+                      if (startPage) startPage.hideTemporaryCopy();
+                      this.flippingPage = destPage.newTemporaryCopy();
+                    } else {
+                      if (destPage) destPage.hideTemporaryCopy();
+                      if (startPage) this.flippingPage = startPage.newTemporaryCopy();
+                    }
                   }
 
                   // Force apply geometry to our chosen flippingPage
@@ -666,18 +684,12 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
                   }
 
                   if (this.bottomPage) {
-                    // Always place bottom page statically on the right side in portrait mode
-                    this.bottomPage.setPosition({ x: rect.pageWidth, y: 0 });
+                    // Let the bottomPage use the correct clipped area and position from the geometry calculations
+                    // This prevents covering the static current page (Page 2) during page flip, keeping it visible
+                    this.bottomPage.setPosition(this.calc.getBottomPagePosition());
+                    this.bottomPage.setArea(this.calc.getBottomClipArea());
                     this.bottomPage.setAngle(0);
                     this.bottomPage.setHardAngle(0);
-                    
-                    const fullArea = [
-                      { x: 0, y: 0 },
-                      { x: rect.pageWidth, y: 0 },
-                      { x: rect.pageWidth, y: rect.height },
-                      { x: 0, y: rect.height }
-                    ];
-                    this.bottomPage.setArea(fullArea);
                   }
                 }
               }
@@ -688,11 +700,22 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
               const rect = this.getBoundsRect();
               const pageWidth = rect.pageWidth;
               
+              const isPortraitMode = this.app.getOrientation() === 'portrait';
+              if (isPortraitMode) {
+                const bookPos = this.render.convertToBook(t);
+                // In portrait mode, the left side of the right-hand page is the spine. Disable the hover folding corner on the left.
+                if (bookPos.x < rect.pageWidth * 1.5) {
+                  this.setState("read");
+                  this.render.finishAnimation();
+                  this.stopMove();
+                  return;
+                }
+              }
+
               if (this.isPointOnCorners(t)) {
                 if (this.calc === null) {
                   if (!this.start(t)) return;
                   
-                  const isPortraitMode = this.app.getOrientation() === 'portrait';
                   const actualDirection = this.render.getDirection();
                   
                   this.setState("fold_corner");
@@ -1137,7 +1160,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
 
   // Stabilize the key - only change when onboarding status or layout orientation shifts
   // We remove dynamic spread counts from the key to prevent full remounts which kill flip animations
-  const flipbookKey = `flipbook-${isPortrait}-${isVertical}-${currentBook}-${petsCount}`;
+  const flipbookKey = `flipbook-${isPortrait}-${isVertical}-${isMobileBook}-${currentBook}-${petsCount}`;
 
   const currentPageIndex = getPageFromPath(location.pathname);
   const currentSpread = Math.floor(currentPageIndex / 2);
@@ -1151,17 +1174,17 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
       case 'welcome':
         if (isVertical) {
           return [
-             <Page key="wv1" side="mobile" className="w-full h-full"><Welcome onSetup={doMobileNav} isMobileBook={isPortrait} /></Page>,
-             <Page key="wv2" side="mobile" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={1} toggleFlipLock={() => {}} isMobileBook={isPortrait} mNavigate={doMobileNav} /></Page>,
-             <Page key="wv3" side="mobile" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={2} toggleFlipLock={() => {}} onStartSummon={() => { handleStartSummon(); doMobileNav(); }} isMobileBook={isPortrait} mNavigate={doMobileNav} /></Page>,
-             <Page key="wv4" side="mobile" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handlePetSummonComplete} step={3} externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} toggleFlipLock={() => {}} isMobileBook={isPortrait} mNavigate={doMobileNav} /></Page>
+             <Page key="wv1" side="mobile" className="w-full h-full"><Welcome onSetup={doMobileNav} isMobileBook={isMobileBook} /></Page>,
+             <Page key="wv2" side="mobile" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={1} toggleFlipLock={() => {}} isMobileBook={isMobileBook} mNavigate={doMobileNav} /></Page>,
+             <Page key="wv3" side="mobile" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={2} toggleFlipLock={() => {}} onStartSummon={() => { handleStartSummon(); doMobileNav(); }} isMobileBook={isMobileBook} mNavigate={doMobileNav} /></Page>,
+             <Page key="wv4" side="mobile" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handlePetSummonComplete} step={3} externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} toggleFlipLock={() => {}} isMobileBook={isMobileBook} mNavigate={doMobileNav} /></Page>
           ];
         } else {
           return [
-             <Page key="wl1" side="left" className="w-full h-full"><Welcome onSetup={doMobileNav} isMobileBook={isPortrait} /></Page>,
-             <Page key="wl2" side="right" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={1} toggleFlipLock={() => {}} isMobileBook={isPortrait} mNavigate={doMobileNav} /></Page>,
-             <Page key="wl3" side="left" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={2} toggleFlipLock={() => {}} onStartSummon={() => { handleStartSummon(); }} isMobileBook={isPortrait} mNavigate={doMobileNav} /></Page>,
-             <Page key="wl4" side="right" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handlePetSummonComplete} step={3} externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} toggleFlipLock={() => {}} isMobileBook={isPortrait} mNavigate={doMobileNav} /></Page>
+             <Page key="wl1" side="left" className="w-full h-full"><Welcome onSetup={doMobileNav} isMobileBook={isMobileBook} /></Page>,
+             <Page key="wl2" side="right" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={1} toggleFlipLock={() => {}} isMobileBook={isMobileBook} mNavigate={doMobileNav} /></Page>,
+             <Page key="wl3" side="left" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={2} toggleFlipLock={() => {}} onStartSummon={() => { handleStartSummon(); }} isMobileBook={isMobileBook} mNavigate={doMobileNav} /></Page>,
+             <Page key="wl4" side="right" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handlePetSummonComplete} step={3} externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} toggleFlipLock={() => {}} isMobileBook={isMobileBook} mNavigate={doMobileNav} /></Page>
           ];
         }
       case 'summon':
@@ -1297,7 +1320,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
             width={flipBookWidth} 
             height={flipBookHeight}
             size="stretch"
-            minWidth={315}
+            minWidth={isVertical ? 720 : 315}
             minHeight={100}
             maxShadowOpacity={0.2}
             showCover={false}
