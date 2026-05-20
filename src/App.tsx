@@ -439,15 +439,376 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
   const gallerySpreadsCount = petsCount || 1;
   const evolveSpreadsCount = petsCount || 1;
 
+  const isPortrait = windowSize.width < 1024;
+  const isVertical = windowSize.height >= windowSize.width;
+
+  React.useEffect(() => {
+    let intervalId: any;
+    
+    const applyPatches = () => {
+      if (!flipBookRef.current) return;
+      try {
+        const pageFlip = typeof flipBookRef.current.pageFlip === 'function' ? flipBookRef.current.pageFlip() : null;
+        if (pageFlip && !pageFlip.__isPatched) {
+          pageFlip.__isPatched = true;
+          
+          const renderInstance = typeof pageFlip.getRender === 'function' ? pageFlip.getRender() : null;
+          if (renderInstance) {
+            const RenderClass = renderInstance.constructor;
+            const originalConvertToPage = RenderClass.prototype.__originalConvertToPage || RenderClass.prototype.convertToPage || renderInstance.convertToPage;
+            const originalConvertToGlobal = RenderClass.prototype.__originalConvertToGlobal || RenderClass.prototype.convertToGlobal || renderInstance.convertToGlobal;
+            
+            if (!RenderClass.prototype.__originalConvertToPage) {
+              RenderClass.prototype.__originalConvertToPage = originalConvertToPage;
+              RenderClass.prototype.__originalConvertToGlobal = originalConvertToGlobal;
+            }
+
+            const patchedConvertToPage = function(pos: any, direction: any) {
+              if (direction === undefined || direction === null) direction = this.direction;
+              const isPortraitMode = this.getOrientation() === 'portrait';
+              if (isPortraitMode && direction === 1) { // FlipDirection.BACK === 1
+                const rect = this.getRect();
+                const shiftedPos = { ...pos, x: pos.x - rect.pageWidth };
+                return originalConvertToPage.call(this, shiftedPos, 1);
+              }
+              return originalConvertToPage.call(this, pos, direction);
+            };
+
+            const patchedConvertToGlobal = function(pos: any, direction: any) {
+              if (direction === undefined || direction === null) direction = this.direction;
+              if (pos == null) return null;
+              const isPortraitMode = this.getOrientation() === 'portrait';
+              if (isPortraitMode && direction === 1) { // FlipDirection.BACK === 1
+                const g = originalConvertToGlobal.call(this, pos, 1);
+                if (g) {
+                  const rect = this.getRect();
+                  g.x = g.x + rect.pageWidth;
+                }
+                return g;
+              }
+              return originalConvertToGlobal.call(this, pos, direction);
+            };
+
+            const patchedDrawBottomPage = function() {
+              if (this.bottomPage === null) return;
+              const density = this.flippingPage != null ? this.flippingPage.getDrawingDensity() : null;
+              this.bottomPage.getElement().style.zIndex = (this.getSettings().startZIndex + 3).toString(10);
+              this.bottomPage.draw(density);
+            };
+
+            RenderClass.prototype.convertToPage = patchedConvertToPage;
+            RenderClass.prototype.convertToGlobal = patchedConvertToGlobal;
+            RenderClass.prototype.drawBottomPage = patchedDrawBottomPage;
+
+            renderInstance.convertToPage = patchedConvertToPage;
+            renderInstance.convertToGlobal = patchedConvertToGlobal;
+            renderInstance.drawBottomPage = patchedDrawBottomPage;
+          }
+
+          const controller = typeof pageFlip.getFlipController === 'function' ? pageFlip.getFlipController() : null;
+          if (controller) {
+            const ControllerClass = controller.constructor;
+            
+            const originalStart = ControllerClass.prototype.__originalStart || ControllerClass.prototype.start || controller.start;
+            const originalAnimateFlippingTo = ControllerClass.prototype.__originalAnimateFlippingTo || ControllerClass.prototype.animateFlippingTo || controller.animateFlippingTo;
+            const originalFlip = ControllerClass.prototype.__originalFlip || ControllerClass.prototype.flip || controller.flip;
+            const originalDo = ControllerClass.prototype.__originalDo || ControllerClass.prototype.do || controller.do;
+            const originalGetDirectionByPoint = ControllerClass.prototype.__originalGetDirectionByPoint || ControllerClass.prototype.getDirectionByPoint || controller.getDirectionByPoint;
+            const originalShowCorner = ControllerClass.prototype.__originalShowCorner || ControllerClass.prototype.showCorner || controller.showCorner;
+
+            if (!ControllerClass.prototype.__originalStart) {
+              ControllerClass.prototype.__originalStart = originalStart;
+              ControllerClass.prototype.__originalAnimateFlippingTo = originalAnimateFlippingTo;
+              ControllerClass.prototype.__originalFlip = originalFlip;
+              ControllerClass.prototype.__originalDo = originalDo;
+              ControllerClass.prototype.__originalGetDirectionByPoint = originalGetDirectionByPoint;
+              ControllerClass.prototype.__originalShowCorner = originalShowCorner;
+            }
+
+            const patchedGetDirectionByPoint = function(touchPos: any) {
+              const isPortraitMode = this.app.getOrientation() === 'portrait';
+              if (isPortraitMode) {
+                const rect = this.getBoundsRect();
+                if (touchPos.x < rect.pageWidth * 1.5) {
+                  return 1; // FlipDirection.BACK === 1
+                }
+                return 0; // FlipDirection.FORWARD === 0
+              }
+              return originalGetDirectionByPoint.call(this, touchPos);
+            };
+
+            const patchedStart = function(t: any) {
+              const isPortraitMode = this.app.getOrientation() === 'portrait';
+              let shiftedT = t;
+              if (isPortraitMode && t) {
+                const rect = this.getBoundsRect();
+                if (t.x >= rect.pageWidth) {
+                  shiftedT = { ...t, x: t.x - rect.pageWidth };
+                }
+              }
+              const s = originalStart.call(this, shiftedT);
+              if (s && this.calc !== null) {
+                if (isPortraitMode && this.render.getDirection() === 1) { // FlipDirection.BACK === 1
+                  const CalculationClass = this.calc.constructor;
+                  const rect = this.getBoundsRect();
+                  const corner = this.calc.getCorner();
+                  this.calc = new CalculationClass(1, corner, rect.pageWidth, rect.height);
+                }
+              }
+              return s;
+            };
+
+            const patchedAnimateFlippingTo = function(t: any, e: any, i: any, s: any = true) {
+              const isPortraitMode = this.app.getOrientation() === 'portrait';
+              const actualDirection = this.render.getDirection();
+              if (isPortraitMode && this.calc) {
+                this.calc.getDirection = () => actualDirection;
+              }
+              originalAnimateFlippingTo.call(this, t, e, i, s);
+            };
+
+            const patchedStopMove = function() {
+              if (this.calc === null) return;
+              const pos = this.calc.getPosition();
+              const rect = this.getBoundsRect();
+              const y = (this.calc.getCorner() === 'bottom' || this.calc.getCorner() === 1) ? rect.height : 0;
+              
+              const isPortraitMode = this.app.getOrientation() === 'portrait';
+              const actualDirection = this.render.getDirection(); // 0 = forward, 1 = backward
+              
+              if (isPortraitMode) {
+                const threshold = rect.pageWidth * 0.5;
+                if (actualDirection === 0) {
+                  if (pos.x <= threshold) {
+                    this.animateFlippingTo(pos, { x: -rect.pageWidth, y }, true);
+                  } else {
+                    this.animateFlippingTo(pos, { x: rect.pageWidth, y }, false);
+                  }
+                } else {
+                  if (pos.x >= threshold) {
+                    this.animateFlippingTo(pos, { x: rect.pageWidth, y }, true);
+                  } else {
+                    this.animateFlippingTo(pos, { x: 0, y }, false);
+                  }
+                }
+              } else {
+                const threshold = rect.pageWidth * 0.5;
+                if (pos.x <= threshold) {
+                  this.animateFlippingTo(pos, { x: -rect.pageWidth, y }, true);
+                } else {
+                  this.animateFlippingTo(pos, { x: rect.pageWidth, y }, false);
+                }
+              }
+            };
+
+            const patchedFlip = function(t: any) {
+              const isPortraitMode = this.app.getOrientation() === 'portrait';
+              if (isPortraitMode) {
+                const e = this.getBoundsRect();
+                const s = this.getDirectionByPoint(this.render.convertToBook(t));
+                if (s === 1) { // FlipDirection.BACK === 1
+                  if (this.calc !== null) {
+                    this.render.finishAnimation();
+                  }
+                  if (!this.start(t)) return;
+                  
+                  this.setState("flipping");
+                  const n = "bottom" === this.calc.getCorner() || this.calc.getCorner() === 1 ? e.height : 0;
+                  
+                  this.calc.calc({ x: 0, y: n });
+                  this.animateFlippingTo({ x: 0, y: n }, { x: e.pageWidth, y: n }, true);
+                  return;
+                }
+              }
+              originalFlip.call(this, t);
+            };
+
+            const patchedIsPointOnCorners = function(t: any) {
+              const rect = this.getBoundsRect(),
+                    i = rect.pageWidth,
+                    s = Math.sqrt(Math.pow(i, 2) + Math.pow(rect.height, 2)) / 5,
+                    n = this.render.convertToBook(t);
+              
+              if (n.x <= 0 || n.y <= 0 || n.x >= rect.width || n.y >= rect.height) return false;
+              
+              const isPortraitMode = this.app.getOrientation() === 'portrait';
+              const isYCorner = n.y < s || n.y > rect.height - s || n.y <= 5;
+              if (!isYCorner) return false;
+              
+              if (isPortraitMode) {
+                const isRightCorner = n.x > rect.width - s || n.x >= rect.width - 15;
+                const isLeftCorner = (n.x >= i && n.x < i + s) || n.x <= i + 15;
+                return isRightCorner || isLeftCorner;
+              } else {
+                return n.x < s || n.x > rect.width - s;
+              }
+            };
+
+            const patchedDo = function(t: any) {
+              const isPortraitMode = this.app.getOrientation() === 'portrait';
+              let shiftedT = t;
+              if (isPortraitMode && this.render.getDirection() === 1 && t && t.x >= this.getBoundsRect().pageWidth) {
+                const rect = this.getBoundsRect();
+                shiftedT = { ...t, x: t.x - rect.pageWidth };
+              }
+              originalDo.call(this, shiftedT);
+              
+              if (this.calc !== null) {
+                if (isPortraitMode && this.bottomPage) {
+                  const rect = this.getBoundsRect();
+                  // Always place bottom page statically on the right side in portrait mode
+                  this.bottomPage.setPosition({ x: rect.pageWidth, y: 0 });
+                  this.bottomPage.setAngle(0);
+                  this.bottomPage.setHardAngle(0);
+                  
+                  const fullArea = [
+                    { x: 0, y: 0 },
+                    { x: rect.pageWidth, y: 0 },
+                    { x: rect.pageWidth, y: rect.height },
+                    { x: 0, y: rect.height }
+                  ];
+                  this.bottomPage.setArea(fullArea);
+                }
+              }
+            };
+
+            const patchedShowCorner = function(t: any) {
+              if (!this.checkState("read", "fold_corner")) return;
+              const rect = this.getBoundsRect();
+              const pageWidth = rect.pageWidth;
+              
+              if (this.isPointOnCorners(t)) {
+                if (this.calc === null) {
+                  if (!this.start(t)) return;
+                  
+                  const isPortraitMode = this.app.getOrientation() === 'portrait';
+                  const actualDirection = this.render.getDirection();
+                  
+                  this.setState("fold_corner");
+                  
+                  if (isPortraitMode && actualDirection === 1) { // BACK fold
+                    this.calc.calc({ x: 1, y: 1 });
+                    const cornerSize = 50;
+                    const yStart = (this.calc.getCorner() === "bottom" || this.calc.getCorner() === 1) ? rect.height - 1 : 1;
+                    const yDest = (this.calc.getCorner() === "bottom" || this.calc.getCorner() === 1) ? rect.height - cornerSize : cornerSize;
+                    this.animateFlippingTo({ x: 1, y: yStart }, { x: cornerSize, y: yDest }, false, false);
+                  } else {
+                    this.calc.calc({ x: pageWidth - 1, y: 1 });
+                    const cornerSize = 50;
+                    const yStart = (this.calc.getCorner() === "bottom" || this.calc.getCorner() === 1) ? rect.height - 1 : 1;
+                    const yDest = (this.calc.getCorner() === "bottom" || this.calc.getCorner() === 1) ? rect.height - cornerSize : cornerSize;
+                    this.animateFlippingTo({ x: pageWidth - 1, y: yStart }, { x: pageWidth - cornerSize, y: yDest }, false, false);
+                  }
+                } else {
+                  this.do(this.render.convertToPage(t));
+                }
+              } else {
+                this.setState("read");
+                this.render.finishAnimation();
+                this.stopMove();
+              }
+            };
+
+            ControllerClass.prototype.start = patchedStart;
+            ControllerClass.prototype.animateFlippingTo = patchedAnimateFlippingTo;
+            ControllerClass.prototype.stopMove = patchedStopMove;
+            ControllerClass.prototype.flip = patchedFlip;
+            ControllerClass.prototype.isPointOnCorners = patchedIsPointOnCorners;
+            ControllerClass.prototype.do = patchedDo;
+            ControllerClass.prototype.getDirectionByPoint = patchedGetDirectionByPoint;
+            ControllerClass.prototype.showCorner = patchedShowCorner;
+
+            controller.start = patchedStart;
+            controller.animateFlippingTo = patchedAnimateFlippingTo;
+            controller.stopMove = patchedStopMove;
+            controller.flip = patchedFlip;
+            controller.isPointOnCorners = patchedIsPointOnCorners;
+            controller.do = patchedDo;
+            controller.getDirectionByPoint = patchedGetDirectionByPoint;
+            controller.showCorner = patchedShowCorner;
+          }
+          
+          const collection = typeof pageFlip.getPageCollection === 'function' ? pageFlip.getPageCollection() : null;
+          if (collection) {
+            const CollectionClass = collection.constructor;
+            
+            const patchedGetBottomPage = function(direction: any) {
+              const current = this.currentSpreadIndex;
+              if (this.render.getOrientation() === 'portrait') {
+                return direction === 0 ? this.pages[current + 1] : this.pages[current];
+              } else {
+                const spread = direction === 0 ? this.getSpread()[current + 1] : this.getSpread()[current - 1];
+                if (spread.length === 1) return this.pages[spread[0]];
+                return direction === 0 ? this.pages[spread[1]] : this.pages[spread[0]];
+              }
+            };
+
+            CollectionClass.prototype.getBottomPage = patchedGetBottomPage;
+            collection.getBottomPage = patchedGetBottomPage;
+          }
+
+          console.log("PageFlip: render, controller and collection methods dynamically patched!");
+        }
+      } catch (err) {
+        console.warn("Failed to patch PageFlip methods dynamically:", err);
+      }
+    };
+
+    applyPatches();
+    intervalId = setInterval(applyPatches, 50);
+
+    return () => clearInterval(intervalId);
+  }, [isVertical, currentBook, petsCount]);
+
   const getPageFromPath = (path: string) => {
     const book = getBookFromPath(path);
     
     if (book === 'welcome') {
       if (path === '/' || path === '/start') return 0;
-      if (path === '/setup') return 2;
+      if (path === '/setup') return isVertical ? 1 : 2;
       return 0;
     }
     
+    if (isVertical) {
+      if (book === 'market') {
+        if (path.includes('/sale')) return 1;
+        return 0;
+      }
+      if (book === 'summon') {
+        return 0;
+      }
+      if (book === 'profile') {
+        if (path.includes('/settings') || path.includes('/configs')) return 1;
+        return 0;
+      }
+      if (book === 'gallery') {
+        const match = path.match(/\/gallery\/([a-zA-Z0-9_-]+)/);
+        if (match) {
+          const petId = match[1];
+          const petIndex = progress.pets.findIndex(p => p.id === petId);
+          if (petIndex !== -1) return petIndex * 2;
+        }
+        return 0;
+      }
+      
+      // Bestiary Book (Vertical/Notepad)
+      if (path === '/main') return 0;
+      if (path.startsWith('/pet/')) return 1;
+      if (path.includes('/inventory')) return 2;
+      if (path.includes('/quest')) return 3;
+      if (path.includes('/battle')) return 4;
+      if (path.startsWith('/evolve')) {
+        const match = path.match(/\/evolve\/([a-zA-Z0-9_-]+)/);
+        if (match) {
+          const petId = match[1];
+          const petIndex = progress.pets.findIndex(p => p.id === petId);
+          if (petIndex !== -1) return 6 + petIndex * 2;
+        }
+        return 6;
+      }
+      return 0;
+    }
+
     if (book === 'market') {
       if (path.includes('/sale')) return 2;
       return 0;
@@ -493,9 +854,6 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
   const syncTargetRef = React.useRef<number | null>(null);
 
   useEffect(() => {
-    const isPortraitEffect = window.innerWidth < 1024;
-    if (isPortraitEffect && getBookFromPath(location.pathname) === 'welcome') return;
-
     const targetPage = getPageFromPath(location.pathname);
     if (syncTargetRef.current === targetPage) return;
     syncTargetRef.current = targetPage;
@@ -516,10 +874,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
       }
     }, 150);
     return () => clearTimeout(timer);
-  }, [location.pathname, progress.pets.length, isOnboarding]);
-
-  const isPortrait = windowSize.width < 1024;
-  const isVertical = windowSize.height >= windowSize.width;
+  }, [location.pathname, progress.pets.length, isOnboarding, isVertical]);
 
   const handleStartSummon = async () => {
     if (isSummoning) return;
@@ -628,167 +983,70 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
     }
   }, [isPortrait, currentBook]);
 
-  if (isPortrait) {
-    if (currentBook === 'welcome') {
-      const handleMobileFlip = (e: any) => {
-        const idx = e.data;
-        let targetPath = '';
-        if (isVertical) {
-          if (idx === 0) targetPath = '/start';
-          else if (idx > 0) targetPath = '/setup';
-        } else {
-          if (idx === 0) targetPath = '/start';
-          else if (idx > 1) targetPath = '/setup';
-        }
-
-        const mappedTarget = isVertical ? (idx === 0 ? 0 : 2) : (idx === 0 ? 0 : 2);
-        syncTargetRef.current = mappedTarget;
-        
-        if (targetPath && location.pathname !== targetPath) {
-          navigate(targetPath, { replace: true });
-        }
-      };
-
-      const doMobileNav = () => {
-        if (flipBookRef.current) {
-          const pageFlip = (flipBookRef.current as any).pageFlip();
-          if (pageFlip) pageFlip.flipNext();
-        }
-      };
-
-      const paddingX = Math.floor(windowSize.width * 0.05);
-      const paddingY = Math.floor(windowSize.height * 0.05);
-      const flipBookWidth = isVertical ? windowSize.width : Math.floor((windowSize.width - (paddingX * 2)) / 2);
-      const flipBookHeight = isVertical ? windowSize.height : windowSize.height - (paddingY * 2);
-
-      return (
-        <div className="flex items-center justify-center bg-transparent relative selection:bg-sticker-blue/30 overflow-hidden fixed inset-0 welcome-mobile-typography" style={{ width: windowSize.width, height: windowSize.height }}>
-          <GlobalBookTransition currentBook={currentBook} />
-          <div className="absolute inset-0 bg-transparent -z-10" />
-          
-          <HTMLFlipBook 
-             key={`flipbook-mobile-welcome-${isVertical ? 'portrait' : 'landscape'}`}
-             width={flipBookWidth} 
-             height={flipBookHeight}
-             size="stretch"
-             minWidth={100}
-             minHeight={100}
-             maxWidth={flipBookWidth}
-             maxHeight={flipBookHeight}
-             maxShadowOpacity={0.0}
-             showCover={isVertical ? true : false}
-             mobileScrollSupport={true}
-             ref={flipBookRef}
-             className="flipbook-root touch-none"
-             onFlip={handleMobileFlip}
-             useMouseEvents={true}
-             clickEventForward={true}
-             usePortrait={isVertical}
-             startZIndex={0}
-             startPage={location.pathname === '/setup' ? (isVertical ? 1 : 0) : 0}
-             showPageCorners={false}
-             disableFlipByClick={true}
-             swipeDistance={isVertical ? Math.floor(windowSize.width / 2) : 50}
-             flippingTime={isVertical ? 600 : 900}
-          >
-            {isVertical ? [
-               <Page key="wv1" side="mobile" className="w-full h-full"><Welcome onSetup={doMobileNav} isMobileBook /></Page>,
-               <Page key="wv2" side="mobile" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={1} toggleFlipLock={() => {}} isMobileBook mNavigate={doMobileNav} /></Page>,
-               <Page key="wv3" side="mobile" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={2} toggleFlipLock={() => {}} onStartSummon={() => { handleStartSummon(); doMobileNav(); }} isMobileBook mNavigate={doMobileNav} /></Page>,
-               <Page key="wv4" side="mobile" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handlePetSummonComplete} step={3} externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} toggleFlipLock={() => {}} isMobileBook mNavigate={doMobileNav} /></Page>
-            ] : [
-               <Page key="wl1" side="left" className="w-full h-full"><Welcome onSetup={doMobileNav} isMobileBook /></Page>,
-               <Page key="wl2" side="right" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={1} toggleFlipLock={() => {}} isMobileBook mNavigate={doMobileNav} /></Page>,
-               <Page key="wl3" side="left" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={2} toggleFlipLock={() => {}} onStartSummon={() => { handleStartSummon(); doMobileNav(); }} isMobileBook mNavigate={doMobileNav} /></Page>,
-               <Page key="wl4" side="right" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handlePetSummonComplete} step={3} externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} toggleFlipLock={() => {}} isMobileBook mNavigate={doMobileNav} /></Page>
-            ]}
-          </HTMLFlipBook>
-        </div>
-      );
+  const doMobileNav = () => {
+    if (flipBookRef.current) {
+      const pageFlip = typeof flipBookRef.current.pageFlip === 'function' ? flipBookRef.current.pageFlip() : null;
+      if (pageFlip && typeof pageFlip.flipNext === 'function') {
+        pageFlip.flipNext();
+      }
     }
-
-    const showNav = hasPets && !isOnboarding;
-    const sortedPaths = Object.keys(bookPages).sort((a, b) => b.length - a.length);
-    const matchedPath = sortedPaths.find(p => location.pathname.startsWith(p));
-
-    return (
-      <div 
-        ref={portraitScrollRef}
-        onScroll={(e) => {
-          if (!portraitIsRestoring.current) pageScrollData.set('portrait-' + currentBook, e.currentTarget.scrollTop);
-        }}
-        className="flex flex-col min-h-screen pt-16 pb-20 bg-transparent ledger-grid overflow-y-auto w-full px-4 gap-6"
-      >
-        {showNav && <Navbar sprouts={progress.sprouts} />}
-        {matchedPath === '/start' && (
-          <div className="space-y-6">
-            <Page side="left"><Welcome onSetup={() => navigate('/setup')} /></Page>
-            <Page side="right"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={1} side="right" toggleFlipLock={toggleFlipLock} /></Page>
-          </div>
-        )}
-        {matchedPath === '/setup' && (
-          <div className="space-y-6">
-            <Page side="left"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={2} side="left" toggleFlipLock={toggleFlipLock} onStartSummon={handleStartSummon} /></Page>
-            <Page side="right"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handlePetSummonComplete} step={3} side="right" externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} toggleFlipLock={toggleFlipLock} /></Page>
-          </div>
-        )}
-        {(matchedPath === '/main' || matchedPath === '/pet' || matchedPath === '/battle' || matchedPath === '/quest' || matchedPath === '/evolve' || matchedPath === '/inventory') && (
-           <div className="space-y-6">
-              <Page side="left" id="main-mobile"><Main progress={progress} setProgress={setProgress} manualActiveId={activePetId} /></Page>
-              <div className="border-t-2 border-dashed border-black/5 pt-6">
-                {matchedPath === '/battle' ? <Battle progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} /> :
-                 matchedPath === '/quest' ? <Quest progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} profile={userProfile} /> :
-                 matchedPath === '/evolve' ? <Evolve progress={progress} setProgress={setProgress} manualId={activePetId || undefined} toggleFlipLock={toggleFlipLock} /> :
-                 <PetDetail progress={progress} setProgress={setProgress} manualId={activePetId} initialTab={matchedPath === '/inventory' ? 'inventory' : 'stats'} toggleFlipLock={toggleFlipLock} onAddNewPet={handleAddNewPet} />}
-              </div>
-           </div>
-        )}
-        {(matchedPath === '/shop' || matchedPath === '/summon' || matchedPath === '/sale') && (
-           <div className="space-y-6">
-              <Page side="left"><Shop progress={progress} setProgress={setProgress} onBuy={handleAddNewPet} mode={matchedPath === '/sale' ? 'sell' : 'buy'} /></Page>
-              {matchedPath === '/summon' && <Page side="right"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} isMarketSummon toggleFlipLock={toggleFlipLock} onStartSummon={handleStartSummon} /></Page>}
-           </div>
-        )}
-        {(matchedPath === '/profile' || matchedPath === '/configs' || matchedPath === '/topup') && (
-           <div className="space-y-6">
-              <Page side="left" id="profile-l-mobile"><Profile progress={progress} setProgress={setProgress} /></Page>
-              <Page side="right" id="profile-r-mobile">
-                {matchedPath === '/configs' ? <Profile progress={progress} setProgress={setProgress} view="settings" /> :
-                 matchedPath === '/topup' ? <TopUp progress={progress} setProgress={setProgress} /> :
-                 <div className="h-40 flex items-center justify-center">Личное дело</div>}
-              </Page>
-           </div>
-        )}
-
-      <InfoModal 
-        isOpen={!!limitError} 
-        onClose={() => setLimitError(null)} 
-        title="Лимит сущностей" 
-      >
-        <div className="space-y-4">
-          <p className="text-[16px] font-black text-pen-red leading-relaxed border-b border-black/5 pb-4">
-            Внимание! Ваш текущий ранг призывателя <strong>"{limitError?.name}"</strong>.
-          </p>
-          <div className="text-sm font-bold text-pen-blue/80">
-            Он позволяет иметь не более <span className="text-xl text-pen-blue">{limitError?.limit}</span> питомцев.
-          </div>
-          <div className="bg-white/50 p-4 border border-black/10 text-xs font-black text-pen-blue italic rounded-sm">
-            Чтобы повысить ранг и призывать больше сущностей, вам необходимо развивать и прокачивать своих текущих питомцев!
-          </div>
-          <NeonButton onClick={() => setLimitError(null)} className="w-full">Понятно</NeonButton>
-        </div>
-      </InfoModal>
-      </div>
-    );
-  }
+  };
 
   const onFlip = (e: any) => {
     try {
       const newIndex = (e && typeof e.data === 'number') ? e.data : (typeof e === 'number' ? e : null);
       if (newIndex === null) return;
       
-      const targetBaseIndex = Math.floor(newIndex / 2) * 2;
       const currentPath = location.pathname;
+
+      if (isVertical) {
+         if (isOnboarding) {
+            const targetPath = newIndex === 0 ? '/start' : '/setup';
+            if (currentPath !== targetPath) {
+               navigate(targetPath, { replace: true });
+            }
+            return;
+         }
+
+         if (currentBook === 'bestiary') {
+            let targetPath = '/main';
+            if (newIndex === 0) targetPath = '/main';
+            else if (newIndex === 1) {
+               const pId = activePetId || (progress.pets[0]?.id);
+               targetPath = pId ? `/pet/${pId}` : '/main';
+            } else if (newIndex === 2) {
+               const pId = activePetId || (progress.pets[0]?.id);
+               targetPath = pId ? `/inventory/${pId}` : '/inventory';
+            } else if (newIndex === 3) {
+               targetPath = '/quest';
+            } else if (newIndex === 4 || newIndex === 5) {
+               targetPath = '/battle';
+            } else if (newIndex >= 6) {
+               const idx = Math.floor((newIndex - 6) / 2);
+               const pet = progress.pets[idx];
+               targetPath = pet ? `/evolve/${pet.id}` : '/evolve';
+            }
+            if (!currentPath.startsWith(targetPath)) {
+               navigate(targetPath);
+            }
+         } else if (currentBook === 'market') {
+            const targetPath = newIndex === 0 ? '/shop' : '/sale';
+            if (currentPath !== targetPath) navigate(targetPath);
+         } else if (currentBook === 'profile') {
+            const targetPath = newIndex === 0 ? '/profile' : '/profile/settings';
+            if (currentPath !== targetPath) navigate(targetPath);
+         } else if (currentBook === 'gallery') {
+            const idx = Math.floor(newIndex / 2);
+            const pet = progress.pets[idx];
+            if (pet) {
+               const targetPath = `/gallery/${pet.id}`;
+               if (currentPath !== targetPath) navigate(targetPath);
+            }
+         }
+         return;
+      }
+
+      const targetBaseIndex = Math.floor(newIndex / 2) * 2;
       const currentBasePage = getPageFromPath(currentPath);
       
       // Detection of manual manual flip
@@ -864,7 +1122,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
 
   // Stabilize the key - only change when onboarding status or layout orientation shifts
   // We remove dynamic spread counts from the key to prevent full remounts which kill flip animations
-  const flipbookKey = `flipbook-${isPortrait}-${currentBook}-${petsCount}`;
+  const flipbookKey = `flipbook-${isPortrait}-${isVertical}-${currentBook}-${petsCount}`;
 
   const currentPageIndex = getPageFromPath(location.pathname);
   const currentSpread = Math.floor(currentPageIndex / 2);
@@ -876,68 +1134,125 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
   const getBookPages = () => {
     switch (currentBook) {
       case 'welcome':
-        return [
-          <Page key="welcome-l" side="left"><Welcome onSetup={() => navigate('/setup')} /></Page>,
-          <Page key="welcome-r" side="right"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={1} side="right" toggleFlipLock={toggleFlipLock} /></Page>,
-          <Page key="setup-l" side="left"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={2} side="left" toggleFlipLock={toggleFlipLock} onStartSummon={handleStartSummon} /></Page>,
-          <Page key="setup-r" side="right"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handlePetSummonComplete} step={3} side="right" externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} toggleFlipLock={toggleFlipLock} /></Page>
-        ];
+        if (isVertical) {
+          return [
+             <Page key="wv1" side="mobile" className="w-full h-full"><Welcome onSetup={doMobileNav} isMobileBook={isPortrait} /></Page>,
+             <Page key="wv2" side="mobile" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={1} toggleFlipLock={() => {}} isMobileBook={isPortrait} mNavigate={doMobileNav} /></Page>,
+             <Page key="wv3" side="mobile" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={2} toggleFlipLock={() => {}} onStartSummon={() => { handleStartSummon(); doMobileNav(); }} isMobileBook={isPortrait} mNavigate={doMobileNav} /></Page>,
+             <Page key="wv4" side="mobile" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handlePetSummonComplete} step={3} externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} toggleFlipLock={() => {}} isMobileBook={isPortrait} mNavigate={doMobileNav} /></Page>
+          ];
+        } else {
+          return [
+             <Page key="wl1" side="left" className="w-full h-full"><Welcome onSetup={doMobileNav} isMobileBook={isPortrait} /></Page>,
+             <Page key="wl2" side="right" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={1} toggleFlipLock={() => {}} isMobileBook={isPortrait} mNavigate={doMobileNav} /></Page>,
+             <Page key="wl3" side="left" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handleAddNewPet} step={2} toggleFlipLock={() => {}} onStartSummon={() => { handleStartSummon(); }} isMobileBook={isPortrait} mNavigate={doMobileNav} /></Page>,
+             <Page key="wl4" side="right" className="w-full h-full"><Setup profile={userProfile} setProfile={setUserProfile} onComplete={handlePetSummonComplete} step={3} externalPet={summoningPet} externalLoading={isSummoning} externalError={summoningError} setExternalPet={setSummoningPet} setExternalLoading={setIsSummoning} setExternalError={setSummoningError} toggleFlipLock={() => {}} isMobileBook={isPortrait} mNavigate={doMobileNav} /></Page>
+          ];
+        }
       case 'summon':
         return [
-          <Page key="summon-l" side="left"><BestiaryActionPage side="left" forceType="summon" progress={progress} setProgress={setProgress} activePetId={activePetId} toggleFlipLock={toggleFlipLock} onAddNewPet={handleAddNewPet} profile={userProfile} onStartSummon={handleStartSummon} summoningPet={summoningPet} isSummoning={isSummoning} summoningError={summoningError} setSummoningPet={setSummoningPet} setIsSummoning={setIsSummoning} setSummoningError={setSummoningError} setUserProfile={setUserProfile} /></Page>,
-          <Page key="summon-r" side="right"><LogoAnimation /></Page>
+          <Page key="summon-l" side={isVertical ? "mobile" : "left"}><BestiaryActionPage side="left" forceType="summon" progress={progress} setProgress={setProgress} activePetId={activePetId} toggleFlipLock={toggleFlipLock} onAddNewPet={handleAddNewPet} profile={userProfile} onStartSummon={handleStartSummon} summoningPet={summoningPet} isSummoning={isSummoning} summoningError={summoningError} setSummoningPet={setSummoningPet} setIsSummoning={setIsSummoning} setSummoningError={setSummoningError} setUserProfile={setUserProfile} /></Page>,
+          ...(isVertical ? [] : [<Page key="summon-r" side="right"><LogoAnimation /></Page>])
         ];
       case 'market':
-        return [
-          <Page key="market-buy-l" side="left"><BestiaryActionPage side="left" forceType="shop-buy" progress={progress} setProgress={setProgress} activePetId={activePetId} toggleFlipLock={toggleFlipLock} onAddNewPet={handleAddNewPet} profile={userProfile} setUserProfile={setUserProfile} /></Page>,
-          <Page key="market-buy-r" side="right"><LogoAnimation /></Page>,
-          <Page key="market-sell-l" side="left"><BestiaryActionPage side="left" forceType="shop-sell" progress={progress} setProgress={setProgress} activePetId={activePetId} toggleFlipLock={toggleFlipLock} onAddNewPet={handleAddNewPet} profile={userProfile} setUserProfile={setUserProfile} /></Page>,
-          <Page key="market-sell-r" side="right"><LogoAnimation /></Page>
-        ];
-      case 'profile':
-        return [
-          <Page key="profile-main-l" side="left"><Profile progress={progress} setProgress={setProgress} view="main" userProfile={userProfile} setUserProfile={setUserProfile} /></Page>,
-          <Page key="profile-main-r" side="right"><LogoAnimation /></Page>,
-          
-          <Page key="profile-set-l" side="left"><Profile progress={progress} setProgress={setProgress} view="settings" userProfile={userProfile} setUserProfile={setUserProfile} /></Page>,
-          <Page key="profile-set-r" side="right"><LogoAnimation /></Page>
-        ];
-      case 'gallery':
-        return Array.from({ length: gallerySpreadsCount }).flatMap((_, i) => {
-          const pet = progress.pets[i];
+        if (isVertical) {
           return [
-            <Page key={`gallery-${i}-l`} side="left"><Gallery progress={progress} side="left" manualId={pet?.id} /></Page>,
-            <Page key={`gallery-${i}-r`} side="right"><Gallery progress={progress} side="right" manualId={pet?.id} /></Page>
+            <Page key="market-buy-l" side="mobile"><BestiaryActionPage side="left" forceType="shop-buy" progress={progress} setProgress={setProgress} activePetId={activePetId} toggleFlipLock={toggleFlipLock} onAddNewPet={handleAddNewPet} profile={userProfile} setUserProfile={setUserProfile} /></Page>,
+            <Page key="market-sell-l" side="mobile"><BestiaryActionPage side="left" forceType="shop-sell" progress={progress} setProgress={setProgress} activePetId={activePetId} toggleFlipLock={toggleFlipLock} onAddNewPet={handleAddNewPet} profile={userProfile} setUserProfile={setUserProfile} /></Page>
           ];
-        });
-      case 'bestiary':
-      default:
-        return [
-          /* Spread 0: Bestiary & Params (Stats) */
-          <Page key="bestiary-l" id="bestiary-l" side="left"><Main progress={progress} setProgress={setProgress} manualActiveId={activePetId} /></Page>,
-          <Page key="bestiary-r" id="bestiary-r" side="right"><PetDetail progress={progress} setProgress={setProgress} manualId={activePetId} initialTab="stats" toggleFlipLock={toggleFlipLock} id="pet-detail-main" onAddNewPet={handleAddNewPet} /></Page>,
-          
-          /* Spread 1: Inventory */
-          <Page key="inv-l" id="inv-l" side="left"><PetDetail progress={progress} setProgress={setProgress} manualId={activePetId} initialTab="inventory" toggleFlipLock={toggleFlipLock} id="pet-inv-main" onAddNewPet={handleAddNewPet} /></Page>,
-          <Page key="inv-r" id="inv-r" side="right"><LogoAnimation /></Page>,
-          
-          /* Spread 2: Quest */
-          <Page key="quest-l" side="left"><Quest progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} profile={userProfile} /></Page>,
-          <Page key="quest-r" side="right"><LogoAnimation /></Page>,
-          
-          /* Spread 3: Battle */
-          <Page key="battle-l" side="left"><Battle progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} side="left" /></Page>,
-          <Page key="battle-r" side="right"><Battle progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} side="right" /></Page>,
-          
-          /* Evolution Pages (1 pet per spread) starting at Spread 4 */
-          ...Array.from({ length: evolveSpreadsCount }).flatMap((_, i) => {
+        } else {
+          return [
+            <Page key="market-buy-l" side="left"><BestiaryActionPage side="left" forceType="shop-buy" progress={progress} setProgress={setProgress} activePetId={activePetId} toggleFlipLock={toggleFlipLock} onAddNewPet={handleAddNewPet} profile={userProfile} setUserProfile={setUserProfile} /></Page>,
+            <Page key="market-buy-r" side="right"><LogoAnimation /></Page>,
+            <Page key="market-sell-l" side="left"><BestiaryActionPage side="left" forceType="shop-sell" progress={progress} setProgress={setProgress} activePetId={activePetId} toggleFlipLock={toggleFlipLock} onAddNewPet={handleAddNewPet} profile={userProfile} setUserProfile={setUserProfile} /></Page>,
+            <Page key="market-sell-r" side="right"><LogoAnimation /></Page>
+          ];
+        }
+      case 'profile':
+        if (isVertical) {
+          return [
+            <Page key="profile-main-l" side="mobile"><Profile progress={progress} setProgress={setProgress} view="main" userProfile={userProfile} setUserProfile={setUserProfile} /></Page>,
+            <Page key="profile-set-l" side="mobile"><Profile progress={progress} setProgress={setProgress} view="settings" userProfile={userProfile} setUserProfile={setUserProfile} /></Page>
+          ];
+        } else {
+          return [
+            <Page key="profile-main-l" side="left"><Profile progress={progress} setProgress={setProgress} view="main" userProfile={userProfile} setUserProfile={setUserProfile} /></Page>,
+            <Page key="profile-main-r" side="right"><LogoAnimation /></Page>,
+            
+            <Page key="profile-set-l" side="left"><Profile progress={progress} setProgress={setProgress} view="settings" userProfile={userProfile} setUserProfile={setUserProfile} /></Page>,
+            <Page key="profile-set-r" side="right"><LogoAnimation /></Page>
+          ];
+        }
+      case 'gallery':
+        if (isVertical) {
+          return Array.from({ length: progress.pets.length || 1 }).flatMap((_, i) => {
             const pet = progress.pets[i];
             return [
-              <Page key={`evolve-ext-${i}-l`} side="left"><Evolve progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} side="left" manualId={pet?.id} /></Page>,
-              <Page key={`evolve-ext-${i}-r`} side="right"><Evolve progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} side="right" manualId={pet?.id} /></Page>
+              <Page key={`gallery-${i}-l`} side="mobile"><Gallery progress={progress} side="left" manualId={pet?.id} /></Page>
             ];
-          })
-        ];
+          });
+        } else {
+          return Array.from({ length: gallerySpreadsCount }).flatMap((_, i) => {
+            const pet = progress.pets[i];
+            return [
+              <Page key={`gallery-${i}-l`} side="left"><Gallery progress={progress} side="left" manualId={pet?.id} /></Page>,
+              <Page key={`gallery-${i}-r`} side="right"><Gallery progress={progress} side="right" manualId={pet?.id} /></Page>
+            ];
+          });
+        }
+      case 'bestiary':
+      default:
+        if (isVertical) {
+          return [
+            /* Page 0: Main/Bestiary list */
+            <Page key="bestiary-l" id="bestiary-l" side="mobile"><Main progress={progress} setProgress={setProgress} manualActiveId={activePetId} /></Page>,
+            /* Page 1: Params (Stats) */
+            <Page key="bestiary-r" id="bestiary-r" side="mobile"><PetDetail progress={progress} setProgress={setProgress} manualId={activePetId} initialTab="stats" toggleFlipLock={toggleFlipLock} id="pet-detail-main" onAddNewPet={handleAddNewPet} /></Page>,
+            /* Page 2: Inventory */
+            <Page key="inv-l" id="inv-l" side="mobile"><PetDetail progress={progress} setProgress={setProgress} manualId={activePetId} initialTab="inventory" toggleFlipLock={toggleFlipLock} id="pet-inv-main" onAddNewPet={handleAddNewPet} /></Page>,
+            /* Page 3: Quest */
+            <Page key="quest-l" side="mobile"><Quest progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} profile={userProfile} /></Page>,
+            /* Page 4: Battle left */
+            <Page key="battle-l" side="mobile"><Battle progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} side="left" /></Page>,
+            /* Page 5: Battle right */
+            <Page key="battle-r" side="mobile"><Battle progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} side="right" /></Page>,
+            /* Evolution Pages: 2 pages per pet */
+            ...Array.from({ length: evolveSpreadsCount }).flatMap((_, i) => {
+              const pet = progress.pets[i];
+              return [
+                <Page key={`evolve-ext-${i}-l`} side="mobile"><Evolve progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} side="left" manualId={pet?.id} /></Page>,
+                <Page key={`evolve-ext-${i}-r`} side="mobile"><Evolve progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} side="right" manualId={pet?.id} /></Page>
+              ];
+            })
+          ];
+        } else {
+          return [
+            /* Spread 0: Bestiary & Params (Stats) */
+            <Page key="bestiary-l" id="bestiary-l" side="left"><Main progress={progress} setProgress={setProgress} manualActiveId={activePetId} /></Page>,
+            <Page key="bestiary-r" id="bestiary-r" side="right"><PetDetail progress={progress} setProgress={setProgress} manualId={activePetId} initialTab="stats" toggleFlipLock={toggleFlipLock} id="pet-detail-main" onAddNewPet={handleAddNewPet} /></Page>,
+            
+            /* Spread 1: Inventory */
+            <Page key="inv-l" id="inv-l" side="left"><PetDetail progress={progress} setProgress={setProgress} manualId={activePetId} initialTab="inventory" toggleFlipLock={toggleFlipLock} id="pet-inv-main" onAddNewPet={handleAddNewPet} /></Page>,
+            <Page key="inv-r" id="inv-r" side="right"><LogoAnimation /></Page>,
+            
+            /* Spread 2: Quest */
+            <Page key="quest-l" side="left"><Quest progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} profile={userProfile} /></Page>,
+            <Page key="quest-r" side="right"><LogoAnimation /></Page>,
+            
+            /* Spread 3: Battle */
+            <Page key="battle-l" side="left"><Battle progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} side="left" /></Page>,
+            <Page key="battle-r" side="right"><Battle progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} side="right" /></Page>,
+            
+            /* Evolution Pages (1 pet per spread) starting at Spread 4 */
+            ...Array.from({ length: evolveSpreadsCount }).flatMap((_, i) => {
+              const pet = progress.pets[i];
+              return [
+                <Page key={`evolve-ext-${i}-l`} side="left"><Evolve progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} side="left" manualId={pet?.id} /></Page>,
+                <Page key={`evolve-ext-${i}-r`} side="right"><Evolve progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} side="right" manualId={pet?.id} /></Page>
+              ];
+            })
+          ];
+        }
     }
   };
 
@@ -949,10 +1264,10 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
       <div className="w-full h-full flex items-center justify-center overflow-hidden">
         <div 
           className={cn(
-            "relative flex items-center justify-center transition-all duration-500 ease-in-out",
+            "relative flex items-center justify-center transition-opacity duration-300 ease-in-out",
             !isFlipEnabled && "opacity-90"
           )}
-          style={{ width: flipBookWidth * 2, height: flipBookHeight }}
+          style={{ width: isVertical ? flipBookWidth : flipBookWidth * 2, height: flipBookHeight }}
         >
           {/* Forward Lock Edge Overlay (Narrower to avoid blocking buttons) */}
           {isForwardLocked && (
@@ -982,7 +1297,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
             useMouseEvents={isFlipEnabled}
             clickEventForward={true}
             usePortrait={isVertical}
-            swipeDistance={isVertical ? Math.max(30, Math.floor(windowSize.width / 2)) : 50}
+            swipeDistance={isVertical ? 40 : 50}
             startZIndex={0}
             autoSize={true}
             showPageCorners={true}

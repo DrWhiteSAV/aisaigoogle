@@ -254,26 +254,10 @@
   }
   
   @media (max-width: 1024px) {
+    /* Keep class defined but without forceful font overrides for elements so custom sizing works */
     .welcome-mobile-typography {
-      color: var(--color-pen-blue) !important;
-      font-weight: 100 !important; /* thin */
-      font-style: italic !important;
-      font-size: 12px !important;
-      line-height: 1.5 !important;
-    }
-    .welcome-mobile-typography h1, 
-    .welcome-mobile-typography h2, 
-    .welcome-mobile-typography h3, 
-    .welcome-mobile-typography p, 
-    .welcome-mobile-typography span, 
-    .welcome-mobile-typography label, 
-    .welcome-mobile-typography input, 
-    .welcome-mobile-typography textarea,
-    .welcome-mobile-typography button {
-      color: var(--color-pen-blue) !important;
-      font-weight: 100 !important;
-      font-style: italic !important;
-      font-size: 12px !important;
+      color: var(--color-pen-blue);
+      line-height: 1.5;
     }
   }
 }

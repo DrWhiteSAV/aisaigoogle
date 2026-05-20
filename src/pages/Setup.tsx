@@ -21,6 +21,7 @@ interface EditModalProps {
   hobbiesList: string[];
   traitsList: string[];
   toggleSelection: (list: string[], item: string, limit: number) => string[];
+  isMobileBook?: boolean;
 }
 
 const EditModal: React.FC<EditModalProps> = ({ 
@@ -33,7 +34,8 @@ const EditModal: React.FC<EditModalProps> = ({
   setProfile,
   hobbiesList,
   traitsList,
-  toggleSelection
+  toggleSelection,
+  isMobileBook
 }) => {
   const isTagField = editingField === 'hobby' || editingField === 'trait';
   const currentList = editingField === 'hobby' ? profile.hobbies : profile.traits;
@@ -58,13 +60,17 @@ const EditModal: React.FC<EditModalProps> = ({
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             onMouseDown={(e) => e.stopPropagation()}
             className={cn(
-              "w-full h-full max-h-full bg-[#f2ede0] ledger-grid border-2 border-pen-blue p-6 rotate-0 pointer-events-auto relative display-flex flex-col overflow-hidden",
-              isTagField ? "max-w-2xl h-[90vh]" : "max-w-md h-auto"
+              "w-full bg-[#f2ede0] ledger-grid border-2 border-pen-blue pointer-events-auto relative flex flex-col overflow-hidden shadow-2xl",
+              isTagField 
+                ? (isMobileBook 
+                    ? "max-w-[95%] h-[75vh] max-h-[75vh] p-4" 
+                    : "max-w-2xl h-[75vh] max-h-[75vh] md:h-[80vh] md:max-h-[80vh] p-4 md:p-6")
+                : "max-w-md h-auto max-h-full p-6"
             )}
             style={{ 
               color: 'var(--color-pen-blue)', 
-              fontWeight: 100, 
-              fontSize: '12px',
+              fontWeight: isMobileBook ? undefined : 100, 
+              fontSize: isMobileBook ? undefined : '12px',
               fontStyle: 'normal'
             }}
           >
@@ -73,7 +79,7 @@ const EditModal: React.FC<EditModalProps> = ({
                 <X className="h-6 w-6" strokeWidth={3} />
               </button>
             </div>
-            <h3 className="text-2xl font-black text-pen-blue mb-4 mr-8">
+            <h3 className={cn("font-black text-pen-blue mb-4 mr-8", isMobileBook ? "text-[18px] mb-2" : "text-2xl")}>
               {editingField === 'name' ? 'Введите Имя' : 
                editingField === 'city' ? 'Ваш Регион' : 
                editingField === 'hobby' ? 'Выберите Увлечения' :
@@ -83,7 +89,7 @@ const EditModal: React.FC<EditModalProps> = ({
             </h3>
             
             {isTagField ? (
-              <div className="flex-1 flex flex-col min-h-0 space-y-4">
+              <div className="flex-1 flex flex-col min-h-0 space-y-3">
                 <div className="flex gap-2">
                   <input 
                     type="text"
@@ -102,7 +108,7 @@ const EditModal: React.FC<EditModalProps> = ({
                        }
                     }}
                     placeholder="Добавить свой тег..."
-                    className="flex-1 bg-white/40 border-b-2 border-pen-blue/20 py-2 px-4 text-lg font-black text-pen-blue focus:border-pen-blue outline-none transition-all"
+                    className="flex-1 bg-white/40 border-b-2 border-pen-blue/20 py-1.5 px-3 text-base font-black text-pen-blue focus:border-pen-blue outline-none transition-all"
                   />
                   <button 
                     onClick={() => {
@@ -114,14 +120,14 @@ const EditModal: React.FC<EditModalProps> = ({
                        }
                        setModalValue('');
                     }}
-                    className="aspect-square w-12 flex items-center justify-center bg-pen-blue text-white"
+                    className="aspect-square w-10 flex items-center justify-center bg-pen-blue text-white"
                   >
-                    <Plus className="h-6 w-6" />
+                    <Plus className="h-5 w-5" />
                   </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 py-2">
-                  <div className="flex flex-wrap gap-2">
+                <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 py-1 min-h-0">
+                  <div className="flex flex-wrap gap-1.5">
                     {options.map(item => (
                       <button 
                         key={item}
@@ -130,11 +136,11 @@ const EditModal: React.FC<EditModalProps> = ({
                           setProfile({ ...profile, [editingField === 'hobby' ? 'hobbies' : 'traits']: newList });
                         }}
                         className={cn(
-                          "px-3 py-2 border-2 font-black transition-all",
-                          isMobileBook ? "text-[10px]" : "text-xs",
+                          "border-2 transition-all",
+                          isMobileBook ? "text-[10px] py-[3px] px-[8px]" : "text-xs py-[6px] px-[12px]",
                           currentList.includes(item) 
-                            ? (editingField === 'hobby' ? "bg-sticker-yellow border-black rotate-1" : "bg-sticker-pink border-black -rotate-1")
-                            : "border-pen-blue/20 text-pen-blue/30 hover:border-pen-blue/40"
+                            ? (editingField === 'hobby' ? "bg-sticker-yellow border-black font-black rotate-1" : "bg-sticker-pink border-black font-black -rotate-1")
+                            : "border-pen-blue text-pen-blue font-normal italic hover:bg-pen-blue/5"
                         )}
                       >{item}</button>
                     ))}
@@ -145,8 +151,8 @@ const EditModal: React.FC<EditModalProps> = ({
                           setProfile({ ...profile, [editingField === 'hobby' ? 'hobbies' : 'traits']: currentList.filter(i => i !== item) });
                         }}
                         className={cn(
-                          "px-3 py-2 border-2 font-black bg-sticker-yellow border-black rotate-1",
-                          isMobileBook ? "text-[10px]" : "text-xs",
+                          "border-2 font-black bg-sticker-yellow border-black rotate-1",
+                          isMobileBook ? "text-[10px] py-[3px] px-[8px]" : "text-xs py-[6px] px-[12px]",
                           editingField === 'trait' && "bg-sticker-pink -rotate-1"
                         )}
                       >{item}</button>
@@ -154,11 +160,11 @@ const EditModal: React.FC<EditModalProps> = ({
                   </div>
                 </div>
                 
-                <div className="pt-4 border-t-2 border-black/5 flex justify-between items-center bg-[#f2ede0]">
+                <div className="pt-3 border-t-2 border-black/5 flex justify-between items-center bg-[#f2ede0]">
                   <span className="text-sm font-black text-pen-blue">Выбрано: {currentList.length}/{limit}</span>
                   <button 
                     onClick={onClose}
-                    className="px-8 py-3 bg-pen-blue text-white font-black hover:brightness-110 border-2 border-pen-blue"
+                    className="px-6 py-2 bg-pen-blue text-white font-black hover:brightness-110 border-2 border-pen-blue text-sm"
                   >
                     Готово
                   </button>
@@ -182,19 +188,35 @@ const EditModal: React.FC<EditModalProps> = ({
                     onKeyDown={(e) => e.key === 'Enter' && saveEditModal()}
                     autoFocus
                     className="w-full bg-transparent border-b-2 border-black/20 py-2 text-2xl font-black text-pen-blue focus:border-pen-blue outline-none transition-all mb-6"
+                    style={isMobileBook ? {
+                      fontFamily: 'Georgia',
+                      marginTop: '14px',
+                      paddingTop: '12px',
+                      paddingLeft: '11px',
+                      paddingRight: '2px',
+                      paddingBottom: '12px',
+                      marginLeft: '0px',
+                      marginRight: '0px'
+                    } : undefined}
                   />
                 )}
 
                 <div className="flex gap-4">
                   <button 
                     onClick={saveEditModal}
-                    className="flex-1 py-4 bg-pen-blue text-white font-black border-2 border-pen-blue hover:brightness-110"
+                    className={cn(
+                      "flex-1 bg-pen-blue text-white border-2 border-pen-blue hover:brightness-110",
+                      isMobileBook ? "py-2 text-[16px] font-normal" : "py-4 text-base font-black"
+                    )}
                   >
                     Принять
                   </button>
                   <button 
                     onClick={onClose}
-                    className="flex-1 py-4 bg-white/40 border-2 border-pen-blue text-pen-blue font-black hover:bg-black/5"
+                    className={cn(
+                      "flex-1 bg-white/40 border-2 border-pen-blue text-pen-blue hover:bg-black/5",
+                      isMobileBook ? "py-2 text-[16px] font-normal" : "py-4 text-base font-black"
+                    )}
                   >
                     Отмена
                   </button>
@@ -472,7 +494,7 @@ export const Setup: React.FC<{
       </div>
       <div className="space-y-2">
         <h2 className={cn("font-black text-pen-blue", isMobileBook ? "text-lg" : "text-xl")}>{isMarketSummon ? 'Подготовка к инкубации' : 'Ожидание Инициации'}</h2>
-        <p className="text-[12px] font-black text-pen-blue leading-relaxed">
+        <p className={cn("leading-relaxed", isMobileBook ? "text-[12px] font-normal text-pen-blue" : "text-[12px] font-black text-pen-blue")}>
           {isMarketSummon ? 'Настройте будущую сущность и разбейте скорлупу' : 'Завершите заполнение анкеты на левой странице и нажмите «Призвать сущность»'}
         </p>
       </div>
@@ -519,16 +541,16 @@ export const Setup: React.FC<{
       {currentStep === 1 && (
         <div className={cn(isMobileBook ? "contents" : cn("flex flex-col space-y-4", !hideAction && "flex-1 overflow-hidden"))}>
           {!hideAction && (
-            <h2 className={cn("font-black text-pen-blue", isMobileBook ? "text-xl sm:text-2xl leading-none italic pb-1 flex-shrink-0" : "text-4xl mb-4 flex-shrink-0")}>
+            <h2 className={cn("text-pen-blue", isMobileBook ? "text-[18px] font-bold leading-none italic pb-1 flex-shrink-0" : "font-black text-4xl mb-4 flex-shrink-0")}>
               {isMarketSummon ? 'ДНК Яйца' : 'Анкета'}
             </h2>
           )}
           <div className={cn(isMobileBook ? "flex flex-col space-y-2.5 pb-4" : "flex-1 overflow-y-auto custom-scrollbar space-y-5 pr-4")}>
             <div className="space-y-1">
-              <label className="text-sm font-black text-pen-blue">Имя Призывателя</label>
+              <label className={cn("text-pen-blue", isMobileBook ? "text-[10px] font-bold" : "text-sm font-black")}>Имя Призывателя</label>
               <button 
                 onClick={() => openEditModal('name', profile.name)}
-                className={cn("w-full text-left bg-transparent border-b-2 border-black/10 py-1 font-black text-pen-blue focus:border-pen-blue outline-none transition-all", isMobileBook ? "text-xl min-h-[2rem]" : "text-2xl min-h-[2.5rem]")}
+                className={cn("w-full text-left bg-transparent border-b-2 border-black/10 text-pen-blue focus:border-pen-blue outline-none transition-all", isMobileBook ? "font-normal text-[12px] h-[27px] ml-[-2px] mb-[-8px] pt-0 mt-0 pb-0 flex items-center" : "font-black py-1 text-2xl min-h-[2.5rem]")}
               >
                 {profile.name || 'Назовите его...'}
               </button>
@@ -536,19 +558,19 @@ export const Setup: React.FC<{
             
             <div className={cn("grid grid-cols-2", isMobileBook ? "gap-2" : "gap-4")}>
                <div className="space-y-1">
-                  <label className="text-sm font-black text-pen-blue block italic">Возраст</label>
+                  <label className={cn("text-pen-blue block italic", isMobileBook ? "text-[10px] font-bold" : "text-sm font-black")}>Возраст</label>
                   <button 
                      onClick={() => openEditModal('age', profile.age.toString())}
-                     className={cn("w-full bg-white/40 border-2 border-pen-blue/10 font-black text-pen-blue hover:border-pen-blue outline-none transition-all text-left", isMobileBook ? "p-1 text-base" : "p-2 text-xl")}
+                     className={cn("w-full bg-white/40 border-2 border-pen-blue/10 text-pen-blue hover:border-pen-blue outline-none transition-all text-left", isMobileBook ? "font-normal text-[12px] pt-0 pb-0 pl-[6px] ml-0 -mt-[8px] -mb-[4px]" : "p-2 text-xl font-black")}
                   >
                     {profile.age}
                   </button>
                </div>
                <div className="space-y-1">
-                  <label className="text-sm font-black text-pen-blue block italic">Регион</label>
+                  <label className={cn("text-pen-blue block italic", isMobileBook ? "text-[10px] font-bold" : "text-sm font-black")}>Регион</label>
                   <button 
                     onClick={() => openEditModal('city', profile.city)}
-                    className={cn("w-full text-left bg-transparent border-b-2 border-black/10 font-black text-pen-blue focus:border-pen-blue outline-none transition-all placeholder:text-black/5", isMobileBook ? "py-0 text-base" : "py-1 text-xl")}
+                    className={cn("w-full text-left bg-transparent border-b-2 border-black/10 text-pen-blue focus:border-pen-blue outline-none transition-all placeholder:text-black/5", isMobileBook ? "font-normal text-[12px] pb-0 pt-[5px] pl-0 -mt-[3px]" : "py-1 text-xl font-black")}
                   >
                     {profile.city || 'Город...'}
                   </button>
@@ -556,21 +578,21 @@ export const Setup: React.FC<{
             </div>
 
              <div className="space-y-1">
-                <label className="text-sm font-black text-pen-blue block italic">Пол</label>
+                <label className={cn("text-pen-blue block italic", isMobileBook ? "text-[10px] font-bold" : "text-sm font-black")}>Пол</label>
                 <div className="flex gap-2">
                    <button 
                      onClick={() => setProfile({...profile, gender: 'male'})}
                      className={cn(
-                       "flex-1 font-black transition-all border-2 border-black",
-                       isMobileBook ? "py-1 text-sm" : "py-4 text-base",
+                       "flex-1 transition-all border-2 border-black",
+                       isMobileBook ? "py-1 text-[10px] border-[#0047ab] font-bold text-[#0047ab]" : "py-4 text-base font-black",
                        profile.gender === 'male' ? "bg-sticker-yellow text-black rotate-1" : "bg-transparent text-pen-blue hover:bg-black/5"
                      )}
                    >Мужской</button>
                    <button 
                      onClick={() => setProfile({...profile, gender: 'female'})}
                      className={cn(
-                       "flex-1 font-black transition-all border-2 border-black",
-                       isMobileBook ? "py-1 text-sm" : "py-4 text-base",
+                       "flex-1 transition-all border-2 border-black",
+                       isMobileBook ? "py-1 text-[10px] border-[#0047ab] font-bold text-[#0047ab]" : "py-4 text-base font-black",
                        profile.gender === 'female' ? "bg-sticker-yellow text-black -rotate-1" : "bg-transparent text-pen-blue hover:bg-black/5"
                      )}
                    >Женский</button>
@@ -578,27 +600,27 @@ export const Setup: React.FC<{
              </div>
 
              <div className="space-y-0.5">
-                <label className="text-sm font-black text-pen-blue block italic">О себе</label>
+                <label className={cn("text-pen-blue block italic", isMobileBook ? "text-[10px] font-bold" : "text-sm font-black")}>О себе</label>
                 <button 
                    onClick={() => openEditModal('about', profile.about)}
-                   className={cn("w-full text-left bg-white/20 border-2 border-black/5 p-3 text-base font-black text-pen-blue focus:border-pen-blue/20 outline-none transition-all resize-none placeholder:text-black/5 leading-relaxed", isMobileBook ? "min-h-[3.5rem] py-2" : "min-h-[5rem]")}
+                   className={cn("w-full text-left bg-white/20 border-2 border-black/5 text-pen-blue focus:border-pen-blue/20 outline-none transition-all resize-none placeholder:text-black/5 leading-relaxed", isMobileBook ? "font-normal min-h-[3.5rem] py-0 text-[10px] -mt-[4px] -mb-[16px] mr-0 pb-[24px] pl-[4px] pr-[4px]" : "p-3 text-base font-black min-h-[5rem]")}
                 >
                   {profile.about || 'Кратко о себе...'}
                </button>
             </div>
 
             {!hideAction && (
-              <div className="pt-2 flex justify-center">
+              <div className={cn("flex justify-center", isMobileBook ? "pt-0 h-[43px]" : "pt-2")}>
                 <NeonButton 
                   onClick={handleNext} 
                   disabled={!isStep1Valid}
                   className={cn(
-                    "font-black transition-all border-2 border-black",
-                    isMobileBook ? "py-2 text-sm px-6" : "py-5 text-lg px-10",
+                    "transition-all border-2",
+                    isMobileBook ? "h-[33px] w-[83px] border-[#0047ab] mt-[7px] p-0 flex items-center justify-center font-bold text-[16px]" : "py-5 text-lg px-10 border-black font-black",
                     !isStep1Valid ? "opacity-20 grayscale cursor-not-allowed text-black/10" : "bg-sticker-yellow"
                   )}
                 >
-                  Начать
+                  <span className={isMobileBook ? "font-bold text-[16px]" : ""}>Начать</span>
                 </NeonButton>
               </div>
             )}
@@ -608,26 +630,26 @@ export const Setup: React.FC<{
 
       {currentStep === 2 && (
         <div className={cn(isMobileBook ? "contents" : "flex-1 flex flex-col overflow-hidden space-y-4")}>
-          <h2 className={cn("font-black text-pen-blue flex-shrink-0", isMobileBook ? "text-xl sm:text-2xl leading-none italic pb-1" : "text-4xl leading-none")}>Настройка</h2>
+          <h2 className={cn(isMobileBook ? "text-[#0047ab] text-[18px] font-bold leading-none italic pb-1" : "text-pen-blue font-black text-4xl leading-none", "flex-shrink-0")}>Настройка</h2>
           
           <div className={cn(isMobileBook ? "flex flex-col space-y-3 pb-4" : "flex-1 overflow-y-auto custom-scrollbar space-y-6 pr-4 py-1")}>
             <div className="space-y-1">
               <div className="flex justify-between items-center">
-                <span className="text-sm font-black text-pen-blue">Увлечения</span>
-                <span className="text-[10px] font-black text-pen-blue/25">{profile.hobbies.length}/8</span>
+                <span className={cn("text-pen-blue", isMobileBook ? "text-[10px] font-bold" : "text-sm font-black")}>Увлечения</span>
+                <span className={cn(isMobileBook ? "text-[#0047ab] text-[10px] font-bold" : "text-pen-blue/25 text-[10px] font-black")}>{profile.hobbies.length}/8</span>
               </div>
               <div className={cn("flex flex-wrap bg-white/10 border-2 border-dashed border-pen-blue/10", isMobileBook ? "gap-1 p-2 min-h-[50px]" : "gap-1.5 p-3 min-h-[60px]")}>
                 {profile.hobbies.length === 0 ? (
                   <span className={cn("text-pen-blue/20 m-auto", isMobileBook ? "text-[10px]" : "text-xs")}>Ничего не выбрано</span>
                 ) : (
                   profile.hobbies.map(h => (
-                    <span key={h} className={cn("px-2 py-1 border-2 font-black bg-sticker-yellow border-black rotate-1", isMobileBook ? "text-[10px]" : "text-xs")}>{h}</span>
+                    <span key={h} className={cn("px-2 py-1 border-2 bg-sticker-yellow border-black rotate-1", isMobileBook ? "text-[10px] font-normal" : "text-xs font-black")}>{h}</span>
                   ))
                 )}
               </div>
               <button 
                 onClick={() => openEditModal('hobby')}
-                className={cn("w-full py-2 border-2 border-pen-blue/20 font-black text-pen-blue hover:bg-pen-blue/5 transition-all flex items-center justify-center gap-1", isMobileBook ? "text-[10px]" : "text-xs")}
+                className={cn("w-full border-2 border-pen-blue/20 text-pen-blue hover:bg-pen-blue/5 transition-all flex items-center justify-center gap-1", isMobileBook ? "text-[10px] font-bold h-[27px]" : "text-xs font-black py-2")}
               >
                 <Plus className="h-3 w-3" /> Выбрать увлечения
               </button>
@@ -635,21 +657,21 @@ export const Setup: React.FC<{
 
             <div className="space-y-1">
               <div className="flex justify-between items-center">
-                <span className="text-sm font-black text-pen-blue">Черты Души</span>
-                <span className="text-[10px] font-black text-pen-blue/25">{profile.traits.length}/8</span>
+                <span className={cn("text-pen-blue", isMobileBook ? "text-[10px] font-bold" : "text-sm font-black")}>Черты Души</span>
+                <span className={cn(isMobileBook ? "text-[#0047ab] text-[10px] font-bold" : "text-pen-blue/25 text-[10px] font-black")}>{profile.traits.length}/8</span>
               </div>
               <div className={cn("flex flex-wrap bg-white/10 border-2 border-dashed border-pen-blue/10", isMobileBook ? "gap-1 p-2 min-h-[50px]" : "gap-1.5 p-3 min-h-[60px]")}>
                 {profile.traits.length === 0 ? (
                   <span className={cn("text-pen-blue/20 m-auto", isMobileBook ? "text-[10px]" : "text-xs")}>Ничего не выбрано</span>
                 ) : (
                   profile.traits.map(t => (
-                    <span key={t} className={cn("px-2 py-1 border-2 font-black bg-sticker-pink border-black -rotate-1", isMobileBook ? "text-[10px]" : "text-xs")}>{t}</span>
+                    <span key={t} className={cn("px-2 py-1 border-2 bg-sticker-pink border-black -rotate-1", isMobileBook ? "text-[10px] font-normal" : "text-xs font-black")}>{t}</span>
                   ))
                 )}
               </div>
               <button 
                 onClick={() => openEditModal('trait')}
-                className={cn("w-full py-2 border-2 border-pen-blue/20 font-black text-pen-blue hover:bg-pen-blue/5 transition-all flex items-center justify-center gap-1", isMobileBook ? "text-[10px]" : "text-xs")}
+                className={cn("w-full border-2 border-pen-blue/20 text-pen-blue hover:bg-pen-blue/5 transition-all flex items-center justify-center gap-1", isMobileBook ? "text-[10px] font-bold h-[27px]" : "text-xs font-black py-2")}
               >
                 <Plus className="h-3 w-3" /> Выбрать теги
               </button>
@@ -661,14 +683,14 @@ export const Setup: React.FC<{
                   onClick={handleNext} 
                   disabled={!isStep2Valid}
                   className={cn(
-                    "font-black transition-all border-2 border-black",
-                    isMobileBook ? "py-2 text-sm px-6" : "py-6 text-xl px-12",
+                    "transition-all border-2",
+                    isMobileBook ? "py-2 px-6 border-[#0047ab]" : "py-6 text-xl px-12 border-black font-black",
                     !isStep2Valid ? "opacity-20 grayscale cursor-not-allowed text-black/10" : "bg-sticker-yellow"
                   )}
                 >
-                  {isMarketSummon ? 'Вылупить Яйцо' : 'Призвать сущность'}
+                  <span className={isMobileBook ? "font-bold text-[16px]" : ""}>{isMarketSummon ? 'Вылупить Яйцо' : 'Призвать сущность'}</span>
                 </NeonButton>
-                <p className="mt-4 text-[12px] font-black text-pen-blue/30 tracking-wide">
+                <p className={cn("mt-4 text-[12px] tracking-wide", isMobileBook ? "font-normal text-[#0047ab]" : "font-black text-pen-blue/30")}>
                   {isStep2Valid ? (isMarketSummon ? 'Яйцо готово' : 'Форма готова к призыву') : 'Выберите увлечения и черты души'}
                 </p>
               </div>

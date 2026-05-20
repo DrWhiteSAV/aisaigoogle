@@ -148,6 +148,7 @@ export const Main: React.FC<{
         title={modalType?.rank ? "Ранг Сущности" : modalType?.rarity ? "Аналитика Потенциала" : modalType?.element ? "Узы Элемента" : "Суть Атрибута"}
         showClose={true}
         plain={!!modalType?.fullScreenImage}
+        className={cn((modalType?.element || modalType?.attribute) ? "max-w-4xl" : "max-w-md")}
       >
         {modalType?.fullScreenImage ? (
            <motion.img 

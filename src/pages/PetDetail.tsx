@@ -518,6 +518,7 @@ export const PetDetail: React.FC<{
         title={modalType?.rank ? "Ранг Сущности" : modalType?.stats ? "Аналитика Потенциала" : modalType?.element ? "Элемент" : modalType?.attribute ? "Атрибут" : modalType?.selectedSkill ? modalType.selectedSkill.name : "Детали"}
         showClose={true} plain={!!modalType?.fullScreenImage}
         centerTitle={!!modalType?.selectedSkill}
+        className={cn((modalType?.element || modalType?.attribute) ? "max-w-4xl" : "max-w-md")}
       >
         {modalType?.fullScreenImage ? (
            <motion.img 

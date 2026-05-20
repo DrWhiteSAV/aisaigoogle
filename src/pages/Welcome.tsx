@@ -19,12 +19,12 @@ export const Welcome: React.FC<{ onSetup?: () => void; side?: 'left' | 'right'; 
       </div>
       
       <div className={cn(isMobileBook ? "space-y-0 mt-0" : "space-y-1 mt-4")}>
-        <p className="text-xl sm:text-2xl font-medium text-pen-blue tracking-wide font-hand">
+        <p className={cn("text-pen-blue tracking-wide font-hand", isMobileBook ? "text-[20px] font-bold" : "text-xl sm:text-2xl font-medium")}>
           Цифровой Бестиарий
         </p>
       </div>
 
-      <div className={cn("max-w-[280px] text-lg sm:text-xl text-pen-blue/40 font-black border-t border-black/5", isMobileBook ? "pt-1 leading-tight" : "pt-2 leading-relaxed")}>
+      <div className={cn("max-w-[280px] border-t border-black/5", isMobileBook ? "pt-1 text-[12px] leading-[20px] text-[#0047ab] font-normal" : "text-lg sm:text-xl text-pen-blue/40 font-black pt-2 leading-relaxed")}>
         <HandwrittenText 
           text="Инициализируйте протокол слияния для проявления вашей первой цифровой сущности." 
           speed={40}
@@ -34,9 +34,9 @@ export const Welcome: React.FC<{ onSetup?: () => void; side?: 'left' | 'right'; 
       <div className={cn("flex flex-col items-center", isMobileBook ? "pt-1 gap-1" : "pt-2 gap-4")}>
         <NeonButton 
           onClick={onSetup}
-          className={cn("bg-sticker-yellow font-black border-2 border-black rotate-2 hover:rotate-1 transition-all", isMobileBook ? "px-6 py-0 min-h-[30px] text-sm mt-1 mb-1" : "px-12 py-4")}
+          className={cn("bg-sticker-yellow font-black border-2 rotate-2 hover:rotate-1 transition-all", isMobileBook ? "px-6 py-0 min-h-[30px] border-[#0047ab] mt-1 mb-1" : "border-black px-12 py-4")}
         >
-          Начать
+          <span className={cn(isMobileBook && "font-bold text-[16px]")}>Начать</span>
         </NeonButton>
         <div className={cn("opacity-20", isMobileBook ? "mt-0" : "mt-2")}>
           <div className={cn("bg-pen-blue mx-auto", isMobileBook ? "w-8 h-[1px] mb-0.5" : "w-12 h-0.5 mb-2")} />

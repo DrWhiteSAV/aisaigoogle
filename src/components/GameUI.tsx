@@ -12,22 +12,35 @@ export const RankInfoModal: React.FC<{
   onClose: () => void;
   rankInfo: { name: string, limit: number };
 }> = ({ isOpen, onClose, rankInfo }) => {
-  return (
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-[5%]" onClick={onClose}>
+        <div 
+          className="fixed inset-0 z-[1000] flex items-center justify-center p-0 md:p-4 h-screen w-screen" 
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            e.nativeEvent.stopImmediatePropagation();
+          }}
+          onMouseMove={(e) => e.stopPropagation()}
+          onTouchStart={(e) => {
+            e.stopPropagation();
+            e.nativeEvent.stopImmediatePropagation();
+          }}
+          onTouchMove={(e) => e.stopPropagation()}
+        >
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-[#f2ede0] w-full h-full cursor-pointer"
+            className="absolute inset-0 bg-black/80 cursor-pointer"
           />
           <motion.div 
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="relative pointer-events-auto z-10 w-full h-full max-h-full bg-[#f2ede0] ledger-grid display-flex flex-col overflow-hidden border-2 border-pen-blue p-6 text-left"
+            className="relative pointer-events-auto z-10 w-full max-w-lg max-h-[85vh] flex flex-col bg-[#f2ede0] ledger-grid border-2 border-black p-6 rotate-1 shadow-2xl"
+            onMouseDown={e => e.stopPropagation()}
             onClick={e => e.stopPropagation()}
             style={{ 
               color: 'var(--color-pen-blue)', 
@@ -37,31 +50,36 @@ export const RankInfoModal: React.FC<{
             }}
           >
             <div className="absolute top-2 right-2 flex gap-1 z-50">
-              <button onClick={onClose} className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-black/5 text-pen-blue font-black transition-all">✕</button>
+              <button 
+                onClick={onClose} 
+                className="absolute z-50 p-2 hover:bg-white/10 rounded-full transition-colors top-2 right-2 sm:top-[-40px] sm:right-[-40px] text-white hover:scale-110"
+              >
+                <X className="h-6 w-6 sm:h-8 sm:w-8" strokeWidth={3} />
+              </button>
             </div>
-            <div className="flex justify-between items-center border-b-2 border-pen-blue/20 pb-2 mb-4 shrink-0">
-               <h2 className="text-[20px] font-black text-pen-blue">Ранг Призывателя</h2>
+            <div className="flex justify-between items-center pb-2 mb-4 shrink-0">
+               <h2 className="text-[24px] font-black tracking-tight text-pen-blue">Ранг Призывателя</h2>
             </div>
-            <div className="space-y-2 flex-1 overflow-y-auto custom-scrollbar">
+            <div className="space-y-1 overflow-y-auto custom-scrollbar pr-2 pb-2">
                {RANKS_INFO.map(rank => {
                   const isCurrent = rank.name === rankInfo.name;
                   return (
                     <div 
                       key={rank.id} 
                       className={cn(
-                        "p-3 flex justify-between items-center text-pen-blue font-black transition-colors border-2",
+                        "px-2 py-1.5 flex justify-between items-center text-pen-blue font-black transition-colors border-2",
                         isCurrent ? "bg-transparent border-pen-blue" : "border-transparent bg-pen-blue/5 hover:bg-pen-blue/10"
                       )}
                     >
-                       <div className="flex gap-3 items-center">
-                  <span className="text-[20px] text-pen-blue font-black w-6 text-left">{rank.id}.</span>
+                       <div className="flex gap-2 items-center">
+                  <span className="text-[14px] md:text-[16px] text-pen-blue font-black w-5 text-left">{rank.id}.</span>
                           <div className="flex flex-col">
-                             <span className="text-[20px] text-pen-blue font-black">{rank.name}</span>
-                             <span className="text-[20px] text-pen-blue font-black">(есть питомец {rank.req} ранга)</span>
+                             <span className="text-[14px] md:text-[16px] text-pen-blue font-black leading-tight">{rank.name}</span>
+                             <span className="text-[10px] md:text-[12px] text-pen-blue/70 font-black leading-tight">(нужен питомец {rank.req})</span>
                           </div>
                        </div>
-                       <div className="text-[20px] text-pen-blue font-black text-right">
-                          <span>право на {rank.limit} пит.</span>
+                       <div className="text-[12px] md:text-[14px] text-pen-blue font-black text-right">
+                          <span>на {rank.limit} пит.</span>
                        </div>
                     </div>
                   )
@@ -70,7 +88,8 @@ export const RankInfoModal: React.FC<{
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
 
@@ -134,7 +153,8 @@ export const InfoModal: React.FC<{
   showClose?: boolean;
   plain?: boolean;
   centerTitle?: boolean;
-}> = ({ isOpen, onClose, title, children, showClose = true, plain = false, centerTitle = false }) => {
+  className?: string;
+}> = ({ isOpen, onClose, title, children, showClose = true, plain = false, centerTitle = false, className }) => {
   return createPortal(
     <AnimatePresence>
       {isOpen && (
@@ -168,7 +188,8 @@ export const InfoModal: React.FC<{
             "relative pointer-events-auto z-10",
             plain 
               ? "flex items-center justify-center p-4 max-h-screen" 
-              : "w-full max-w-sm bg-[#f2ede0] ledger-grid border-2 border-black p-6 rotate-1 shadow-2xl"
+              : "w-full max-h-[85vh] flex flex-col bg-[#f2ede0] ledger-grid border-2 border-black p-6 rotate-1 shadow-2xl",
+            className || (plain ? "" : "max-w-md")
           )}
         >
           {showClose && (
@@ -182,8 +203,8 @@ export const InfoModal: React.FC<{
               <X className={plain ? "h-8 w-8" : "h-6 w-6"} strokeWidth={3} />
             </button>
           )}
-          {!plain && <h3 className={cn("text-[24px] font-black text-pen-blue mb-4 tracking-tight", centerTitle && "text-center")}>{title}</h3>}
-          <div className={plain ? "flex flex-col items-center justify-center overflow-hidden rounded-lg max-h-[85vh] aspect-[9/16]" : "space-y-4"}>
+          {!plain && <h3 className={cn("text-[24px] font-black text-pen-blue mb-4 tracking-tight flex-shrink-0", centerTitle && "text-center")}>{title}</h3>}
+          <div className={plain ? "flex flex-col items-center justify-center overflow-hidden rounded-lg max-h-[85vh] aspect-[9/16]" : "space-y-4 overflow-y-auto custom-scrollbar pr-2 pb-2"}>
             {children}
           </div>
         </motion.div>
