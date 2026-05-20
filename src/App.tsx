@@ -539,14 +539,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
 
             const patchedStart = function(t: any) {
               const isPortraitMode = this.app.getOrientation() === 'portrait';
-              let shiftedT = t;
-              if (isPortraitMode && t) {
-                const rect = this.getBoundsRect();
-                if (t.x >= rect.pageWidth) {
-                  shiftedT = { ...t, x: t.x - rect.pageWidth };
-                }
-              }
-              const s = originalStart.call(this, shiftedT);
+              const s = originalStart.call(this, t);
               if (s && this.calc !== null) {
                 if (isPortraitMode && this.render.getDirection() === 1) { // FlipDirection.BACK === 1
                   const CalculationClass = this.calc.constructor;
@@ -574,30 +567,12 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
               const y = (this.calc.getCorner() === 'bottom' || this.calc.getCorner() === 1) ? rect.height : 0;
               
               const isPortraitMode = this.app.getOrientation() === 'portrait';
-              const actualDirection = this.render.getDirection(); // 0 = forward, 1 = backward
+              const threshold = isPortraitMode ? rect.pageWidth * 0.5 : 0;
               
-              if (isPortraitMode) {
-                const threshold = rect.pageWidth * 0.5;
-                if (actualDirection === 0) {
-                  if (pos.x <= threshold) {
-                    this.animateFlippingTo(pos, { x: -rect.pageWidth, y }, true);
-                  } else {
-                    this.animateFlippingTo(pos, { x: rect.pageWidth, y }, false);
-                  }
-                } else {
-                  if (pos.x >= threshold) {
-                    this.animateFlippingTo(pos, { x: rect.pageWidth, y }, true);
-                  } else {
-                    this.animateFlippingTo(pos, { x: 0, y }, false);
-                  }
-                }
+              if (pos.x <= threshold) {
+                this.animateFlippingTo(pos, { x: -rect.pageWidth, y }, true);
               } else {
-                const threshold = rect.pageWidth * 0.5;
-                if (pos.x <= threshold) {
-                  this.animateFlippingTo(pos, { x: -rect.pageWidth, y }, true);
-                } else {
-                  this.animateFlippingTo(pos, { x: rect.pageWidth, y }, false);
-                }
+                this.animateFlippingTo(pos, { x: rect.pageWidth, y }, false);
               }
             };
 
@@ -613,10 +588,13 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
                   if (!this.start(t)) return;
                   
                   this.setState("flipping");
-                  const n = "bottom" === this.calc.getCorner() || this.calc.getCorner() === 1 ? e.height : 0;
+                  const i = e.height / 10;
+                  const corner = this.calc.getCorner();
+                  const clickY = "bottom" === corner || corner === 1 ? e.height - i : i;
+                  const n = "bottom" === corner || corner === 1 ? e.height : 0;
                   
-                  this.calc.calc({ x: 0, y: n });
-                  this.animateFlippingTo({ x: 0, y: n }, { x: e.pageWidth, y: n }, true);
+                  this.calc.calc({ x: e.pageWidth - i, y: clickY });
+                  this.animateFlippingTo({ x: e.pageWidth - i, y: clickY }, { x: -e.pageWidth, y: n }, true);
                   return;
                 }
               }
@@ -645,29 +623,62 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
             };
 
             const patchedDo = function(t: any) {
-              const isPortraitMode = this.app.getOrientation() === 'portrait';
-              let shiftedT = t;
-              if (isPortraitMode && this.render.getDirection() === 1 && t && t.x >= this.getBoundsRect().pageWidth) {
-                const rect = this.getBoundsRect();
-                shiftedT = { ...t, x: t.x - rect.pageWidth };
-              }
-              originalDo.call(this, shiftedT);
+              originalDo.call(this, t);
               
+              const isPortraitMode = this.app.getOrientation() === 'portrait';
               if (this.calc !== null) {
-                if (isPortraitMode && this.bottomPage) {
+                if (isPortraitMode) {
                   const rect = this.getBoundsRect();
-                  // Always place bottom page statically on the right side in portrait mode
-                  this.bottomPage.setPosition({ x: rect.pageWidth, y: 0 });
-                  this.bottomPage.setAngle(0);
-                  this.bottomPage.setHardAngle(0);
+                  const progress = this.calc.getFlippingProgress();
+                  const dir = this.calc.getDirection(); // 0 = forward, 1 = backward
+                  const collection = this.app.getPageCollection();
+                  const current = collection.getCurrentSpreadIndex();
+                  const destination = dir === 0 ? current + 1 : current - 1;
+
+                  const startPage = collection.getPage(current);
+                  const destPage = (destination >= 0 && destination < collection.getPageCount()) 
+                    ? collection.getPage(destination) 
+                    : null;
+
+                  // Determine active page based on progress
+                  const showDest = progress >= 50;
                   
-                  const fullArea = [
-                    { x: 0, y: 0 },
-                    { x: rect.pageWidth, y: 0 },
-                    { x: rect.pageWidth, y: rect.height },
-                    { x: 0, y: rect.height }
-                  ];
-                  this.bottomPage.setArea(fullArea);
+                  // Hide temporary copy of the one we are not using
+                  if (showDest && destPage) {
+                    if (startPage) startPage.hideTemporaryCopy();
+                    this.flippingPage = destPage.newTemporaryCopy();
+                  } else {
+                    if (destPage) destPage.hideTemporaryCopy();
+                    if (startPage) this.flippingPage = startPage.newTemporaryCopy();
+                  }
+
+                  // Force apply geometry to our chosen flippingPage
+                  if (this.flippingPage) {
+                    this.flippingPage.setArea(this.calc.getFlippingClipArea());
+                    this.flippingPage.setPosition(this.calc.getActiveCorner());
+                    this.flippingPage.setAngle(this.calc.getAngle());
+                    if (dir === 0) {
+                      this.flippingPage.setHardAngle(90 * (200 - 2 * progress) / 100);
+                    } else {
+                      this.flippingPage.setHardAngle(-90 * (200 - 2 * progress) / 100);
+                    }
+                    this.render.setFlippingPage(this.flippingPage);
+                  }
+
+                  if (this.bottomPage) {
+                    // Always place bottom page statically on the right side in portrait mode
+                    this.bottomPage.setPosition({ x: rect.pageWidth, y: 0 });
+                    this.bottomPage.setAngle(0);
+                    this.bottomPage.setHardAngle(0);
+                    
+                    const fullArea = [
+                      { x: 0, y: 0 },
+                      { x: rect.pageWidth, y: 0 },
+                      { x: rect.pageWidth, y: rect.height },
+                      { x: 0, y: rect.height }
+                    ];
+                    this.bottomPage.setArea(fullArea);
+                  }
                 }
               }
             };
@@ -1302,6 +1313,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
             autoSize={true}
             showPageCorners={true}
             disableFlipByClick={true}
+            renderOnlyPageLengthChange={true}
           >
             {getBookPages()}
           </HTMLFlipBook>
