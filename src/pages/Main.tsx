@@ -105,13 +105,18 @@ export const Main: React.FC<{
 
       <section className="space-y-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-           {[...progress.pets].reverse().sort((a, b) => {
-             if (a.id === activeId) return -1;
-             if (b.id === activeId) return 1;
-             return 0;
-           }).map((pet, i) => (
+           {(() => {
+             const base = [...progress.pets].reverse();
+             const idx = base.findIndex(p => p.id === activeId);
+             if (idx > -1) {
+               const [activePet] = base.splice(idx, 1);
+               base.unshift(activePet);
+             }
+             return base;
+           })().map((pet, i) => (
              <motion.div
                key={pet.id}
+               layout
                initial={{ opacity: 0, y: 20 }}
                animate={{ opacity: 1, y: 0 }}
                transition={{ delay: i * 0.05 }}
@@ -123,14 +128,26 @@ export const Main: React.FC<{
              >
                <PetCard 
                  pet={pet} 
-                 onClick={() => navigate(`/pet/${pet.id}`)}
+                 onClick={() => {
+                    setProgress(prev => {
+                      if (prev.activePetId === pet.id) return prev;
+                      return { ...prev, activePetId: pet.id };
+                    });
+                    navigate(`/pet/${pet.id}`);
+                  }}
                  onOpenRankInfo={() => setModalType({ rank: true, pet })}
                  onOpenRarityInfo={() => setModalType({ rarity: true, pet })}
                  onOpenImage={() => setModalType({ fullScreenImage: pet.image })}
                  onOpenElementInfo={(el) => setModalType({ element: el })}
                  onOpenAttributeInfo={(attr) => setModalType({ attribute: attr })}
                  onOpenStore={() => navigate('/shop')}
-                 onOpenInventory={() => navigate(`/inventory/${pet.id}`)}
+                 onOpenInventory={() => {
+                    setProgress(prev => {
+                      if (prev.activePetId === pet.id) return prev;
+                      return { ...prev, activePetId: pet.id };
+                    });
+                    navigate(`/inventory/${pet.id}`);
+                  }}
                  className={cn(
                    activeId === pet.id ? "border-pen-blue !rotate-0" : ""
                  )}
