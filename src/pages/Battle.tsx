@@ -450,7 +450,8 @@ const BattleProvider: React.FC<{
   const performEnemyTurn = useCallback(async (currentEnemy: Pet, currentHp: any, currentRage: any) => {
     if (state.winner || !currentEnemy || !playerPet) return;
 
-    const enemyIsLow = currentHp.enemy < ((getEffectiveStat(currentEnemy, 'health') || 100) * 0.3);
+    try {
+      const enemyIsLow = currentHp.enemy < ((getEffectiveStat(currentEnemy, 'health') || 100) * 0.3);
     const shouldRegen = enemyIsLow && Math.random() > 0.4 && (getEffectiveStat(currentEnemy, 'regeneration') > 0);
     const useUlt = !shouldRegen && currentRage.enemy >= 100;
     const actionType = shouldRegen ? 'regen' : (useUlt ? 'ult' : 'attack');
@@ -589,6 +590,10 @@ const BattleProvider: React.FC<{
         floatingDamages: prev.floatingDamages.filter(d => d.id !== damageId)
       }));
     }, 2000);
+    } catch (err) {
+      console.error("[Battle] Error during performEnemyTurn:", err);
+      syncState({ isEnemyAttacking: false, activeActionEffect: null, showUlt: false });
+    }
   }, [state.winner, playerPet, calculateDamageDetailed, syncState, state.debuffs]);
 
   const handleAction = async (type: 'attack' | 'ult' | 'regen') => {
@@ -1053,8 +1058,75 @@ const BattleContent: React.FC<{ side: 'left' | 'right', setProgress: React.Dispa
   const { playerPet, enemy, hp, rage, speedGauge, turn, winner, rewards, isEnemyHit, isPlayerHit, isPlayerAttacking, isEnemyAttacking, activeActionEffect, showUlt, isPlayerRegen, isEnemyRegen, handleAction, battleLog, debuffs, floatingDamages } = context;
 
   if (side === 'left') {
+    const isVertical = typeof window !== "undefined" && window.innerHeight >= window.innerWidth;
+
+    if (isVertical && winner) {
+      return (
+        <div className="h-full flex flex-col justify-center px-4 relative bg-[#fdfaf3]/20 pt-6 pb-6 overflow-y-auto w-full custom-scrollbar">
+          <AnimatePresence>
+            <motion.div 
+              initial={{ scale: 0.9, rotate: -2, opacity: 0 }}
+              animate={{ scale: 1, rotate: 0, opacity: 1 }}
+              className="w-full bg-[#f2ede0] border-2 border-pen-blue p-6 flex flex-col items-center relative pointer-events-auto rounded-lg shadow-md"
+            >
+              <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-sticker-yellow border-2 border-pen-blue px-6 py-1 select-none z-10 rounded">
+                 <span className="text-xl font-black text-pen-blue italic tracking-tighter">Итог</span>
+              </div>
+
+              <h2 className={cn(
+                "text-3xl font-black italic tracking-tighter mb-6 transform -rotate-2 mt-4",
+                winner === 'player' ? "text-pen-blue" : "text-pen-red"
+              )}>
+                {winner === 'player' ? "Победа!" : "Поражение"}
+              </h2>
+
+              <div className="w-full space-y-4 mb-6">
+                 <div className="flex justify-between items-center border-b border-pen-blue/10 pb-2">
+                    <span className="text-[14px] font-black text-pen-blue/60 italic tracking-widest">Добыча:</span>
+                    <span className="text-[20px] font-black text-pen-blue italic">{rewards?.sprouts || 0} 🌱</span>
+                 </div>
+                 <div className="flex justify-between items-center border-b border-pen-blue/10 pb-2">
+                    <span className="text-[14px] font-black text-pen-blue/60 italic tracking-widest">Опыт:</span>
+                    <span className="text-[20px] font-black text-pen-blue italic">+{rewards?.xp || 0} XP</span>
+                 </div>
+              </div>
+
+              <div className="w-full bg-pen-blue/5 border border-pen-blue/20 p-4 rounded-xl mb-6">
+                 <span className="text-[11px] font-black text-pen-blue/40 tracking-[0.2em] block mb-2">Анализ битвы:</span>
+                 <p className="text-[16px] font-black text-pen-blue italic leading-[1.2]">
+                    {winner === 'player' 
+                      ? "Ваша стратегия и мощь питомца сокрушили оппонента. Вы достойны звания ветерана!"
+                      : "Противник оказался хитрее. Но каждое поражение — это лишь шаг к будущей победе!"}
+                 </p>
+              </div>
+
+              <NeonButton 
+                onClick={() => {
+                   const playerWon = winner === 'player';
+                   setProgress(prev => ({
+                     ...prev,
+                     totalBattles: (prev.totalBattles || 0) + 1,
+                     wonBattles: playerWon ? (prev.wonBattles || 0) + 1 : (prev.wonBattles || 0),
+                     lostBattles: !playerWon ? (prev.lostBattles || 0) + 1 : (prev.lostBattles || 0),
+                   }));
+                   resetBattleState();
+                   navigate(`/pet/${playerPet.id}`);
+                }}
+                className="w-full py-4 bg-sticker-yellow text-[20px] font-black text-pen-blue italic tracking-widest"
+              >
+                Завершить
+              </NeonButton>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      );
+    }
+
     return (
-      <div className="h-full flex flex-col pt-4 pb-8 px-4 relative overflow-hidden ledger-grid">
+      <div className={cn(
+        "h-full flex flex-col pt-4 pb-8 relative overflow-hidden ledger-grid",
+        isVertical ? "px-0" : "px-4"
+      )}>
         <AnimatePresence>
           {showUlt && <UltAnimation element={activeActionEffect?.isPlayer === false && enemy ? enemy.element : playerPet.element} />}
           {floatingDamages.map(d => (
@@ -1089,11 +1161,17 @@ const BattleContent: React.FC<{ side: 'left' | 'right', setProgress: React.Dispa
             )}
           </AnimatePresence>
 
-          <div className="absolute top-20 right-[5%] w-[44.5%] flex justify-end z-10">
+          <div className={cn(
+            "absolute flex justify-end z-10",
+            isVertical ? "top-4 right-0 w-[66.7%]" : "top-20 right-[5%] w-[44.5%]"
+          )}>
              <BattleCard pet={enemy} currentHp={hp.enemy} maxHp={getEffectiveStat(enemy, 'health')} isPlayer={false} rage={rage} speedGauge={speedGauge} opponent={playerPet} sideDebuffs={debuffs.enemy} isHit={isEnemyHit} isAttacking={isEnemyAttacking} />
           </div>
 
-          <div className="absolute bottom-20 left-[5%] w-[44.5%] flex justify-start z-30">
+          <div className={cn(
+            "absolute flex justify-start z-30",
+            isVertical ? "bottom-20 left-0 w-[66.7%]" : "bottom-20 left-[5%] w-[44.5%]"
+          )}>
              <BattleCard pet={playerPet} currentHp={hp.player} maxHp={getEffectiveStat(playerPet, 'health')} isPlayer={true} rage={rage} speedGauge={speedGauge} opponent={enemy} sideDebuffs={debuffs.player} isHit={isPlayerHit} isAttacking={isPlayerAttacking} />
           </div>
 
@@ -1175,7 +1253,10 @@ const BattleContent: React.FC<{ side: 'left' | 'right', setProgress: React.Dispa
           </div>
         </div>
 
-        <div className="flex flex-col bg-[#fdfaf3]/40 border border-pen-blue/20 p-2 overflow-hidden relative rounded-xl h-[200px] mb-4">
+        <div className={cn(
+          "flex flex-col bg-[#fdfaf3]/40 border border-pen-blue/20 p-2 overflow-hidden relative rounded-xl h-[200px] mb-4",
+          isVertical ? "mx-4" : "mx-0"
+        )}>
            <div className="text-[9px] font-black text-pen-blue/30 mb-1 tracking-[0.2em] italic border-b border-pen-blue/5 pb-0.5">Журнал боя:</div>
            <div className="flex flex-col gap-1 flex-1 pt-1 overflow-y-auto">
               {battleLog.map((log, i) => (

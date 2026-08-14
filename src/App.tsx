@@ -5,7 +5,7 @@
 
 import { BrowserRouter, useLocation, useNavigate } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Welcome } from './pages/Welcome';
 import { Setup } from './pages/Setup';
 import { Main } from './pages/Main';
@@ -108,7 +108,7 @@ import HTMLFlipBook from 'react-pageflip';
 
 const pageScrollData = new Map<string, number>();
 
-const Page = React.forwardRef<HTMLDivElement, { children: React.ReactNode; side?: 'left' | 'right' | 'mobile'; id?: string; className?: string }>(({ children, side, id, className }, ref) => {
+const Page = React.forwardRef<HTMLDivElement, { children: React.ReactNode; side?: 'left' | 'right' | 'mobile'; id?: string; className?: string; scrollStyle?: React.CSSProperties }>(({ children, side, id, className, scrollStyle }, ref) => {
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const isRestoring = React.useRef(false);
   
@@ -172,6 +172,7 @@ const Page = React.forwardRef<HTMLDivElement, { children: React.ReactNode; side?
                }
             }
           }}
+          style={scrollStyle}
           className={cn(
             "pt-4 pb-8 h-full overflow-y-auto custom-scrollbar relative z-10 w-full",
             side === 'mobile' ? "px-6" : "px-[5%]"
@@ -303,8 +304,25 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
   const location = useLocation();
   const navigate = useNavigate();
   const flipBookRef = React.useRef<any>(null);
-  const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
-  const isOnboarding = location.pathname === '/' || location.pathname === '/start' || location.pathname === '/setup' || location.pathname === '/make';
+  const lastNavTimeRef = React.useRef<number>(0);
+  const [windowSize, setWindowSize] = useState(() => ({
+    width: typeof window !== "undefined" ? (window.innerWidth || 1024) : 1024,
+    height: typeof window !== "undefined" ? (window.innerHeight || 768) : 768
+  }));
+  const isOnboarding = location.pathname === '/' || location.pathname === '/start' || location.pathname.startsWith('/setup') || location.pathname === '/make';
+  const [verticalOnboardingStep, setVerticalOnboardingStep] = useState(() => {
+    if (typeof window !== "undefined") {
+      if (window.location.pathname === '/start') return 0;
+      if (window.location.pathname === '/setup') return 1;
+    }
+    return 0;
+  });
+
+  useEffect(() => {
+    if (location.pathname === '/start') setVerticalOnboardingStep(0);
+    else if (location.pathname === '/setup' && verticalOnboardingStep === 0) setVerticalOnboardingStep(1);
+  }, [location.pathname]);
+
   const [summoningPet, setSummoningPet] = useState<Pet | null>(null);
   const [isSummoning, setIsSummoning] = useState(false);
   const [summoningError, setSummoningError] = useState<string | null>(null);
@@ -339,7 +357,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
   type BookType = 'welcome' | 'bestiary' | 'gallery' | 'market' | 'summon' | 'profile';
   
   const getBookFromPath = (path: string): BookType => {
-    if (path === '/' || path === '/start' || path === '/setup' || path === '/make') return 'welcome';
+    if (path === '/' || path === '/start' || path.startsWith('/setup') || path === '/make') return 'welcome';
     if (path.includes('/gallery')) return 'gallery';
     if (path.includes('/shop') || path.includes('/sale')) return 'market';
     if (path.includes('/summon')) return 'summon';
@@ -350,12 +368,36 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
   const currentBook = getBookFromPath(location.pathname);
 
   useEffect(() => {
+    const isBenignWSError = (err: any): boolean => {
+      if (!err) return false;
+      const msg = String(err.message || err.reason || err);
+      return (
+        msg.includes('WebSocket') || 
+        msg.includes('websocket') || 
+        msg.includes('vite') || 
+        msg.includes('HMR') || 
+        msg.includes('closed without opened')
+      );
+    };
+
     const handleGlobalError = (event: ErrorEvent) => {
+      if (isBenignWSError(event.error) || isBenignWSError(event.message)) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
       console.error("GLOBAL ERROR CAPTURED:", event.error);
     };
+
     const handleRejection = (event: PromiseRejectionEvent) => {
+      if (isBenignWSError(event.reason)) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
       console.error("UNHANDLED REJECTION CAPTURED:", event.reason);
     };
+
     window.addEventListener('error', handleGlobalError);
     window.addEventListener('unhandledrejection', handleRejection);
     return () => {
@@ -388,6 +430,19 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
     return match ? match[2] : progress.activePetId;
   }, [location.pathname, progress.activePetId]);
 
+  const latestPathRef = React.useRef(location.pathname);
+  const latestActivePetIdRef = React.useRef(activePetId);
+  const latestProgressRef = React.useRef(progress);
+  const latestIsOnboardingRef = React.useRef(isOnboarding);
+  const latestCurrentBookRef = React.useRef(currentBook);
+
+  // Synchronize refs immediately on render to prevent layout/flip event race conditions
+  latestPathRef.current = location.pathname;
+  latestCurrentBookRef.current = currentBook;
+  latestActivePetIdRef.current = activePetId;
+  latestProgressRef.current = progress;
+  latestIsOnboardingRef.current = isOnboarding;
+
   useEffect(() => {
     if (activePetId && activePetId !== progress.activePetId) {
       setProgress(p => ({ ...p, activePetId: activePetId }));
@@ -395,7 +450,10 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
   }, [activePetId, progress.activePetId]);
 
   useEffect(() => {
-    const handleResize = () => setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    const handleResize = () => setWindowSize({ 
+      width: typeof window !== "undefined" && window.innerWidth > 0 ? window.innerWidth : 1024, 
+      height: typeof window !== "undefined" && window.innerHeight > 0 ? window.innerHeight : 768 
+    });
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -803,7 +861,15 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
     
     if (book === 'welcome') {
       if (path === '/' || path === '/start') return 0;
-      if (path === '/setup') return isVertical ? 1 : 2;
+      if (path.startsWith('/setup')) {
+        if (isVertical) {
+          if (path === '/setup/2') return 2;
+          if (path === '/setup/3') return 3;
+          return 1;
+        } else {
+          return 2;
+        }
+      }
       return 0;
     }
     
@@ -823,7 +889,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
         const match = path.match(/\/gallery\/([a-zA-Z0-9_-]+)/);
         if (match) {
           const petId = match[1];
-          const petIndex = progress.pets.findIndex(p => p.id === petId);
+          const petIndex = latestProgressRef.current.pets.findIndex(p => p.id === petId);
           if (petIndex !== -1) return petIndex * 2;
         }
         return 0;
@@ -839,10 +905,10 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
         const match = path.match(/\/evolve\/([a-zA-Z0-9_-]+)/);
         if (match) {
           const petId = match[1];
-          const petIndex = progress.pets.findIndex(p => p.id === petId);
-          if (petIndex !== -1) return 6 + petIndex * 2;
+          const petIndex = latestProgressRef.current.pets.findIndex(p => p.id === petId);
+          if (petIndex !== -1) return 5 + petIndex;
         }
-        return 6;
+        return 5;
       }
       return 0;
     }
@@ -865,7 +931,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
       const match = path.match(/\/gallery\/([a-zA-Z0-9_-]+)/);
       if (match) {
         const petId = match[1];
-        const petIndex = progress.pets.findIndex(p => p.id === petId);
+        const petIndex = latestProgressRef.current.pets.findIndex(p => p.id === petId);
         if (petIndex !== -1) return petIndex * 2;
       }
       return 0;
@@ -880,7 +946,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
       const match = path.match(/\/evolve\/([a-zA-Z0-9_-]+)/);
       if (match) {
         const petId = match[1];
-        const petIndex = progress.pets.findIndex(p => p.id === petId);
+        const petIndex = latestProgressRef.current.pets.findIndex(p => p.id === petId);
         if (petIndex !== -1) return 8 + petIndex * 2;
       }
       return 8; 
@@ -890,29 +956,90 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
   };
 
   const syncTargetRef = React.useRef<number | null>(null);
+  const isProgrammaticFlippingRef = React.useRef<boolean>(false);
+  const programmaticTimeoutRef = React.useRef<any>(null);
+  const programmaticTargetRef = React.useRef<number | null>(null);
+  const lastFlippedPageRef = React.useRef<number | null>(null);
+  const lastProgrammaticFlipTimeRef = React.useRef<number>(0);
+
+  const triggerProgrammaticFlip = React.useCallback((targetPage: number, force?: boolean) => {
+    try {
+      if (flipBookRef.current) {
+        const pageFlip = typeof flipBookRef.current.pageFlip === 'function' ? flipBookRef.current.pageFlip() : null;
+        if (pageFlip && typeof pageFlip.flip === 'function') {
+          const currentPage = pageFlip.getCurrentPageIndex();
+          if (currentPage === targetPage) {
+            isProgrammaticFlippingRef.current = false;
+            programmaticTargetRef.current = null;
+            if (programmaticTimeoutRef.current) {
+              clearTimeout(programmaticTimeoutRef.current);
+            }
+            return;
+          }
+
+          if (!force && lastFlippedPageRef.current === targetPage) {
+            return; // Already triggered flip to this target page in this cycle
+          }
+
+          if (currentPage !== targetPage) {
+            programmaticTargetRef.current = targetPage;
+            isProgrammaticFlippingRef.current = true;
+            lastProgrammaticFlipTimeRef.current = Date.now();
+            
+            if (programmaticTimeoutRef.current) {
+              clearTimeout(programmaticTimeoutRef.current);
+            }
+            programmaticTimeoutRef.current = setTimeout(() => {
+              isProgrammaticFlippingRef.current = false;
+              programmaticTargetRef.current = null;
+            }, 3500);
+            
+            lastFlippedPageRef.current = targetPage;
+            pageFlip.flip(targetPage);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Page flip sync failed:", e);
+      isProgrammaticFlippingRef.current = false;
+      programmaticTargetRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     const targetPage = getPageFromPath(location.pathname);
-    if (syncTargetRef.current === targetPage) return;
-    syncTargetRef.current = targetPage;
     
-    const timer = setTimeout(() => {
-      try {
-        if (flipBookRef.current) {
-          const pageFlip = typeof flipBookRef.current.pageFlip === 'function' ? flipBookRef.current.pageFlip() : null;
-          if (pageFlip && typeof pageFlip.flip === 'function') {
-            const currentPage = pageFlip.getCurrentPageIndex();
-            if (currentPage !== targetPage) {
-              pageFlip.flip(targetPage);
-            }
-          }
-        }
-      } catch (e) {
-        console.warn("Page flip sync failed:", e);
+    // Check if the flipbook is actually already on the target page physically
+    let isAlreadyAtTarget = false;
+    if (flipBookRef.current) {
+      const pageFlip = typeof flipBookRef.current.pageFlip === 'function' ? flipBookRef.current.pageFlip() : null;
+      if (pageFlip) {
+        isAlreadyAtTarget = pageFlip.getCurrentPageIndex() === targetPage;
       }
-    }, 150);
-    return () => clearTimeout(timer);
-  }, [location.pathname, progress.pets.length, isOnboarding, isVertical]);
+    }
+
+    if (syncTargetRef.current === targetPage && isAlreadyAtTarget) return;
+    
+    // Set programmatic state immediately to prevent early onFlip events from treating this as a manual flip
+    isProgrammaticFlippingRef.current = true;
+    programmaticTargetRef.current = targetPage;
+    syncTargetRef.current = targetPage;
+    lastFlippedPageRef.current = null; // Clear memory on safe transit
+    lastProgrammaticFlipTimeRef.current = Date.now();
+    
+    // Trigger the page flip via a single, stable 50ms deferred timeout.
+    // This allows React rendering to complete first and ensures only ONE actual flip is executed.
+    const timer = setTimeout(() => {
+      triggerProgrammaticFlip(targetPage);
+    }, 50);
+
+    return () => {
+      clearTimeout(timer);
+      if (programmaticTimeoutRef.current) {
+        clearTimeout(programmaticTimeoutRef.current);
+      }
+    };
+  }, [location.pathname, progress.pets.length, isOnboarding, isVertical, triggerProgrammaticFlip]);
 
   const handleStartSummon = async () => {
     if (isSummoning) return;
@@ -1021,11 +1148,100 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
     }
   }, [isPortrait, currentBook]);
 
+  const navigateToPage = React.useCallback((newIndex: number) => {
+    const currentPath = location.pathname;
+    const pId = activePetId || (progress.pets[0]?.id);
+    
+    if (currentBook === 'bestiary') {
+      let targetPath = '/main';
+      if (newIndex === 0) {
+        targetPath = '/main';
+      } else if (newIndex === 1) {
+        targetPath = pId ? `/pet/${pId}` : '/main';
+      } else if (newIndex === 2) {
+        targetPath = pId ? `/inventory/${pId}` : '/inventory';
+      } else if (newIndex === 3) {
+        targetPath = pId ? `/quest/${pId}` : '/quest';
+      } else if (newIndex === 4) {
+        if (pId) {
+          const currentParts = currentPath.split('/');
+          const battleId = (currentPath.includes('/battle') && currentParts[3]) ? currentParts[3] : Math.random().toString(36).substring(7);
+          targetPath = `/battle/${pId}/${battleId}`;
+        } else {
+          targetPath = '/battle';
+        }
+      } else if (newIndex >= 5) {
+        const idx = newIndex - 5;
+        const pet = progress.pets[idx];
+        targetPath = pet ? `/evolve/${pet.id}` : '/evolve';
+      }
+      if (currentPath !== targetPath) {
+        navigate(targetPath);
+      }
+    } else if (currentBook === 'market') {
+      const targetPath = newIndex === 0 ? '/shop' : '/sale';
+      if (currentPath !== targetPath) navigate(targetPath);
+    } else if (currentBook === 'profile') {
+      const targetPath = newIndex === 0 ? '/profile' : '/profile/settings';
+      if (currentPath !== targetPath) navigate(targetPath);
+    } else if (currentBook === 'gallery') {
+      const pet = progress.pets[newIndex];
+      if (pet) {
+        const targetPath = `/gallery/${pet.id}`;
+        if (currentPath !== targetPath) navigate(targetPath);
+      }
+    } else if (currentBook === 'welcome') {
+      let targetPath = '/start';
+      if (isVertical) {
+        if (newIndex === 1) targetPath = '/setup';
+        else if (newIndex === 2) targetPath = '/setup/2';
+        else if (newIndex === 3) targetPath = '/setup/3';
+      } else {
+        targetPath = newIndex >= 2 ? '/setup' : '/start';
+      }
+      triggerProgrammaticFlip(newIndex);
+      if (currentPath !== targetPath) {
+        navigate(targetPath);
+      }
+    }
+  }, [location.pathname, activePetId, progress.pets, currentBook, navigate, triggerProgrammaticFlip, isVertical]);
+
   const doMobileNav = () => {
-    if (flipBookRef.current) {
-      const pageFlip = typeof flipBookRef.current.pageFlip === 'function' ? flipBookRef.current.pageFlip() : null;
-      if (pageFlip && typeof pageFlip.flipNext === 'function') {
-        pageFlip.flipNext();
+    // Prevent double triggering and layout click-through on mobile vertical layout
+    const now = Date.now();
+    if (now - lastNavTimeRef.current < 1000) {
+      console.log("Ignored doMobileNav due to cooldown to prevent click-through");
+      return;
+    }
+    lastNavTimeRef.current = now;
+
+    if (isVertical) {
+      let currentPage = getPageFromPath(location.pathname);
+      if (location.pathname === '/' || location.pathname === '/start') {
+        currentPage = 0;
+      } else if (flipBookRef.current) {
+        const pageFlip = typeof flipBookRef.current.pageFlip === 'function' ? flipBookRef.current.pageFlip() : null;
+        if (pageFlip && typeof pageFlip.getCurrentPageIndex === 'function') {
+          currentPage = pageFlip.getCurrentPageIndex();
+        }
+      }
+      let maxPage = 4;
+      if (currentBook === 'bestiary') {
+        maxPage = 4 + progress.pets.length;
+      } else if (currentBook === 'market' || currentBook === 'profile') {
+        maxPage = 1;
+      } else if (currentBook === 'gallery') {
+        maxPage = progress.pets.length - 1;
+      }
+      if (currentPage < maxPage) {
+        navigateToPage(currentPage + 1);
+      }
+    } else {
+      if (flipBookRef.current) {
+        const pageFlip = typeof flipBookRef.current.pageFlip === 'function' ? flipBookRef.current.pageFlip() : null;
+        if (pageFlip && typeof pageFlip.flipNext === 'function') {
+          pageFlip.flipNext();
+        }
       }
     }
   };
@@ -1035,47 +1251,103 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
       const newIndex = (e && typeof e.data === 'number') ? e.data : (typeof e === 'number' ? e : null);
       if (newIndex === null) return;
       
-      const currentPath = location.pathname;
+      const currentPath = latestPathRef.current;
+      const currentBookRefVal = latestCurrentBookRef.current;
+      const progressRefVal = latestProgressRef.current;
+      const activePetIdRefVal = latestActivePetIdRef.current;
+      const isOnboardingRefVal = latestIsOnboardingRef.current;
+
+      const targetPageVal = programmaticTargetRef.current;
+      const finalTargetPage = targetPageVal !== null ? targetPageVal : getPageFromPath(currentPath);
+      const isMatch = isVertical 
+        ? (newIndex === finalTargetPage)
+        : (Math.floor(newIndex / 2) === Math.floor(finalTargetPage / 2));
+
+      const isProgrammaticActive = isProgrammaticFlippingRef.current || (targetPageVal !== null) || (Date.now() - lastProgrammaticFlipTimeRef.current < 3500);
+
+      if (isProgrammaticActive) {
+        if (isMatch) {
+          isProgrammaticFlippingRef.current = false;
+          programmaticTargetRef.current = null;
+          if (programmaticTimeoutRef.current) {
+            clearTimeout(programmaticTimeoutRef.current);
+          }
+          syncTargetRef.current = newIndex;
+        }
+        return; // Always return during programmatic transitions to avoid duplicate routing calls
+      }
+
+      syncTargetRef.current = newIndex;
 
       if (isVertical) {
-         if (isOnboarding) {
-            const targetPath = newIndex === 0 ? '/start' : '/setup';
+         if (isOnboardingRefVal) {
+            let targetPath = '/start';
+            if (newIndex === 1) targetPath = '/setup';
+            else if (newIndex === 2) targetPath = '/setup/2';
+            else if (newIndex === 3) targetPath = '/setup/3';
             if (currentPath !== targetPath) {
                navigate(targetPath, { replace: true });
             }
             return;
          }
 
-         if (currentBook === 'bestiary') {
-            let targetPath = '/main';
-            if (newIndex === 0) targetPath = '/main';
-            else if (newIndex === 1) {
-               const pId = activePetId || (progress.pets[0]?.id);
-               targetPath = pId ? `/pet/${pId}` : '/main';
+         if (currentBookRefVal === 'bestiary') {
+            const pId = activePetIdRefVal || (progressRefVal.pets[0]?.id);
+            if (newIndex === 0) {
+              if (currentPath !== '/main') navigate('/main');
+            } else if (newIndex === 1) {
+              if (pId) {
+                if (!currentPath.startsWith(`/pet/${pId}`)) {
+                  navigate(`/pet/${pId}`);
+                }
+              } else {
+                if (currentPath !== '/main') navigate('/main');
+              }
             } else if (newIndex === 2) {
-               const pId = activePetId || (progress.pets[0]?.id);
-               targetPath = pId ? `/inventory/${pId}` : '/inventory';
+              if (pId) {
+                if (!currentPath.startsWith(`/inventory/${pId}`)) {
+                  navigate(`/inventory/${pId}`);
+                }
+              } else {
+                if (currentPath !== '/inventory') navigate('/inventory');
+              }
             } else if (newIndex === 3) {
-               targetPath = '/quest';
-            } else if (newIndex === 4 || newIndex === 5) {
-               targetPath = '/battle';
-            } else if (newIndex >= 6) {
-               const idx = Math.floor((newIndex - 6) / 2);
-               const pet = progress.pets[idx];
-               targetPath = pet ? `/evolve/${pet.id}` : '/evolve';
+              if (pId) {
+                if (!currentPath.startsWith(`/quest/${pId}`)) {
+                  navigate(`/quest/${pId}`);
+                }
+              } else {
+                if (currentPath !== '/quest') navigate('/quest');
+              }
+            } else if (newIndex === 4) {
+              if (pId) {
+                if (!currentPath.startsWith(`/battle/${pId}`)) {
+                  const battleId = Math.random().toString(36).substring(7);
+                  navigate(`/battle/${pId}/${battleId}`);
+                }
+              } else {
+                if (currentPath !== '/battle') navigate('/battle');
+              }
+            } else if (newIndex >= 5) {
+               const idx = newIndex - 5;
+               const pet = progressRefVal.pets[idx];
+               if (pet) {
+                 if (!currentPath.startsWith(`/evolve/${pet.id}`)) {
+                   navigate(`/evolve/${pet.id}`);
+                 }
+               } else {
+                 if (currentPath !== '/evolve') navigate('/evolve');
+               }
             }
-            if (!currentPath.startsWith(targetPath)) {
-               navigate(targetPath);
-            }
-         } else if (currentBook === 'market') {
+         } else if (currentBookRefVal === 'market') {
             const targetPath = newIndex === 0 ? '/shop' : '/sale';
             if (currentPath !== targetPath) navigate(targetPath);
-         } else if (currentBook === 'profile') {
+         } else if (currentBookRefVal === 'profile') {
             const targetPath = newIndex === 0 ? '/profile' : '/profile/settings';
             if (currentPath !== targetPath) navigate(targetPath);
-         } else if (currentBook === 'gallery') {
-            const idx = Math.floor(newIndex / 2);
-            const pet = progress.pets[idx];
+         } else if (currentBookRefVal === 'gallery') {
+            const idx = isVertical ? newIndex : Math.floor(newIndex / 2);
+            const pet = progressRefVal.pets[idx];
             if (pet) {
                const targetPath = `/gallery/${pet.id}`;
                if (currentPath !== targetPath) navigate(targetPath);
@@ -1091,7 +1363,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
       const isManual = syncTargetRef.current !== targetBaseIndex;
 
       if (currentBasePage !== targetBaseIndex) {
-        if (isOnboarding) {
+        if (isOnboardingRefVal) {
           if (targetBaseIndex === 0) navigate('/start');
           else if (targetBaseIndex === 2) navigate('/setup');
         } else {
@@ -1099,7 +1371,7 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
           const spreadIndex = targetBaseIndex / 2;
           const currentSpreadIndex = currentBasePage / 2;
 
-          if (currentBook === 'bestiary') {
+          if (currentBookRefVal === 'bestiary') {
             // SPECIAL RULE: Manual back always goes to HUB
             if (isManual && targetBaseIndex < currentBasePage && currentSpreadIndex > BOOK_INDICES.HUB) {
                const hubPage = BOOK_INDICES.HUB * 2;
@@ -1110,36 +1382,60 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
                    if (pageFlip) pageFlip.flip(hubPage);
                  } catch (err) {}
                }
-               const hubPath = `/pet/${activePetId}`;
-               if (location.pathname !== hubPath) navigate(hubPath, { replace: true });
+               const hubPath = `/pet/${activePetIdRefVal}`;
+               if (currentPath !== hubPath) navigate(hubPath, { replace: true });
                return;
             }
             
             if (spreadIndex === BOOK_INDICES.HUB) {
-               if (location.pathname !== `/pet/${activePetId}`) navigate(`/pet/${activePetId}`);
+               if (currentPath !== `/pet/${activePetIdRefVal}`) navigate(`/pet/${activePetIdRefVal}`);
             }
-            else if (spreadIndex === BOOK_INDICES.INVENTORY_START) navigate(activePetId ? `/inventory/${activePetId}` : '/inventory');
-            else if (spreadIndex === BOOK_INDICES.QUEST) navigate(activePetId ? `/quest/${activePetId}` : '/quest');
+            else if (spreadIndex === BOOK_INDICES.INVENTORY_START) {
+               const targetPath = activePetIdRefVal ? `/inventory/${activePetIdRefVal}` : '/inventory';
+               if (currentPath !== targetPath) navigate(targetPath);
+            }
+            else if (spreadIndex === BOOK_INDICES.QUEST) {
+               const targetPath = activePetIdRefVal ? `/quest/${activePetIdRefVal}` : '/quest';
+               if (currentPath !== targetPath) navigate(targetPath);
+            }
             else if (spreadIndex === BOOK_INDICES.BATTLE) {
-               navigate(activePetId ? `/battle/${activePetId}/${Math.random().toString(36).substring(7)}` : '/battle');
+               if (!currentPath.startsWith(`/battle/${activePetIdRefVal}`)) {
+                  const targetPath = activePetIdRefVal ? `/battle/${activePetIdRefVal}/${Math.random().toString(36).substring(7)}` : '/battle';
+                  navigate(targetPath);
+               }
             }
             else if (spreadIndex >= BOOK_INDICES.EVOLVE_START) {
               const evolveIdx = spreadIndex - BOOK_INDICES.EVOLVE_START;
-              const pet = progress.pets[evolveIdx];
-              if (pet) navigate(`/evolve/${pet.id}`);
-              else navigate('/evolve');
+              const pet = progressRefVal.pets[evolveIdx];
+              if (pet) {
+                 const targetPath = `/evolve/${pet.id}`;
+                 if (currentPath !== targetPath) navigate(targetPath);
+              } else {
+                 if (currentPath !== '/evolve') navigate('/evolve');
+              }
             }
-          } else if (currentBook === 'gallery') {
+          } else if (currentBookRefVal === 'gallery') {
             const galleryIdx = spreadIndex;
-            const pet = progress.pets[galleryIdx];
-            if (pet) navigate(`/gallery/${pet.id}`);
-            else navigate('/gallery');
-          } else if (currentBook === 'profile') {
-            if (spreadIndex === 0) navigate('/profile');
-            else navigate('/profile/settings');
-          } else if (currentBook === 'market') {
-            if (spreadIndex === 0) navigate('/shop');
-            else navigate('/sale');
+            const pet = progressRefVal.pets[galleryIdx];
+            if (pet) {
+               const targetPath = `/gallery/${pet.id}`;
+               if (currentPath !== targetPath) navigate(targetPath);
+            } else {
+               if (currentPath !== '/gallery') navigate('/gallery');
+            }
+          } else if (currentBookRefVal === 'profile') {
+            if (spreadIndex === 0) {
+               if (currentPath !== '/profile') navigate('/profile');
+            } else {
+               const targetPath = currentPath.includes('/configs') || currentPath.includes('/settings') ? currentPath : '/profile/settings';
+               if (currentPath !== targetPath) navigate(targetPath);
+            }
+          } else if (currentBookRefVal === 'market') {
+            if (spreadIndex === 0) {
+               if (currentPath !== '/shop') navigate('/shop');
+            } else {
+               if (currentPath !== '/sale') navigate('/sale');
+            }
           }
         }
       }
@@ -1150,8 +1446,11 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
 
   const paddingX = Math.floor(windowSize.width * 0.05);
   const paddingY = Math.floor(windowSize.height * 0.05);
-  const flipBookWidth = isVertical ? Math.floor(Math.min(720, windowSize.width - (paddingX * 2))) : Math.floor(Math.min(720, (windowSize.width - (paddingX * 2)) / 2));
-  const flipBookHeight = Math.floor(Math.min(900, windowSize.height - (paddingY * 2)));
+  const calcWidth = isVertical ? Math.floor(Math.min(720, windowSize.width - (paddingX * 2))) : Math.floor(Math.min(720, (windowSize.width - (paddingX * 2)) / 2));
+  const calcHeight = Math.floor(Math.min(900, windowSize.height - (paddingY * 2)));
+
+  const flipBookWidth = Math.max(250, isNaN(calcWidth) || calcWidth <= 0 ? 250 : calcWidth);
+  const flipBookHeight = Math.max(250, isNaN(calcHeight) || calcHeight <= 0 ? 250 : calcHeight);
   const showNav = hasPets && !isOnboarding;
 
   const currentPath = location.pathname;
@@ -1162,6 +1461,16 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
   // We remove dynamic spread counts from the key to prevent full remounts which kill flip animations
   const flipbookKey = `flipbook-${isPortrait}-${isVertical}-${isMobileBook}-${currentBook}-${petsCount}`;
 
+  // Stabilize startPage so it only changes when the flipbook key changes (re-mounts).
+  // This prevents react-pageflip from glitching or force resetting internally during intraday routing.
+  const [stableStartPage, setStableStartPage] = React.useState(() => getPageFromPath(location.pathname));
+  const prevKeyRef = React.useRef(flipbookKey);
+
+  if (prevKeyRef.current !== flipbookKey) {
+    prevKeyRef.current = flipbookKey;
+    setStableStartPage(getPageFromPath(location.pathname));
+  }
+
   const currentPageIndex = getPageFromPath(location.pathname);
   const currentSpread = Math.floor(currentPageIndex / 2);
   
@@ -1170,6 +1479,14 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
   const isForwardLocked = currentBook !== 'welcome';
 
   const getBookPages = () => {
+    const statsScrollStyle = typeof window !== "undefined" && window.innerWidth < 640 ? {
+      paddingLeft: "0px",
+      paddingRight: "0px",
+      paddingBottom: "0px",
+      paddingTop: "0px",
+      marginLeft: "-2px",
+    } : undefined;
+
     switch (currentBook) {
       case 'welcome':
         if (isVertical) {
@@ -1245,29 +1562,26 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
             /* Page 0: Main/Bestiary list */
             <Page key="bestiary-l" id="bestiary-l" side="mobile"><Main progress={progress} setProgress={setProgress} manualActiveId={activePetId} /></Page>,
             /* Page 1: Params (Stats) */
-            <Page key="bestiary-r" id="bestiary-r" side="mobile"><PetDetail progress={progress} setProgress={setProgress} manualId={activePetId} initialTab="stats" toggleFlipLock={toggleFlipLock} id="pet-detail-main" onAddNewPet={handleAddNewPet} /></Page>,
+            <Page key="bestiary-r" id="bestiary-r" side="mobile" scrollStyle={statsScrollStyle}><PetDetail progress={progress} setProgress={setProgress} manualId={activePetId} initialTab="stats" toggleFlipLock={toggleFlipLock} id="pet-detail-main" onAddNewPet={handleAddNewPet} /></Page>,
             /* Page 2: Inventory */
             <Page key="inv-l" id="inv-l" side="mobile"><PetDetail progress={progress} setProgress={setProgress} manualId={activePetId} initialTab="inventory" toggleFlipLock={toggleFlipLock} id="pet-inv-main" onAddNewPet={handleAddNewPet} /></Page>,
             /* Page 3: Quest */
             <Page key="quest-l" side="mobile"><Quest progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} profile={userProfile} /></Page>,
             /* Page 4: Battle left */
             <Page key="battle-l" side="mobile"><Battle progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} side="left" /></Page>,
-            /* Page 5: Battle right */
-            <Page key="battle-r" side="mobile"><Battle progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} side="right" /></Page>,
-            /* Evolution Pages: 2 pages per pet */
-            ...Array.from({ length: evolveSpreadsCount }).flatMap((_, i) => {
+            /* Evolution Pages: 1 single page per pet */
+            ...Array.from({ length: evolveSpreadsCount }).map((_, i) => {
               const pet = progress.pets[i];
-              return [
-                <Page key={`evolve-ext-${i}-l`} side="mobile"><Evolve progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} side="left" manualId={pet?.id} /></Page>,
-                <Page key={`evolve-ext-${i}-r`} side="mobile"><Evolve progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} side="right" manualId={pet?.id} /></Page>
-              ];
+              return (
+                <Page key={`evolve-ext-${i}-l`} side="mobile"><Evolve progress={progress} setProgress={setProgress} toggleFlipLock={toggleFlipLock} side="left" manualId={pet?.id} /></Page>
+              );
             })
           ];
         } else {
           return [
             /* Spread 0: Bestiary & Params (Stats) */
             <Page key="bestiary-l" id="bestiary-l" side="left"><Main progress={progress} setProgress={setProgress} manualActiveId={activePetId} /></Page>,
-            <Page key="bestiary-r" id="bestiary-r" side="right"><PetDetail progress={progress} setProgress={setProgress} manualId={activePetId} initialTab="stats" toggleFlipLock={toggleFlipLock} id="pet-detail-main" onAddNewPet={handleAddNewPet} /></Page>,
+            <Page key="bestiary-r" id="bestiary-r" side="right" scrollStyle={statsScrollStyle}><PetDetail progress={progress} setProgress={setProgress} manualId={activePetId} initialTab="stats" toggleFlipLock={toggleFlipLock} id="pet-detail-main" onAddNewPet={handleAddNewPet} /></Page>,
             
             /* Spread 1: Inventory */
             <Page key="inv-l" id="inv-l" side="left"><PetDetail progress={progress} setProgress={setProgress} manualId={activePetId} initialTab="inventory" toggleFlipLock={toggleFlipLock} id="pet-inv-main" onAddNewPet={handleAddNewPet} /></Page>,
@@ -1307,43 +1621,45 @@ const AnimatedRoutes = ({ hasPets, progress, setProgress, handleAddNewPet }: {
           )}
           style={{ width: isVertical ? flipBookWidth : flipBookWidth * 2, height: flipBookHeight }}
         >
-          {/* Forward Lock Edge Overlay (Narrower to avoid blocking buttons) */}
-          {isForwardLocked && (
-            <div 
-              className="absolute top-0 right-0 w-[20px] h-full z-[1000] cursor-default"
-              style={{ pointerEvents: 'auto' }}
-            />
-          )}
+            <>
+              {/* Forward Lock Edge Overlay (Narrower to avoid blocking buttons) */}
+              {isForwardLocked && (
+                <div 
+                  className="absolute top-0 right-0 w-[20px] h-full z-[1000] cursor-default"
+                  style={{ pointerEvents: 'auto' }}
+                />
+              )}
 
-          <HTMLFlipBook 
-            key={flipbookKey}
-            width={flipBookWidth} 
-            height={flipBookHeight}
-            size="stretch"
-            minWidth={isVertical ? (isMobileBook ? 315 : 500) : 315}
-            minHeight={100}
-            maxShadowOpacity={0.2}
-            showCover={false}
-            mobileScrollSupport={true}
-            ref={flipBookRef}
-            className="flipbook-root"
-            style={{ cursor: isOnboarding ? 'default' : 'grab' }}
-            onFlip={onFlip}
-            startPage={getPageFromPath(location.pathname)}
-            drawShadow={true}
-            flippingTime={isVertical ? 600 : 900}
-            useMouseEvents={isFlipEnabled}
-            clickEventForward={true}
-            usePortrait={isVertical}
-            swipeDistance={isVertical ? 40 : 50}
-            startZIndex={0}
-            autoSize={true}
-            showPageCorners={true}
-            disableFlipByClick={true}
-            renderOnlyPageLengthChange={false}
-          >
-            {getBookPages()}
-          </HTMLFlipBook>
+              <HTMLFlipBook 
+                key={isVertical ? `${flipbookKey}-v` : `${flipbookKey}-h`}
+                width={flipBookWidth} 
+                height={flipBookHeight}
+                size="stretch"
+                minWidth={Math.min(flipBookWidth, isVertical ? (isMobileBook ? 315 : 500) : 315)}
+                minHeight={Math.min(flipBookHeight, 100)}
+                maxShadowOpacity={0.2}
+                showCover={false}
+                mobileScrollSupport={true}
+                ref={flipBookRef}
+                className="flipbook-root"
+                style={{ cursor: isOnboarding ? 'default' : 'grab' }}
+                onFlip={onFlip}
+                startPage={stableStartPage}
+                drawShadow={true}
+                flippingTime={isVertical ? 600 : 900}
+                useMouseEvents={isFlipEnabled}
+                clickEventForward={true}
+                usePortrait={isVertical}
+                swipeDistance={isVertical ? 40 : 50}
+                startZIndex={0}
+                autoSize={true}
+                showPageCorners={true}
+                disableFlipByClick={true}
+                renderOnlyPageLengthChange={false}
+              >
+                {getBookPages()}
+              </HTMLFlipBook>
+            </>
         </div>
       </div>
 
@@ -1483,7 +1799,25 @@ export default function App() {
           }
         }
         setIsLoaded(true);
+      }).catch(err => {
+        console.error("localforage getItem failed, trying localStorage fallback:", err);
+        const fallback = localStorage.getItem('aisai_progress');
+        if (fallback) {
+          try {
+            setProgress(JSON.parse(fallback));
+          } catch(e) {}
+        }
+        setIsLoaded(true);
       });
+    }).catch(err => {
+      console.error("localforage import failed, trying localStorage fallback:", err);
+      const fallback = localStorage.getItem('aisai_progress');
+      if (fallback) {
+        try {
+          setProgress(JSON.parse(fallback));
+        } catch(e) {}
+      }
+      setIsLoaded(true);
     });
   }, []);
 
@@ -1504,7 +1838,9 @@ export default function App() {
              };
              localStorage.setItem('aisai_progress', JSON.stringify(minifiedProgress));
            } catch(e) {}
-        });
+         });
+      }).catch(err => {
+         console.error("localforage dynamic import failed during save:", err);
       });
     }
   }, [progress, isLoaded]);

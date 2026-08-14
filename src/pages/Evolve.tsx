@@ -359,7 +359,7 @@ export const Evolve: React.FC<{
                     Ответ от эфира задерживается...
                   </div>
                 </GlassCard>
-                <NeonButton onClick={async () => {
+                <NeonButton onClick={() => {
                    setEvolving(false);
                    setEvolutionResult(null);
                 }} color="blue" className="w-full text-center">

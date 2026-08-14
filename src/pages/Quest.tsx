@@ -84,7 +84,9 @@ export const Quest: React.FC<{
         
         // If we pre-rolled a reward, generate the item data now in background
         if (rewardInfo) {
-          generateQuestBonusItem(rewardInfo).then(item => setBonusItem(item));
+          generateQuestBonusItem(rewardInfo)
+            .then(item => setBonusItem(item))
+            .catch(err => console.error("Quest bonus item generation failed:", err));
         }
       } else {
         setStage('ERROR');

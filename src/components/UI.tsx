@@ -11,6 +11,8 @@ interface StickyNoteProps {
   rotation?: number;
   noPadding?: boolean;
   color?: 'yellow' | 'pink' | 'blue' | 'white';
+  style?: React.CSSProperties;
+  contentStyle?: React.CSSProperties;
 }
 
 const Doodle = ({ style }: { style: React.CSSProperties, [key: string]: any }) => (
@@ -54,7 +56,9 @@ export const GlassCard: React.FC<StickyNoteProps> = ({
   delay = 0, 
   rotation,
   noPadding = false,
-  color = 'yellow' 
+  color = 'yellow',
+  style,
+  contentStyle
 }) => {
   const [randomRotation] = useState(() => rotation ?? (Math.random() * 4 - 2));
   
@@ -71,6 +75,7 @@ export const GlassCard: React.FC<StickyNoteProps> = ({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8, delay, ease: [0.16, 1, 0.3, 1] }}
       onClick={onClick}
+      style={style}
       className={cn(
         "mb-4 relative group",
         onClick && "cursor-pointer active:scale-[0.98]",
@@ -84,10 +89,13 @@ export const GlassCard: React.FC<StickyNoteProps> = ({
       />
 
       {/* Straight Content Layer */}
-      <div className={cn(
-        "relative z-10 h-full w-full",
-        !noPadding ? "p-6" : "p-0"
-      )}>
+      <div 
+        style={contentStyle}
+        className={cn(
+          "relative z-10 h-full w-full",
+          !noPadding ? "p-6" : "p-0"
+        )}
+      >
         {children}
       </div>
     </motion.div>

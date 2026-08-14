@@ -314,7 +314,7 @@ export const Setup: React.FC<{
 
   // Auto-complete when pet appears and we are the designated completion side
   useEffect(() => {
-    if (pet && (side === 'right' || (currentStep === 3 && side === 'left'))) {
+    if (pet && (side === 'right' || side === 'mobile' || !side || (currentStep === 3 && (side === 'left' || side === 'mobile' || !side)))) {
       onComplete(pet);
       // Add a small delay to allow state to settle before navigation
       const timer = setTimeout(() => {
@@ -620,7 +620,7 @@ export const Setup: React.FC<{
                     !isStep1Valid ? "opacity-20 grayscale cursor-not-allowed text-black/10" : "bg-sticker-yellow"
                   )}
                 >
-                  <span className={isMobileBook ? "font-bold text-[16px]" : ""}>Начать</span>
+                  <span className={isMobileBook ? "font-bold text-[16px]" : ""}>Сохранить</span>
                 </NeonButton>
               </div>
             )}

@@ -154,7 +154,9 @@ export const InfoModal: React.FC<{
   plain?: boolean;
   centerTitle?: boolean;
   className?: string;
-}> = ({ isOpen, onClose, title, children, showClose = true, plain = false, centerTitle = false, className }) => {
+  titleClassName?: string;
+  titleStyle?: React.CSSProperties;
+}> = ({ isOpen, onClose, title, children, showClose = true, plain = false, centerTitle = false, className, titleClassName, titleStyle }) => {
   return createPortal(
     <AnimatePresence>
       {isOpen && (
@@ -203,7 +205,14 @@ export const InfoModal: React.FC<{
               <X className={plain ? "h-8 w-8" : "h-6 w-6"} strokeWidth={3} />
             </button>
           )}
-          {!plain && <h3 className={cn("text-[24px] font-black text-pen-blue mb-4 tracking-tight flex-shrink-0", centerTitle && "text-center")}>{title}</h3>}
+          {!plain && (
+            <h3 
+              style={titleStyle} 
+              className={cn("text-[24px] font-black text-pen-blue mb-4 tracking-tight flex-shrink-0", centerTitle && "text-center", titleClassName)}
+            >
+              {title}
+            </h3>
+          )}
           <div className={plain ? "flex flex-col items-center justify-center overflow-hidden rounded-lg max-h-[85vh] aspect-[9/16]" : "space-y-4 overflow-y-auto custom-scrollbar pr-2 pb-2"}>
             {children}
           </div>

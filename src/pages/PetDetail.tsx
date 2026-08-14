@@ -480,7 +480,18 @@ export const PetDetail: React.FC<{
                   </div>
                 </div>
 
-                <div className="bg-sticker-yellow border-2 border-pen-blue p-6 rounded-sm rotate-1 mt-4">
+                <div 
+                  className="bg-sticker-yellow border-2 border-pen-blue p-6 rounded-sm rotate-1 mt-4"
+                  style={typeof window !== "undefined" && window.innerWidth < 640 ? {
+                    paddingTop: "4px",
+                    paddingLeft: "4px",
+                    paddingRight: "4px",
+                    paddingBottom: "4px",
+                    marginTop: "0px",
+                    marginBottom: "0px",
+                    height: "198.438px",
+                  } : undefined}
+                >
                   <div className="flex items-center justify-between mb-6 border-b border-pen-blue/20 pb-4">
                     <div className="flex items-center gap-2 text-pen-blue">
                       <Compass className="h-4 w-4" />
@@ -489,7 +500,18 @@ export const PetDetail: React.FC<{
                       </span>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  <div 
+                    className="grid grid-cols-2 sm:grid-cols-3 gap-4"
+                    style={typeof window !== "undefined" && window.innerWidth < 640 ? {
+                      width: "317.674px",
+                      height: "127.167px",
+                      paddingLeft: "0px",
+                      paddingRight: "0px",
+                      paddingTop: "0px",
+                      marginTop: "0px",
+                      marginBottom: "0px",
+                    } : undefined}
+                  >
                     <ClassificationItem
                       label="Тип"
                       value={pet.classification?.type}
@@ -536,8 +558,9 @@ export const PetDetail: React.FC<{
                         key={skill.code || skill.id || i}
                         onClick={() => setModalType({ selectedSkill: skill })}
                         color={cardColor}
+                        noPadding
                         className={cn(
-                          "border-2 border-pen-blue/20 rounded-sm cursor-pointer hover:border-pen-blue transition-all group flex items-center p-3 relative h-auto min-h-[72px] justify-between gap-3 text-left hover:scale-[1.01]",
+                          "border-2 border-pen-blue/20 rounded-sm cursor-pointer hover:border-pen-blue transition-all group flex items-center p-2.5 sm:p-3 relative h-auto min-h-[64px] sm:min-h-[72px] justify-between gap-2 sm:gap-3 text-left hover:scale-[1.01] w-full",
                           cardColor === "yellow"
                             ? "bg-sticker-yellow/80 hover:bg-sticker-yellow"
                             : cardColor === "blue"
@@ -547,26 +570,28 @@ export const PetDetail: React.FC<{
                                 : "bg-white hover:bg-gray-50",
                         )}
                       >
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-white/40 border border-pen-blue/10 rounded-sm">
+                        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                          <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center bg-white/40 border border-pen-blue/10 rounded-sm">
                             <ItemIcon
                               type="skill"
                               image={skill.image}
                               fallbackEmoji={skill.fallbackEmoji}
-                              className="text-2xl group-hover:scale-110 transition-transform opacity-100 object-contain"
+                              className="text-xl sm:text-2xl group-hover:scale-110 transition-transform opacity-100 object-contain"
                             />
                           </div>
-                          <div className="min-w-0 flex flex-col justify-center">
-                            <div className="text-[13px] sm:text-[14px] font-black text-[#0047ab] leading-tight break-words pr-2">
+                          <div className="min-w-0 flex flex-col justify-center flex-1">
+                            <div className="text-[12px] sm:text-[14px] font-black text-[#0047ab] leading-tight break-words pr-1.5">
                               {skill.name}
                             </div>
-                            <div className="text-[11px] font-black text-pen-blue/60 mt-0.5 min-w-0 truncate">
-                              {skill.type === "passive"
-                                ? "Пассив"
-                                : skill.type === "active_buff"
-                                  ? "Бафф"
-                                  : "Дебафф"}
-                              {" • "}
+                            <div className="text-[10px] sm:text-[11px] font-black text-pen-blue/60 mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0.5 leading-tight">
+                              <span>
+                                {skill.type === "passive"
+                                  ? "Пассив"
+                                  : skill.type === "active_buff"
+                                    ? "Бафф"
+                                    : "Дебафф"}
+                              </span>
+                              <span>•</span>
                               <span className="text-[#0047ab]">
                                 {skill.type === "passive"
                                   ? skill.attribute === "light"
@@ -587,11 +612,11 @@ export const PetDetail: React.FC<{
                             </div>
                           </div>
                         </div>
-                        <div className="flex-shrink-0 flex flex-col items-end justify-center pl-2 border-l border-[#0047ab]/10 h-8">
-                          <div className="text-[14px] font-black text-[#0047ab] leading-none">
+                        <div className="flex-shrink-0 flex flex-col items-end justify-center pl-1.5 sm:pl-2 border-l border-[#0047ab]/10 h-7 sm:h-8">
+                          <div className="text-[12px] sm:text-[14px] font-black text-[#0047ab] leading-none">
                             {skill.value}%
                           </div>
-                          <div className="text-[9px] font-bold text-pen-blue/50 uppercase tracking-tighter mt-1 leading-none">
+                          <div className="text-[8px] sm:text-[9px] font-bold text-pen-blue/50 tracking-tighter mt-0.5 sm:mt-1 leading-none">
                             эффект
                           </div>
                         </div>
@@ -605,8 +630,28 @@ export const PetDetail: React.FC<{
                   color="blue"
                   rotation={-1}
                   className="border-2 border-black/5 p-4 mt-4 text-left"
+                  style={typeof window !== "undefined" && window.innerWidth < 640 ? {
+                    marginLeft: "0px",
+                    marginRight: "0px",
+                    marginTop: "10px",
+                    marginBottom: "0px",
+                  } : undefined}
+                  contentStyle={typeof window !== "undefined" && window.innerWidth < 640 ? {
+                    paddingLeft: "10px",
+                    paddingRight: "10px",
+                    paddingBottom: "12px",
+                    paddingTop: "12px",
+                  } : undefined}
                 >
-                  <div className="text-base leading-relaxed text-pen-blue/80">
+                  <div 
+                    className="text-base leading-relaxed text-pen-blue/80"
+                    style={typeof window !== "undefined" && window.innerWidth < 640 ? {
+                      marginLeft: "-12px",
+                      marginRight: "-12px",
+                      marginTop: "-12px",
+                      marginBottom: "-12px",
+                    } : undefined}
+                  >
                     <HandwrittenText text={pet.lore} delay={0.2} speed={25} />
                   </div>
                 </GlassCard>
@@ -902,6 +947,7 @@ export const PetDetail: React.FC<{
         showClose={true}
         plain={!!modalType?.fullScreenImage}
         centerTitle={!!modalType?.selectedSkill}
+        titleStyle={modalType?.selectedSkill && typeof window !== "undefined" && window.innerWidth < 640 ? { marginBottom: "0px" } : undefined}
         className={cn(
           modalType?.element || modalType?.attribute ? "max-w-4xl" : "max-w-md",
         )}
@@ -916,9 +962,18 @@ export const PetDetail: React.FC<{
           />
         ) : modalType?.selectedSkill ? (
           <div className="space-y-6">
-            <div className="p-4">
-              <div className="flex flex-col items-center text-center gap-4 mb-6">
-                <div className="h-24 w-24 flex items-center justify-center p-2 rounded-sm bg-transparent">
+            <div 
+              className="p-4"
+              style={typeof window !== "undefined" && window.innerWidth < 640 ? { paddingTop: "0px", paddingBottom: "0px", paddingRight: "0px", paddingLeft: "0px" } : undefined}
+            >
+              <div 
+                className="flex flex-col items-center text-center gap-4 mb-6"
+                style={typeof window !== "undefined" && window.innerWidth < 640 ? { marginBottom: "0px" } : undefined}
+              >
+                <div 
+                  className="h-24 w-24 flex items-center justify-center p-2 rounded-sm bg-transparent"
+                  style={typeof window !== "undefined" && window.innerWidth < 640 ? { paddingTop: "8px", width: "95.9896px", height: "95.9896px" } : undefined}
+                >
                   <ItemIcon
                     type="skill"
                     image={modalType.selectedSkill.image}
@@ -927,7 +982,10 @@ export const PetDetail: React.FC<{
                   />
                 </div>
                 <div className="space-y-1">
-                  <div className="text-[16px] font-black text-[#0047ab] tracking-[0.2em]">
+                  <div 
+                    className="text-[16px] font-black text-[#0047ab] tracking-[0.2em]"
+                    style={typeof window !== "undefined" && window.innerWidth < 640 ? { marginBottom: "0px" } : undefined}
+                  >
                     {modalType.selectedSkill.type === "passive"
                       ? "Пассивный навык"
                       : modalType.selectedSkill.type === "active_buff"
@@ -956,7 +1014,10 @@ export const PetDetail: React.FC<{
                   </div>
                 </div>
               </div>
-              <p className="text-[16px] font-bold text-[#0047ab] mb-6 leading-relaxed italic">
+              <p 
+                className="text-[16px] font-bold text-[#0047ab] mb-6 leading-relaxed italic"
+                style={typeof window !== "undefined" && window.innerWidth < 640 ? { marginBottom: "0px" } : undefined}
+              >
                 {modalType.selectedSkill.description}
               </p>
               <div className="grid grid-cols-2 gap-4 border-t border-[#0047ab]/10 pt-4 pb-6">
@@ -1393,14 +1454,38 @@ const StatItem = ({
   showAdd,
   onAdd,
 }: any) => (
-  <div className="flex items-center gap-2 py-2 border-b border-pen-blue/5 min-w-0 w-full">
+  <div
+    className="flex items-center gap-1.5 sm:gap-2 py-1.5 sm:py-2 border-b border-pen-blue/5 min-w-0 w-full"
+    style={{
+      paddingTop: typeof window !== "undefined" && window.innerWidth < 640 ? "0px" : undefined,
+      paddingBottom: typeof window !== "undefined" && window.innerWidth < 640 ? "0px" : undefined,
+      marginLeft: typeof window !== "undefined" && window.innerWidth < 640 ? "-14px" : undefined,
+      marginTop: typeof window !== "undefined" && window.innerWidth < 640 ? "-10px" : undefined,
+    }}
+  >
     <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
       <Icon className="h-4 w-4 text-[#0047ab]" />
     </div>
-    <span className="text-[13px] sm:text-[15px] font-black text-[#0047ab] tracking-tighter w-[80px] sm:w-[100px] text-left truncate flex-shrink-0">
+    <span
+      className="text-[12px] sm:text-[15px] font-black text-[#0047ab] tracking-tighter w-[70px] sm:w-[100px] text-left truncate flex-shrink-0"
+      style={{
+        marginLeft: typeof window !== "undefined" && window.innerWidth < 640 ? "-9px" : undefined,
+      }}
+    >
       {label}
     </span>
-    <div className="flex-1 h-2 bg-black/5 rounded-full overflow-hidden mx-1 sm:mx-2 min-w-[30px]">
+    <div
+      className="flex-1 h-1.5 sm:h-2 bg-black/5 rounded-full overflow-hidden mx-1 sm:mx-2 min-w-[20px] sm:min-w-[30px]"
+      style={{
+        marginLeft: typeof window !== "undefined" && window.innerWidth < 640 ? "-22px" : undefined,
+        marginRight: typeof window !== "undefined" && window.innerWidth < 640 ? "-70px" : undefined,
+        paddingLeft: typeof window !== "undefined" && window.innerWidth < 640 ? "0px" : undefined,
+        paddingTop: typeof window !== "undefined" && window.innerWidth < 640 ? "0px" : undefined,
+        marginTop: typeof window !== "undefined" && window.innerWidth < 640 ? "0px" : undefined,
+        marginBottom: typeof window !== "undefined" && window.innerWidth < 640 ? "0px" : undefined,
+        paddingBottom: typeof window !== "undefined" && window.innerWidth < 640 ? "0px" : undefined,
+      }}
+    >
       <motion.div
         initial={{ width: 0 }}
         animate={{
@@ -1409,15 +1494,31 @@ const StatItem = ({
         className="h-full bg-[#0047ab]"
       />
     </div>
-    <div className="flex items-center gap-1.5 flex-shrink-0 justify-end min-w-[100px] sm:min-w-[130px]">
-      <span className="text-[13px] sm:text-[14px] font-black tabular-nums not-italic text-[#0047ab] whitespace-nowrap">
+    <div
+      className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0 justify-end min-w-[70px] sm:min-w-[130px]"
+      style={{
+        marginLeft: typeof window !== "undefined" && window.innerWidth < 640 ? "0px" : undefined,
+        marginTop: typeof window !== "undefined" && window.innerWidth < 640 ? "0px" : undefined,
+        paddingLeft: typeof window !== "undefined" && window.innerWidth < 640 ? "0px" : undefined,
+        paddingTop: typeof window !== "undefined" && window.innerWidth < 640 ? "0px" : undefined,
+      }}
+    >
+      <span
+        className="text-[12px] sm:text-[14px] font-black tabular-nums not-italic text-[#0047ab] whitespace-nowrap"
+        style={{
+          marginLeft: typeof window !== "undefined" && window.innerWidth < 640 ? "0px" : undefined,
+          marginTop: typeof window !== "undefined" && window.innerWidth < 640 ? "0px" : undefined,
+          marginBottom: typeof window !== "undefined" && window.innerWidth < 640 ? "0px" : undefined,
+          marginRight: typeof window !== "undefined" && window.innerWidth < 640 ? "-27px" : undefined,
+        }}
+      >
         {value || 0}
         {passiveBonus > 0 && (
-          <span className="ml-[1px] text-[11px] sm:text-[12px] font-black text-[#0047ab]/80">
+          <span className="ml-[1px] text-[10px] sm:text-[12px] font-black text-[#0047ab]/80">
             (+{passiveBonus})
           </span>
         )}
-        <span className="text-[11px] sm:text-[12px] text-[#0047ab]/60">
+        <span className="text-[10px] sm:text-[12px] text-[#0047ab]/60">
           /{max}
         </span>
       </span>
@@ -1427,10 +1528,10 @@ const StatItem = ({
             e.stopPropagation();
             onAdd();
           }}
-          className="h-5 w-5 sm:h-6 sm:w-6 bg-white border-2 border-[#0047ab] flex items-center justify-center hover:bg-sticker-yellow transition-colors cursor-pointer flex-shrink-0"
+          className="h-4 w-4 sm:h-6 sm:w-6 bg-white border-2 border-[#0047ab] flex items-center justify-center hover:bg-sticker-yellow transition-colors cursor-pointer flex-shrink-0"
         >
           <Plus
-            className="h-3 w-3 sm:h-4 sm:w-4 text-[#0047ab]"
+            className="h-2.5 w-2.5 sm:h-4 sm:w-4 text-[#0047ab]"
             strokeWidth={4}
           />
         </button>
@@ -1453,7 +1554,7 @@ const ClassificationItem = ({
     >
       {label}
     </div>
-    <div className="text-[13px] sm:text-[14px] font-black text-pen-blue whitespace-normal leading-tight break-words">
+    <div className="text-[12px] sm:text-[14px] font-black text-pen-blue whitespace-normal leading-tight break-words">
       {value || "---"}
     </div>
   </div>

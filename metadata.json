@@ -2,5 +2,7 @@
   "name": "aiSai",
   "description": "Anime-style PVP card game with AI-generated unique creatures, evolution paths, and a vibrant marketplace.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

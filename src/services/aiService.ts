@@ -5,14 +5,10 @@ import { RARITY_WEIGHTS, generateUniqueCode, distributeStats } from "../lib/game
 // Safe way to access environment variables in Vite/React
 const getApiKey = () => {
   try {
-    // Priority: process.env.GEMINI_API_KEY (polyfilled by platform)
     const envKey = (typeof process !== 'undefined' ? (process.env as any).GEMINI_API_KEY : '');
     if (envKey) return envKey;
-    
-    // Fallback: window.process.env (sometimes polyfilled here)
     const windowEnvKey = (window as any).process?.env?.GEMINI_API_KEY;
     if (windowEnvKey) return windowEnvKey;
-
     return '';
   } catch (e) {
     return '';
@@ -26,7 +22,6 @@ const getAI = () => {
     if (!apiKey) {
       console.warn("GEMINI_API_KEY is not set. AI features will likely fail.");
     }
-    // Handle empty apiKey gracefully if the SDK throws
     try {
       aiInstance = new GoogleGenAI({ apiKey: apiKey || 'dummy-key' });
     } catch (e) {
@@ -37,9 +32,32 @@ const getAI = () => {
   return aiInstance;
 };
 
-// Use recommended models for this environment
-const TEXT_MODEL = "gemini-3-flash-preview";
-const IMAGE_MODEL = "gemini-2.5-flash-image";
+const TEXT_MODEL = "gemini-3.5-flash";
+const IMAGE_MODEL = "gemini-3.1-flash-lite-image";
+
+const queryProTalk = async (prompt: string): Promise<string> => {
+  console.log(`[ProTalk Client] Sending request to proxy backend...`);
+  
+  const response = await fetch("/api/protalk", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ message: prompt })
+  });
+
+  if (!response.ok) {
+    const errData = await response.json().catch(() => ({}));
+    throw new Error(errData.error || `Failed to query ProTalk: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  if (data && data.message) {
+    return data.message;
+  }
+  
+  throw new Error("Received empty response from ProTalk proxy.");
+};
 
 const cleanAIJson = (str: string) => {
   if (!str) return "";
@@ -112,36 +130,69 @@ export const generatePetArt = async (pet: Partial<Pet>) => {
                   MANDATORY: MONOCHROMATIC BLUE PEN INK ON WHITE PAPER.`;
   
   try {
-    const ai = getAI();
-    if (!ai) throw new Error("AI not initialized");
+    console.log("Starting image generation via ProTalk for:", pet.name);
+    const replyText = await queryProTalk(prompt);
     
-    // Using image generation model
-    console.log("Starting image generation for:", pet.name);
-    const response = await ai.models.generateContent({
-      model: IMAGE_MODEL,
-      contents: { parts: [{ text: prompt }] },
-      config: {
-        imageConfig: {
-          aspectRatio: "9:16"
-        }
+    // Parse response for image URL or base64 data
+    const urlRegex = /(https?:\/\/[^\s"'`]+)/i;
+    const match = replyText.match(urlRegex);
+    if (match) {
+      let url = match[1];
+      if (url.endsWith(')') || url.endsWith(']') || url.endsWith('>') || url.endsWith('.')) {
+        url = url.slice(0, -1);
       }
-    });
-    console.log("Image generation response received");
+      return url;
+    }
 
-    if (response.candidates?.[0]?.content?.parts) {
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) {
-          return `data:image/png;base64,${part.inlineData.data}`;
+    if (replyText.includes("data:image")) {
+      const base64Regex = /(data:image\/[a-zA-Z+]+;base64,[^\s"'`]+)/;
+      const base64Match = replyText.match(base64Regex);
+      if (base64Match) {
+        return base64Match[1];
+      }
+    }
+
+    const rawBase64Regex = /([A-Za-z0-9+/]{100,})/g;
+    const rawMatches = replyText.match(rawBase64Regex);
+    if (rawMatches) {
+      for (const possibleBase64 of rawMatches) {
+        if (possibleBase64.length > 500) {
+          return `data:image/png;base64,${possibleBase64}`;
         }
       }
     }
-    
-    // Fallback seed as standard response for now since we want consistency
+
+    console.log("ProTalk responded with text instead of direct image URL. Falling back to Picsum generator with descriptive seed.");
     const seed = `${pet.element}-${pet.attribute}-${pet.rarity}-${Date.now()}`;
     return `https://picsum.photos/seed/${seed}/1080/1920`;
   } catch (error) {
-    console.error("Image generation failed:", error);
-    return `https://picsum.photos/seed/fallback-${Date.now()}/1080/1920`;
+    console.warn("ProTalk image generation failed, trying Gemini fallback...", error);
+    try {
+      const ai = getAI();
+      if (!ai) throw new Error("AI not initialized");
+      
+      const response = await ai.models.generateContent({
+        model: IMAGE_MODEL,
+        contents: { parts: [{ text: prompt }] },
+        config: {
+          imageConfig: {
+            aspectRatio: "9:16"
+          }
+        }
+      });
+
+      if (response.candidates?.[0]?.content?.parts) {
+        for (const part of response.candidates[0].content.parts) {
+          if (part.inlineData) {
+            return `data:image/png;base64,${part.inlineData.data}`;
+          }
+        }
+      }
+    } catch (fallbackError) {
+      console.error("Gemini fallback image generation also failed:", fallbackError);
+    }
+    const seed = `${pet.element}-${pet.attribute}-${pet.rarity}-${Date.now()}`;
+    return `https://picsum.photos/seed/${seed}/1080/1920`;
   }
 };
 
@@ -204,17 +255,23 @@ export const generateEvolutionUpdate = async (
     }`;
 
   try {
-    const ai = getAI();
-    if (!ai) throw new Error("AI not initialized");
-    const response = await ai.models.generateContent({
-      model: TEXT_MODEL,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-      }
-    });
-
-    const text = response.text;
+    let text = "";
+    try {
+      console.log("Starting evolution update via ProTalk for:", pet.name);
+      text = await queryProTalk(prompt);
+    } catch (ptError) {
+      console.warn("ProTalk evolution update failed, trying Gemini fallback...", ptError);
+      const ai = getAI();
+      if (!ai) throw new Error("AI not initialized");
+      const response = await ai.models.generateContent({
+        model: TEXT_MODEL,
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+        }
+      });
+      text = response.text || "";
+    }
 
     if (!text) throw new Error("Empty response from AI");
     
@@ -355,18 +412,24 @@ export const generatePetStatsAndLore = async (
     Для навыков выбери targetStat с учетом выданных характеристик. Например, если Атака высокая, сделай акцент на атакующих способностях.`;
 
   try {
-    const ai = getAI();
-    if (!ai) throw new Error("AI not initialized");
-    console.log("Starting stats & lore generation for profile:", profile.name);
-    const response = await ai.models.generateContent({
-      model: TEXT_MODEL,
-      contents: { parts: [{ text: prompt }] },
-      config: {
-        responseMimeType: "application/json",
-      }
-    });
+    let text = "";
+    try {
+      console.log("Starting stats & lore generation via ProTalk for profile:", profile.name);
+      text = await queryProTalk(prompt);
+    } catch (ptError) {
+      console.warn("ProTalk stats generation failed, trying Gemini fallback...", ptError);
+      const ai = getAI();
+      if (!ai) throw new Error("AI not initialized");
+      const response = await ai.models.generateContent({
+        model: TEXT_MODEL,
+        contents: { parts: [{ text: prompt }] },
+        config: {
+          responseMimeType: "application/json",
+        }
+      });
+      text = response.text || "";
+    }
 
-    const text = response.text;
     console.log("Stats & lore raw response:", text ? (text.substring(0, 100) + '...') : 'EMPTY');
 
     if (!text) throw new Error("Empty response from AI for Stats");
@@ -508,17 +571,24 @@ export const generateQuestBonusItem = async (reward: RewardData): Promise<Invent
     Верни JSON с полями: name, description, emoji. Текст на русском языке.`;
 
   try {
-    const ai = getAI();
-    if (!ai) throw new Error("AI not initialized");
-    const response = await ai.models.generateContent({
-      model: TEXT_MODEL,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-      }
-    });
+    let text = "";
+    try {
+      console.log("Starting quest bonus item generation via ProTalk");
+      text = await queryProTalk(prompt);
+    } catch (ptError) {
+      console.warn("ProTalk bonus item generation failed, trying Gemini fallback...", ptError);
+      const ai = getAI();
+      if (!ai) throw new Error("AI not initialized");
+      const response = await ai.models.generateContent({
+        model: TEXT_MODEL,
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+        }
+      });
+      text = response.text || "";
+    }
 
-    const text = response.text;
     if (!text) throw new Error("Empty response");
     const data = JSON.parse(cleanAIJson(text));
     
@@ -645,17 +715,24 @@ export const generateQuest = async (
     }`;
 
   try {
-    const ai = getAI();
-    if (!ai) throw new Error("AI not initialized");
-    const response = await ai.models.generateContent({
-      model: TEXT_MODEL,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-      }
-    });
+    let text = "";
+    try {
+      console.log("Starting quest generation via ProTalk");
+      text = await queryProTalk(prompt);
+    } catch (ptError) {
+      console.warn("ProTalk quest generation failed, trying Gemini fallback...", ptError);
+      const ai = getAI();
+      if (!ai) throw new Error("AI not initialized");
+      const response = await ai.models.generateContent({
+        model: TEXT_MODEL,
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+        }
+      });
+      text = response.text || "";
+    }
 
-    const text = response.text;
     if (!text) return null;
     try {
       const parsed = JSON.parse(cleanAIJson(text)) as QuestTree;
